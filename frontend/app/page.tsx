@@ -1,6 +1,6 @@
 
 import Link from "next/link";
-
+import { Flame, Heart, Mic, Phone } from "lucide-react";
 type Programme = {
   id: string;
   title: string;
@@ -98,7 +98,7 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
           title="Likes will be connected in a later development step"
           className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 opacity-80"
         >
-          ♥ Like
+         <Heart size={16} aria-hidden="true" /> Like
         </button>
         <button
           type="button"
@@ -106,7 +106,8 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
           title="Calling will be connected in a later development step"
           className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white opacity-80"
         >
-          🎙️📞 Call RJ
+          <Mic size={16} aria-hidden="true" />
+<Phone size={16} aria-hidden="true" /> Call RJ
         </button>
 
         <button
@@ -115,7 +116,7 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
           title="Fire reactions will be connected in a later development step"
           className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 opacity-80"
         >
-          🔥 Fire
+          <Flame size={16} aria-hidden="true" /> Fire
         </button>
       </div>
     </article>
