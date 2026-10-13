@@ -1,6 +1,8 @@
 
 import Link from "next/link";
-import { Flame, Heart, Mic, Phone } from "lucide-react";
+import LikeButton from "./rj/[slug]/LikeButton";
+import FireButton from "./rj/[slug]/FireButton";
+import { Mic, Phone } from "lucide-react";
 type Programme = {
   id: string;
   title: string;
@@ -8,6 +10,7 @@ type Programme = {
   station: string;
   time: string;
   initials: string;
+  contactNumber: string;
 };
 
 const followedProgrammes: Programme[] = [
@@ -18,6 +21,7 @@ const followedProgrammes: Programme[] = [
     station: "Radio Mango",
     time: "Live now",
     initials: "A",
+     contactNumber: "8139005150",
   },
   {
     id: "drive-time",
@@ -26,6 +30,7 @@ const followedProgrammes: Programme[] = [
     station: "Club FM",
     time: "Live now",
     initials: "A",
+     contactNumber: "8139005150",
   },
 ];
 
@@ -37,6 +42,7 @@ const otherLiveProgrammes: Programme[] = [
     station: "Red FM",
     time: "Live now",
     initials: "M",
+     contactNumber: "8139005150",
   },
   {
     id: "evening-show",
@@ -45,6 +51,7 @@ const otherLiveProgrammes: Programme[] = [
     station: "Radio City",
     time: "Live now",
     initials: "R",
+     contactNumber: "8139005150",
   },
 ];
 
@@ -56,6 +63,7 @@ const upcomingProgrammes: Programme[] = [
     station: "Club FM",
     time: "8:00 PM",
     initials: "N",
+     contactNumber: "8139005150",
   },
 ];
 
@@ -67,6 +75,7 @@ const previousProgrammes: Programme[] = [
     station: "Radio Mango",
     time: "Aired earlier",
     initials: "A",
+     contactNumber: "8139005150",
   },
 ];
 
@@ -105,33 +114,17 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
-        <button
-          type="button"
-          disabled
-          title="Likes will be connected in a later development step"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 opacity-80"
-        >
-         <Heart size={16} aria-hidden="true" /> Like
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Calling will be connected in a later development step"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white opacity-80"
-        >
-          <Mic size={16} aria-hidden="true" />
-<Phone size={16} aria-hidden="true" /> Call RJ
-        </button>
-
-        <button
-          type="button"
-          disabled
-          title="Fire reactions will be connected in a later development step"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 opacity-80"
-        >
-          <Flame size={16} aria-hidden="true" /> Fire
-        </button>
+<div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
+  <LikeButton />
+  <FireButton />
+    <a
+    href={`tel:${programme.contactNumber}`}
+    className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+  >
+    <Mic size={16} aria-hidden="true" />
+    <Phone size={16} aria-hidden="true" />
+    Call RJ
+  </a>
       </div>
     </article>
   );
@@ -242,8 +235,7 @@ export default function Home() {
         </section>
 
         <p className="mt-8 rounded-xl bg-zinc-100 p-3 text-xs leading-5 text-zinc-600">
-          Preview version: programme listings are sample data. Call RJ and
-          Fire are visual placeholders and are not active yet.
+          Preview version: programme listings are sample data. Like and Fire are interactive previews. Call RJ uses the programme contact number and may require a compatible calling app or mobile phone.
         </p>
 
         <footer className="py-8 text-center text-sm text-zinc-500">
