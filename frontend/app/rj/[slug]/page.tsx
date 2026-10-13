@@ -79,7 +79,12 @@ export default async function RJProfilePage({
               LIVE · Sample schedule
             </p>
             <h3 className="mt-2 text-lg font-bold text-zinc-900">
-              Morning Vibes
+                <Link
+                href="/programme/morning-vibes"
+                className="hover:text-orange-700"
+                >
+                Morning Vibes
+                </Link>
             </h3>
             <p className="mt-1 text-sm text-zinc-600">
               Radio Mango · Morning show

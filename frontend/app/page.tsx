@@ -80,7 +80,12 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
 
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-bold text-zinc-900">
-            {programme.title}
+            <Link
+               href={`/programme/${programme.id}`}
+            className="hover:text-orange-700"
+            >
+          {programme.title}
+          </Link>
           </h3>
           <p className="mt-1 text-sm text-zinc-600">
             RJ {programme.rj} · {programme.station}
