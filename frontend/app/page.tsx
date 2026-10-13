@@ -87,9 +87,18 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
           {programme.title}
           </Link>
           </h3>
-          <p className="mt-1 text-sm text-zinc-600">
-            RJ {programme.rj} · {programme.station}
-          </p>
+          
+<p className="mt-1 text-sm text-zinc-600">
+  RJ {programme.rj} ·{" "}
+  <Link
+    href={`/station/${programme.station
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`}
+    className="hover:text-orange-700"
+  >
+    {programme.station}
+  </Link>
+</p>
           <p className="mt-1 text-xs font-semibold text-orange-700">
             {programme.time}
           </p>
