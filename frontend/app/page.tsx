@@ -134,18 +134,29 @@ export default function Home() {
   return (
     <main className="min-h-screen px-4 py-5 sm:px-8">
       <div className="mx-auto max-w-3xl">
-        <header className="flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="text-2xl font-extrabold tracking-tight text-zinc-900"
-          >
-            Now<span className="text-orange-600">RJ</span>
-          </Link>
+        
+<header className="flex items-center justify-between gap-3">
+  <Link
+    href="/"
+    className="text-2xl font-extrabold tracking-tight text-zinc-900"
+  >
+    Now<span className="text-orange-600">RJ</span>
+  </Link>
 
-          <span className="text-right text-xs font-medium text-zinc-500 sm:text-sm">
-            Beyond the broadcast
-          </span>
-        </header>
+  <div className="flex items-center gap-3">
+    <Link
+      href="/search"
+      className="inline-flex min-h-10 items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-orange-300 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+    >
+      Search
+    </Link>
+
+    <span className="hidden text-right text-xs font-medium text-zinc-500 sm:inline">
+      Beyond the broadcast
+    </span>
+  </div>
+</header>
+
 
         <section className="py-8 sm:py-10">
           <p className="text-sm font-semibold uppercase tracking-widest text-orange-600">
