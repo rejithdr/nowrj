@@ -2,10 +2,38 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Search, MicVocal, Radio, CalendarClock } from "lucide-react";
+import AuthControls from "../AuthControls";
 
-type Category = "All" | "RJs" | "Stations" | "Programmes";
+type Category = "All" | "RJs" | "Stations" | "Programmes";type ApiStation = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  isActive: boolean;
+};
+
+type ApiRj = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  stationId: string | null;
+};
+
+type ApiProgramme = {
+  id: string;
+  name: string;
+  slug: string;
+  rjName: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  isActive: boolean;
+  stationId: string;
+};
+
 
 type SearchItem = {
   name: string;
@@ -128,24 +156,141 @@ const categories: Category[] = ["All", "RJs", "Stations", "Programmes"];
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category>("All");
+const [stations, setStations] = useState<ApiStation[]>([]);
+const [rjs, setRjs] = useState<ApiRj[]>([]);
+const [programmes, setProgrammes] = useState<ApiProgramme[]>([]);
+const [stationsLoading, setStationsLoading] = useState(true);
+const [stationsError, setStationsError] = useState(false);
 
-  const results = useMemo(() => {
-    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+useEffect(() => {
+  let cancelled = false;
 
-    return items.filter((item) => {
-      const matchesCategory =
-        category === "All" || item.category === category;
+  async function loadData() {
+    const [stationResult, rjResult, programmeResult] =
+      await Promise.allSettled([
+        fetch("http://localhost:3000/stations"),
+        fetch("http://localhost:3000/rjs"),
+        fetch("http://localhost:3000/programmes"),
+      ]);
 
-      const searchableText =
-        `${item.name} ${item.description} ${item.keywords}`.toLowerCase();
+    if (cancelled) return;
 
-      const matchesQuery = words.every((word) =>
-        searchableText.includes(word)
-      );
+    if (
+      stationResult.status === "fulfilled" &&
+      stationResult.value.ok
+    ) {
+      const data: ApiStation[] = await stationResult.value.json();
+      if (!cancelled) {
+        setStations(data.filter((station) => station.isActive));
+      }
+    } else {
+      setStationsError(true);
+    }
 
-      return matchesCategory && matchesQuery;
-    });
-  }, [query, category]);
+    if (
+      rjResult.status === "fulfilled" &&
+      rjResult.value.ok
+    ) {
+      const data: ApiRj[] = await rjResult.value.json();
+      if (!cancelled) {
+        setRjs(data.filter((rj) => rj.isActive));
+      }
+    }
+
+    if (
+      programmeResult.status === "fulfilled" &&
+      programmeResult.value.ok
+    ) {
+      const data: ApiProgramme[] = await programmeResult.value.json();
+      if (!cancelled) {
+        setProgrammes(data.filter((programme) => programme.isActive));
+      }
+    }
+
+    if (!cancelled) {
+      setStationsLoading(false);
+    }
+  }
+
+  void loadData().catch(() => {
+    if (!cancelled) {
+      setStationsError(true);
+      setStationsLoading(false);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+
+
+
+
+const results = useMemo(() => {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+  const stationItems: SearchItem[] = stations.map((station) => ({
+    name: station.name,
+    category: "Stations",
+    description: [station.city, station.state].filter(Boolean).join(", ") || "Radio station",
+    href: `/station/${station.slug}`,
+    keywords: `${station.name} ${station.slug} ${station.city ?? ""} ${station.state ?? ""}`,
+  }));
+
+  const databaseRjItems: SearchItem[] = rjs.map((rj) => ({
+    name: rj.name,
+    category: "RJs",
+    description:
+      stations.find((station) => station.id === rj.stationId)?.name ?? "Radio jockey",
+    href: `/rj/${rj.slug}`,
+    keywords: `${rj.name} ${rj.slug}`,
+  }));
+
+  const databaseProgrammeItems: SearchItem[] = programmes.map((programme) => ({
+    name: programme.name,
+    category: "Programmes",
+    description: [
+      programme.rjName,
+      stations.find((station) => station.id === programme.stationId)?.name,
+    ].filter(Boolean).join(" · ") || "Radio programme",
+    href: `/programme/${programme.slug}`,
+    keywords: `${programme.name} ${programme.slug} ${programme.rjName ?? ""}`,
+  }));
+
+  const databaseSlugs = new Set([
+    ...rjs.map((rj) => rj.slug),
+    ...programmes.map((programme) => programme.slug),
+  ]);
+
+  const sampleItems = items.filter((item) => {
+    if (item.category === "Stations") return false;
+    const slug = item.href.split("/").pop();
+    return !slug || !databaseSlugs.has(slug);
+  });
+
+  const searchableItems = [
+    ...sampleItems,
+    ...stationItems,
+    ...databaseRjItems,
+    ...databaseProgrammeItems,
+  ];
+
+  return searchableItems.filter((item) => {
+    const matchesCategory =
+      category === "All" || item.category === category;
+
+    const searchableText =
+      `${item.name} ${item.description} ${item.keywords}`.toLowerCase();
+
+    const matchesQuery = words.every((word) =>
+      searchableText.includes(word)
+    );
+
+    return matchesCategory && matchesQuery;
+  });
+}, [query, category, stations, rjs, programmes]);
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-8">
@@ -157,7 +302,7 @@ export default function SearchPage() {
           >
             Now<span className="text-orange-600">RJ</span>
           </Link>
-
+          <AuthControls />
           <span className="text-right text-xs font-medium text-zinc-500 sm:text-sm">
             Beyond the broadcast
           </span>
@@ -249,6 +394,17 @@ export default function SearchPage() {
           </div>
 
           <div className="mt-3 space-y-3">
+{stationsLoading && category !== "RJs" && category !== "Programmes" && (
+  <p className="text-sm text-zinc-500" role="status">
+    Loading stations...
+  </p>
+)}
+
+{stationsError && category !== "RJs" && category !== "Programmes" && (
+  <p className="text-sm text-red-600" role="alert">
+    Unable to load stations. Please refresh the page and try again.
+  </p>
+)}
             {results.map((item) => (
               <Link
                 key={`${item.category}-${item.href}`}
@@ -308,10 +464,6 @@ export default function SearchPage() {
           </div>
         </section>
 
-        <p className="mt-8 rounded-xl bg-zinc-100 p-3 text-xs leading-5 text-zinc-600">
-          Preview version: search results use sample data. Results will be
-          connected to the live NowRJ database when the backend is ready.
-        </p>
 
         <footer className="py-8 text-center text-sm text-zinc-500">
           NowRJ · Beyond the broadcast

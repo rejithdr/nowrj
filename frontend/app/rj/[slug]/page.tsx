@@ -4,6 +4,7 @@ import { ArrowLeft, Radio, Clock } from "lucide-react";
 import FollowButton from "./FollowButton";
 import LikeButton from "./LikeButton";
 import FireButton from "./FireButton";
+import AuthControls from "../../AuthControls";
 
 export const instant = false;
 
@@ -65,8 +66,68 @@ export default async function RJProfilePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
-  const profile = rjProfiles[slug as keyof typeof rjProfiles];
+ const { slug } = await params;
+  let profile: {
+    id?: string;
+    name: string;
+    station: string;
+    stationSlug: string;
+    programme: string;
+    programmeSlug: string;
+    schedule: string;
+    description: string;
+  } | undefined = rjProfiles[slug as keyof typeof rjProfiles];
+
+  if (!profile) {
+  try {
+    const response = await fetch(
+      `http://localhost:3000/rjs/${slug}`,
+    );
+
+    if (response.ok) {
+      const rj = await response.json();
+
+      const stationsResponse = await fetch(
+        'http://localhost:3000/stations',
+      );
+      const stations = stationsResponse.ok
+        ? await stationsResponse.json()
+        : [];
+
+      const station = stations.find(
+        (item: { id: string }) => item.id === rj.stationId,
+      );
+const programmeResponse = await fetch(
+  'http://localhost:3000/programmes',
+);
+const programmes = programmeResponse.ok
+  ? await programmeResponse.json()
+  : [];
+
+const programme = programmes.find(
+  (item: { rjName?: string; stationId: string }) =>
+    item.rjName?.toLowerCase() === rj.name.toLowerCase() &&
+    item.stationId === rj.stationId,
+);
+      profile = {
+        id: rj.id,
+        name: rj.name,
+        station: station?.name ?? 'Station details unavailable',
+        stationSlug: station?.slug ?? '',
+        programme: programme?.name ?? '',
+programmeSlug: programme?.slug ?? '',
+schedule: programme
+  ? [programme.startTime, programme.endTime]
+      .filter(Boolean)
+      .join('–') || 'Schedule not specified'
+  : '',
+        description: 'Radio jockey on NowRJ.',
+      };
+    }
+  } catch {
+    // Keep the existing not-found page if the API is unavailable.
+  }
+}
 
   if (!profile) {
     return (
@@ -109,7 +170,7 @@ export default async function RJProfilePage({
           >
             Now<span className="text-orange-600">RJ</span>
           </Link>
-
+          <AuthControls />
           <span className="text-right text-xs text-zinc-500 sm:text-sm">
             Beyond the broadcast
           </span>
@@ -157,7 +218,7 @@ export default async function RJProfilePage({
           </div>
 
           <div className="mt-6 border-t border-zinc-100 pt-5">
-            <FollowButton />
+            <FollowButton rjId={profile.id} />
           </div>
         </section>
 
@@ -191,8 +252,8 @@ export default async function RJProfilePage({
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <LikeButton />
-              <FireButton />
+              <LikeButton rjId={profile.id} />
+              <FireButton rjId={profile.id} />
             </div>
           </article>
         </section>

@@ -3,14 +3,50 @@ import Link from "next/link";
 import LikeButton from "./rj/[slug]/LikeButton";
 import FireButton from "./rj/[slug]/FireButton";
 import { Mic, Phone } from "lucide-react";
+import AuthControls from "./AuthControls";
+import HomeReactionSummary from "./HomeReactionSummary";
+export const instant = false;
 type Programme = {
   id: string;
   title: string;
   rj: string;
+  rjSlug?: string;
+  rjId?: string;
+  rjs?: ApiRj[];
   station: string;
   time: string;
   initials: string;
   contactNumber: string;
+};
+
+type ApiProgramme = {
+  id: string;
+  name: string;
+  slug: string;
+  rjName: string | null;
+  rjs?: ApiRj[];
+  startTime: string | null;
+  endTime: string | null;
+  isActive: boolean;
+  stationId: string;
+};
+
+type ApiStation = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  isActive: boolean;
+};
+
+type ApiRj = {
+  id: string;
+  name: string;
+  phone: string | null;
+  slug: string;
+  stationId: string | null;
+  isActive: boolean;
 };
 
 const followedProgrammes: Programme[] = [
@@ -83,9 +119,42 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
-          {programme.initials}
-        </div>
+    {programme.rjs && programme.rjs.length > 0 ? (
+  <div className="flex shrink-0 items-center gap-2">
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
+      {programme.initials}
+    </span>
+    <div className="flex min-w-0 flex-col gap-1">
+      {programme.rjs.map((rj) => (
+        <Link
+          key={rj.id}
+          href={`/rj/${rj.slug}`}
+          aria-label={`View ${rj.name} profile`}
+          className="max-w-36 truncate font-semibold text-orange-700 hover:text-orange-800"
+        >
+          {rj.name}
+        </Link>
+      ))}
+    </div>
+  </div>
+) : programme.rjSlug ? (
+  <Link
+    href={`/rj/${programme.rjSlug}`}
+    aria-label={`View ${programme.rj} profile`}
+    className="group flex min-h-14 shrink-0 items-center gap-2 rounded-xl p-1 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+  >
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700 group-hover:bg-orange-200">
+      {programme.initials}
+    </span>
+    <span className="max-w-36 truncate font-semibold text-orange-700 group-hover:text-orange-800">
+      {programme.rj}
+    </span>
+  </Link>
+) : (
+  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
+    {programme.initials}
+  </div>
+)}
 
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-bold text-zinc-900">
@@ -98,7 +167,6 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
           </h3>
           
 <p className="mt-1 text-sm text-zinc-600">
-  RJ {programme.rj} ·{" "}
   <Link
     href={`/station/${programme.station
       .toLowerCase()
@@ -115,9 +183,14 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
       </div>
 
 <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
-  <LikeButton />
-  <FireButton />
-    <a
+  {programme.rjId && (
+  <>
+    <LikeButton rjId={programme.rjId} />
+    <FireButton rjId={programme.rjId} />
+  </>
+)}
+ {programme.contactNumber && (
+  <a
     href={`tel:${programme.contactNumber}`}
     className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
   >
@@ -125,12 +198,74 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
     <Phone size={16} aria-hidden="true" />
     Call RJ
   </a>
+)}
       </div>
+       <HomeReactionSummary rjId={programme.rjId} />
     </article>
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  let databaseProgrammes: ApiProgramme[] = [];
+  let databaseStations: ApiStation[] = [];
+  let databaseRjs: ApiRj[] = [];
+
+  try {
+    const [programmeResponse, stationResponse, rjResponse] =
+      await Promise.all([
+        fetch("http://localhost:3000/programmes", { cache: "no-store" }),
+        fetch("http://localhost:3000/stations", { cache: "no-store" }),
+        fetch("http://localhost:3000/rjs", { cache: "no-store" }),
+      ]);
+
+    if (programmeResponse.ok) {
+      databaseProgrammes = await programmeResponse.json();
+    }
+
+    if (stationResponse.ok) {
+      databaseStations = await stationResponse.json();
+    }
+
+    if (rjResponse.ok) {
+      databaseRjs = await rjResponse.json();
+    }
+  } catch {
+    // Keep the sample homepage available if the backend is unavailable.
+  }
+
+  const databaseProgrammeCards: Programme[] = databaseProgrammes
+    .filter((programme) => programme.isActive)
+    .map((programme) => {
+      const station = databaseStations.find(
+        (item) => item.id === programme.stationId && item.isActive,
+      );
+
+          const assignedRjs = programme.rjs?.filter((item) => item.isActive) ?? [];
+
+      const rj =
+        assignedRjs[0] ??
+        databaseRjs.find(
+          (item) =>
+            item.isActive &&
+            item.name.toLowerCase() === programme.rjName?.toLowerCase(),
+        );
+
+      return {
+        id: programme.slug,
+        title: programme.name,
+        rj: programme.rjName ?? "RJ not assigned",
+        rjSlug: rj?.slug,
+        rjId: rj?.id,
+        rjs: assignedRjs,
+        station: station?.name ?? "Station not assigned",
+        time:
+          programme.startTime && programme.endTime
+            ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
+            : "Schedule not set",
+        initials: (programme.rjName ?? programme.name).charAt(0).toUpperCase(),
+        contactNumber: rj?.phone ?? "",
+      };
+    });
   return (
     <main className="min-h-screen px-4 py-5 sm:px-8">
       <div className="mx-auto max-w-3xl">
@@ -150,6 +285,7 @@ export default function Home() {
     >
       Search
     </Link>
+    <AuthControls />
 
     <span className="hidden text-right text-xs font-medium text-zinc-500 sm:inline">
       Beyond the broadcast
@@ -222,6 +358,18 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        <section id="database-programmes" className="mt-10 scroll-mt-5">
+  <h2 className="mb-4 text-xl font-bold text-zinc-900">
+    Programmes on NowRJ
+  </h2>
+
+  <div className="flex flex-col gap-3">
+    {databaseProgrammeCards.map((programme) => (
+      <ProgrammeCard key={programme.id} programme={programme} />
+    ))}
+  </div>
+</section>
 
         <section id="upcoming" className="mt-10 scroll-mt-5">
           <h2 className="mb-4 text-xl font-bold text-zinc-900">

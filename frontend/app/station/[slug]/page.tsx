@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Radio, MapPin } from "lucide-react";
+import AuthControls from "../../AuthControls";
 
 export const instant = false;
 
@@ -86,8 +87,81 @@ export default async function StationPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+
   const { slug } = await params;
-  const station = stations[slug as keyof typeof stations];
+  let station = stations[slug as keyof typeof stations];
+
+  if (!station) {
+    try {
+      const response = await fetch("http://localhost:3000/stations", {
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+const databaseStations: {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  isActive: boolean;
+}[] = await response.json();
+
+
+        const databaseStation = databaseStations.find(
+          (item) => item.slug === slug && item.isActive,
+        );
+
+        if (databaseStation) {
+          const programmeResponse = await fetch(
+            `http://localhost:3000/programmes/station/${databaseStation.id}`,
+            { cache: "no-store" },
+          );
+
+          type ApiProgramme = {
+            id: string;
+            name: string;
+            slug: string;
+            rjName: string | null;
+            startTime: string | null;
+            endTime: string | null;
+          };
+
+          const databaseProgrammes: ApiProgramme[] =
+            programmeResponse.ok ? await programmeResponse.json() : [];
+
+            const rjResponse = await fetch('http://localhost:3000/rjs');
+const databaseRjs = rjResponse.ok ? await rjResponse.json() : [];
+          station = {
+            name: databaseStation.name,
+            location:
+              [databaseStation.city, databaseStation.state]
+                .filter(Boolean)
+                .join(", ") || "Location not specified",
+            description: `Discover programmes and radio updates from ${databaseStation.name}.`,
+            programmes: databaseProgrammes.map((programme) => ({
+              id: programme.slug,
+              title: programme.name,
+              rj: programme.rjName || "RJ details unavailable",
+              rjSlug:
+  databaseRjs.find(
+    (rj: { name: string }) =>
+      rj.name.toLowerCase() === programme.rjName?.toLowerCase(),
+  )?.slug ?? "",
+              time:
+                programme.startTime && programme.endTime
+                  ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
+                  : "Time not specified",
+            })),
+          };
+        }
+
+      }
+    } catch {
+      // Keep the existing "Station not found" behaviour if the API is unavailable.
+    }
+  }
+
 
   if (!station) {
     return (
@@ -123,7 +197,7 @@ export default async function StationPage({
           >
             Now<span className="text-orange-600">RJ</span>
           </Link>
-
+          <AuthControls />
           <span className="text-right text-xs font-medium text-zinc-500 sm:text-sm">
             Beyond the broadcast
           </span>

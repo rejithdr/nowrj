@@ -1,0 +1,47 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Station } from './station.entity';
+
+@Entity('rjs')
+export class Rj {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 100, unique: true })
+  slug: string;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  email: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  photoUrl: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+  @ManyToOne(() => Station, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'stationId' })
+  station: Station | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  stationId: string | null;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}

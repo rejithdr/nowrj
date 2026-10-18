@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Radio, Clock } from "lucide-react";
+import AuthControls from "../../AuthControls";
 
 export const instant = false;
 
@@ -85,7 +86,104 @@ export default async function ProgrammePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const programme = programmes[slug as keyof typeof programmes];
+  let programme = programmes[slug as keyof typeof programmes];
+
+  if (!programme) {
+    try {
+      const response = await fetch("http://localhost:3000/programmes", {
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+        const databaseProgrammes: {
+          id: string;
+          name: string;
+          slug: string;
+          rjName: string | null;
+          startTime: string | null;
+          endTime: string | null;
+          stationId: string;
+        }[] = await response.json();
+
+        const databaseProgramme = databaseProgrammes.find(
+          (item) => item.slug === slug,
+        );
+
+        if (databaseProgramme) {
+          const stationResponse = await fetch(
+            "http://localhost:3000/stations",
+            { cache: "no-store" },
+          );
+
+          const databaseStations: {
+            id: string;
+            name: string;
+            slug: string;
+            city: string | null;
+            state: string | null;
+          }[] = stationResponse.ok ? await stationResponse.json() : [];
+
+          const databaseStation = databaseStations.find(
+            (item) => item.id === databaseProgramme.stationId,
+          );
+
+          const rjResponse = await fetch("http://localhost:3000/rjs");
+          const databaseRjs: { name: string; slug: string }[] =
+            rjResponse.ok ? await rjResponse.json() : [];
+
+          const matchedRj = databaseRjs.find(
+            (rj) =>
+              rj.name.toLowerCase() ===
+              databaseProgramme.rjName?.toLowerCase(),
+          );
+
+          programme = {
+            title: databaseProgramme.name,
+            rj: databaseProgramme.rjName || "RJ details unavailable",
+            rjSlug: matchedRj?.slug ?? "",
+            station: databaseStation?.name || "Station unavailable",
+            stationSlug: databaseStation?.slug || "",
+            location: databaseStation
+              ? [databaseStation.city, databaseStation.state]
+                  .filter(Boolean)
+                  .join(", ")
+              : "Location unavailable",
+            schedule: "Programme schedule",
+            time:
+              databaseProgramme.startTime && databaseProgramme.endTime
+                ? databaseProgramme.startTime.slice(0, 5) +
+                  "–" +
+                  databaseProgramme.endTime.slice(0, 5)
+                : "Time not specified",
+            description: "Discover " + databaseProgramme.name + " on NowRJ.",
+          };
+        }
+      }
+    } catch {
+      // Keep the existing "Programme not found" behaviour if the API is unavailable.
+    }
+  }
+
+  let isRjActive = false;
+
+  if (programme?.rjSlug) {
+    try {
+      const activeRjsResponse = await fetch("http://localhost:3000/rjs", {
+        cache: "no-store",
+      });
+
+      if (activeRjsResponse.ok) {
+        const activeRjs: { slug: string }[] =
+          await activeRjsResponse.json();
+
+        isRjActive = activeRjs.some(
+          (rj) => rj.slug === programme?.rjSlug,
+        );
+      }
+    } catch {
+      // Keep RJ profile links hidden if the active-RJ list cannot be checked.
+    }
+  }
 
   if (!programme) {
     return (
@@ -121,7 +219,7 @@ export default async function ProgrammePage({
           >
             Now<span className="text-orange-600">RJ</span>
           </Link>
-
+          <AuthControls />
           <span className="text-right text-xs font-medium text-zinc-500 sm:text-sm">
             Beyond the broadcast
           </span>
@@ -164,12 +262,14 @@ export default async function ProgrammePage({
 
               <div>
                 <p className="text-sm text-zinc-500">Your radio jockey</p>
-                <Link
-                  href={`/rj/${programme.rjSlug}`}
-                  className="mt-1 inline-flex min-h-11 items-center font-bold text-zinc-900 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-orange-600"
-                >
-                  RJ {programme.rj} →
-                </Link>
+                {isRjActive && (
+  <Link
+    href={`/rj/${programme.rjSlug}`}
+    className="mt-1 inline-flex min-h-11 items-center font-bold text-zinc-900 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-orange-600"
+  >
+    RJ {programme.rj} →
+  </Link>
+)}
               </div>
             </div>
 
@@ -212,12 +312,14 @@ export default async function ProgrammePage({
             </div>
           </div>
 
-          <Link
-            href={`/rj/${programme.rjSlug}`}
-            className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-          >
-            View RJ profile
-          </Link>
+         {isRjActive && (
+  <Link
+    href={`/rj/${programme.rjSlug}`}
+    className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+  >
+    View RJ profile
+  </Link>
+)}
         </section>
 
         <footer className="py-8 text-center text-sm text-zinc-500">
