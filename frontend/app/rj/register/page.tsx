@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { readReferral } from "../../lib/referral";
 
 const API = "http://localhost:3000";
 
@@ -90,6 +91,7 @@ export default function RjRegisterPage() {
           name: name.trim(),
           phone: phone.trim() || null,
           photoUrl: photoUrl.trim() || null,
+          referralCode: readReferral(),
         }),
       });
 

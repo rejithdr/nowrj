@@ -42,6 +42,7 @@ export class RjsController {
       name: string;
       phone?: string | null;
       photoUrl?: string | null;
+      referralCode?: string | null;
     },
   ) {
     if (!req.isAuthenticated()) {

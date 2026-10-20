@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EngagementPanel from "../../lib/engagement";
 import SongQueue from "../../lib/song-queue";
+import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
   ArrowLeft,
   Check,
@@ -250,6 +251,12 @@ export default function RjDashboardPage() {
 
         {pageError ? <Notice kind="error" text={pageError} /> : null}
 
+        {profile.verificationStatus === "pending" ? (
+          <Section title="Get verified faster">
+            <VouchesPanel />
+          </Section>
+        ) : null}
+
         <Section title="Song requests">
           <SongQueue />
         </Section>
@@ -260,6 +267,9 @@ export default function RjDashboardPage() {
 
         <StationSection stations={stations} current={current} history={history} onChanged={refresh} />
         <ClaimsSection claims={claims} onChanged={refresh} />
+        <Section title="Your referral link">
+          <ReferralsPanel />
+        </Section>
         <InviteSection invites={invites} onChanged={refresh} />
         <ProgrammeSection
           current={current}

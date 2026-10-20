@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { claimReferralIfAny } from "./lib/referral";
 
 type Listener = {
   displayName: string;
@@ -23,6 +24,7 @@ export default function AuthControls() {
         if (response.ok) {
   const data = await response.json();
   setListener({ displayName: data.displayName });
+  await claimReferralIfAny();
 
   const returnTo = sessionStorage.getItem("nowrjReturnTo");
 

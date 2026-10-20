@@ -33,6 +33,33 @@ type RJ = {
   verificationStatus?: string;
 };
 
+type VerificationInfo = Record<
+  string,
+  { vouches: { voucherName: string; note: string | null }[]; referredBy: string | null }
+>;
+
+/** Referrer and vouches shown under an RJ's name, so the Super Admin can decide. */
+function VerificationNotes({ info }: { info?: VerificationInfo[string] }) {
+  if (!info || (!info.referredBy && info.vouches.length === 0)) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-xs text-zinc-600">
+      {info.referredBy ? <p>Referred by {info.referredBy}</p> : null}
+      {info.vouches.length ? (
+        <p>
+          Vouched for by{" "}
+          {info.vouches.map((v, i) => (
+            <span key={v.voucherName}>
+              {i > 0 ? ", " : ""}
+              <span className="font-semibold text-zinc-800">{v.voucherName}</span>
+              {v.note ? <span className="text-zinc-500"> (“{v.note}”)</span> : null}
+            </span>
+          ))}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type Station = {
   id: string;
   name: string;
@@ -107,6 +134,7 @@ export default function AdminRJsPage() {
   const [formError, setFormError] = useState("");
   const [changingId, setChangingId] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [verificationInfo, setVerificationInfo] = useState<VerificationInfo>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -139,6 +167,10 @@ export default function AdminRJsPage() {
       const stationData: Station[] = await stationResponse.json();
 
       setRjs(Array.isArray(rjData) ? rjData : []);
+      fetch(`${API}/admin/rjs-verification`, { credentials: "include", cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : {}))
+        .then((info: VerificationInfo) => setVerificationInfo(info))
+        .catch(() => setVerificationInfo({}));
       setStations(Array.isArray(stationData) ? stationData : []);
       setAccessDenied(false);
     } catch (error) {
@@ -761,6 +793,7 @@ export default function AdminRJsPage() {
                               <div className="min-w-0">
                                 <p className="font-bold text-zinc-900">{rj.name}</p>
                                 <p className="mt-0.5 text-xs text-zinc-500">/rj/{rj.slug}</p>
+                                <VerificationNotes info={verificationInfo[rj.id]} />
                               </div>
                             </div>
                           </td>
@@ -867,6 +900,7 @@ export default function AdminRJsPage() {
                             )}
                           </div>
                           <p className="mt-1 break-all text-xs text-zinc-500">/rj/{rj.slug}</p>
+                          <VerificationNotes info={verificationInfo[rj.id]} />
                           <p className="mt-2 break-words text-sm text-zinc-700">{rj.email || "No email"}</p>
                           <p className="mt-1 text-sm text-zinc-600">{rj.phone || "No phone"}</p>
                           <p className="mt-1 text-sm text-zinc-600">

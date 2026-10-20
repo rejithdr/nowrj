@@ -10,6 +10,7 @@ import { Rj } from '../rj.entity';
 import { In, Repository } from 'typeorm';
 import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
+import { activateRjReferral, recordRjReferral } from '../referrals/referral-rules';
 
 @Injectable()
 export class RjsService {
@@ -30,6 +31,7 @@ export class RjsService {
       name: string;
       phone?: string | null;
       photoUrl?: string | null;
+      referralCode?: string | null;
     },
   ) {
     if (!data.name?.trim()) {
@@ -70,7 +72,16 @@ export class RjsService {
       verificationStatus: 'pending',
     });
 
-    return this.rjRepository.save(rj);
+    const saved = await this.rjRepository.save(rj);
+
+    // Credit the RJ whose link brought this person in (never blocks registration).
+    try {
+      await recordRjReferral(this.rjRepository.manager, listenerId, saved.id, data.referralCode);
+    } catch (error) {
+      console.error('Could not record RJ referral', error);
+    }
+
+    return saved;
   }
 
   async updateOwnProfile(
@@ -230,6 +241,11 @@ export class RjsService {
     rj.isActive = verificationStatus === 'verified';
 
     const saved = await this.rjRepository.save(rj);
+
+    // Verification starts the referring RJ's 12-month reward window.
+    if (verificationStatus === 'verified') {
+      await activateRjReferral(this.rjRepository.manager, rj.id);
+    }
 
     // Programmes the RJ still owns are public only while the RJ is verified.
     await this.rjRepository.manager.update(

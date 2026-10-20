@@ -13,6 +13,7 @@ import { FollowsModule } from './follows/follows.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { ShowsModule } from './shows/shows.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { ReferralsModule } from './referrals/referrals.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
     ReactionsModule,
     ShowsModule,
     OnboardingModule,
+    ReferralsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
