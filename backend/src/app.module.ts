@@ -11,6 +11,7 @@ import { ListenersModule } from './listeners/listeners.module';
 import { AuthModule } from './auth/auth.module';
 import { FollowsModule } from './follows/follows.module';
 import { ReactionsModule } from './reactions/reactions.module';
+import { ShowsModule } from './shows/shows.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ReactionsModule } from './reactions/reactions.module';
     AuthModule,
     FollowsModule,
     ReactionsModule,
+    ShowsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

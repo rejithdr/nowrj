@@ -5,6 +5,8 @@ import FireButton from "./rj/[slug]/FireButton";
 import { Mic, Phone } from "lucide-react";
 import AuthControls from "./AuthControls";
 import HomeReactionSummary from "./HomeReactionSummary";
+import ShowCard, { type ApiShow } from "./ShowCard";
+import { ShowReactionsProvider } from "./ShowReactions";
 export const instant = false;
 type Programme = {
   id: string;
@@ -50,72 +52,6 @@ type ApiRj = {
   stationId: string | null;
   isActive: boolean;
 };
-
-const followedProgrammes: Programme[] = [
-  {
-    id: "morning-vibes",
-    title: "Morning Vibes",
-    rj: "Ananya",
-    station: "Radio Mango",
-    time: "Live now",
-    initials: "A",
-     contactNumber: "8139005150",
-  },
-  {
-    id: "drive-time",
-    title: "Drive Time",
-    rj: "Arjun",
-    station: "Club FM",
-    time: "Live now",
-    initials: "A",
-     contactNumber: "8139005150",
-  },
-];
-
-const otherLiveProgrammes: Programme[] = [
-  {
-    id: "music-mix",
-    title: "Music Mix",
-    rj: "Meera",
-    station: "Red FM",
-    time: "Live now",
-    initials: "M",
-     contactNumber: "8139005150",
-  },
-  {
-    id: "evening-show",
-    title: "The Evening Show",
-    rj: "Rahul",
-    station: "Radio City",
-    time: "Live now",
-    initials: "R",
-     contactNumber: "8139005150",
-  },
-];
-
-const upcomingProgrammes: Programme[] = [
-  {
-    id: "night-beats",
-    title: "Night Beats",
-    rj: "Nikhil",
-    station: "Club FM",
-    time: "8:00 PM",
-    initials: "N",
-     contactNumber: "8139005150",
-  },
-];
-
-const previousProgrammes: Programme[] = [
-  {
-    id: "good-morning",
-    title: "Good Morning Kerala",
-    rj: "Ananya",
-    station: "Radio Mango",
-    time: "Aired earlier",
-    initials: "A",
-     contactNumber: "8139005150",
-  },
-];
 
 function ProgrammeCard({ programme }: { programme: Programme }) {
   return (
@@ -211,14 +147,27 @@ export default async function Home() {
   let databaseProgrammes: ApiProgramme[] = [];
   let databaseStations: ApiStation[] = [];
   let databaseRjs: ApiRj[] = [];
+  let shows: { live: ApiShow[]; upcoming: ApiShow[]; recent: ApiShow[] } = {
+    live: [],
+    upcoming: [],
+    recent: [],
+  };
+  let showsLoaded = false;
+  const now = new Date();
 
   try {
-    const [programmeResponse, stationResponse, rjResponse] =
+    const [programmeResponse, stationResponse, rjResponse, showsResponse] =
       await Promise.all([
         fetch("http://localhost:3000/programmes", { cache: "no-store" }),
         fetch("http://localhost:3000/stations", { cache: "no-store" }),
         fetch("http://localhost:3000/rjs", { cache: "no-store" }),
+        fetch("http://localhost:3000/shows/now", { cache: "no-store" }),
       ]);
+
+    if (showsResponse.ok) {
+      shows = await showsResponse.json();
+      showsLoaded = true;
+    }
 
     if (programmeResponse.ok) {
       databaseProgrammes = await programmeResponse.json();
@@ -313,92 +262,81 @@ export default async function Home() {
         </section>
 
         <nav aria-label="Programme sections" className="mb-7 flex flex-wrap gap-2">
-          <a
-            href="#live"
-            className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Live now
+          <a href="#live" className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white">
+            Live now{shows.live.length ? ` (${shows.live.length})` : ""}
           </a>
-          <a
-            href="#upcoming"
-            className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700"
-          >
-            Upcoming
+          <a href="#upcoming" className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700">
+            Coming up
           </a>
-          <a
-            href="#previous"
-            className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700"
-          >
-            Previously aired
+          <a href="#recent" className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700">
+            Recently aired
+          </a>
+          <a href="#all-programmes" className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700">
+            All programmes
           </a>
         </nav>
 
-        <section id="live" className="scroll-mt-5">
-          <h2 className="text-xl font-bold text-zinc-900">
-            Live programmes
-          </h2>
-          <p className="mt-1 mb-4 text-sm text-zinc-500">
-            Your followed RJs first, then other live shows.
+        {!showsLoaded ? (
+          <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Live shows could not be loaded. Check that the NowRJ backend is running.
           </p>
+        ) : null}
 
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-orange-700">
-            Your followed programmes
-          </h3>
+        <ShowReactionsProvider
+          showIds={[...shows.live, ...shows.upcoming, ...shows.recent].map((show) => show.id)}
+        >
+          <section id="live" className="scroll-mt-5">
+            <h2 className="mb-4 text-xl font-bold text-zinc-900">Live now</h2>
+            {shows.live.length ? (
+              <div className="flex flex-col gap-3">
+                {shows.live.map((show) => (
+                  <ShowCard key={show.id} show={show} kind="live" now={now} />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-zinc-300 p-4 text-sm text-zinc-600">
+                No shows on air right now.
+                {shows.upcoming[0] ? " See what's coming up next below." : ""}
+              </p>
+            )}
+          </section>
 
+          <section id="upcoming" className="mt-10 scroll-mt-5">
+            <h2 className="mb-4 text-xl font-bold text-zinc-900">Coming up</h2>
+            {shows.upcoming.length ? (
+              <div className="flex flex-col gap-3">
+                {shows.upcoming.map((show) => (
+                  <ShowCard key={show.id} show={show} kind="upcoming" now={now} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600">Nothing scheduled in the next 24 hours.</p>
+            )}
+          </section>
+
+          <section id="recent" className="mt-10 scroll-mt-5">
+            <h2 className="mb-1 text-xl font-bold text-zinc-900">Recently aired</h2>
+            <p className="mb-4 text-sm text-zinc-500">You can still Like or Fire a show for 24 hours after it ends.</p>
+            {shows.recent.length ? (
+              <div className="flex flex-col gap-3">
+                {shows.recent.map((show) => (
+                  <ShowCard key={show.id} show={show} kind="recent" now={now} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600">No shows in the last 24 hours.</p>
+            )}
+          </section>
+        </ShowReactionsProvider>
+
+        <section id="all-programmes" className="mt-10 scroll-mt-5">
+          <h2 className="mb-4 text-xl font-bold text-zinc-900">All programmes</h2>
           <div className="flex flex-col gap-3">
-            {followedProgrammes.map((programme) => (
-              <ProgrammeCard key={programme.id} programme={programme} />
-            ))}
-          </div>
-
-          <h3 className="mt-7 mb-3 text-sm font-bold uppercase tracking-wide text-zinc-600">
-            More live programmes
-          </h3>
-
-          <div className="flex flex-col gap-3">
-            {otherLiveProgrammes.map((programme) => (
+            {databaseProgrammeCards.map((programme) => (
               <ProgrammeCard key={programme.id} programme={programme} />
             ))}
           </div>
         </section>
-
-        <section id="database-programmes" className="mt-10 scroll-mt-5">
-  <h2 className="mb-4 text-xl font-bold text-zinc-900">
-    Programmes on NowRJ
-  </h2>
-
-  <div className="flex flex-col gap-3">
-    {databaseProgrammeCards.map((programme) => (
-      <ProgrammeCard key={programme.id} programme={programme} />
-    ))}
-  </div>
-</section>
-
-        <section id="upcoming" className="mt-10 scroll-mt-5">
-          <h2 className="mb-4 text-xl font-bold text-zinc-900">
-            Upcoming programmes
-          </h2>
-          <div className="flex flex-col gap-3">
-            {upcomingProgrammes.map((programme) => (
-              <ProgrammeCard key={programme.id} programme={programme} />
-            ))}
-          </div>
-        </section>
-
-        <section id="previous" className="mt-10 scroll-mt-5">
-          <h2 className="mb-4 text-xl font-bold text-zinc-900">
-            Previously aired
-          </h2>
-          <div className="flex flex-col gap-3">
-            {previousProgrammes.map((programme) => (
-              <ProgrammeCard key={programme.id} programme={programme} />
-            ))}
-          </div>
-        </section>
-
-        <p className="mt-8 rounded-xl bg-zinc-100 p-3 text-xs leading-5 text-zinc-600">
-          Preview version: programme listings are sample data. Like and Fire are interactive previews. Call RJ uses the programme contact number and may require a compatible calling app or mobile phone.
-        </p>
 
         <footer className="py-8 text-center text-sm text-zinc-500">
           NowRJ · Beyond the broadcast

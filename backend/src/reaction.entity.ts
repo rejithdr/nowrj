@@ -13,7 +13,7 @@ import {
 @Index('IDX_reactions_listenerId', ['listenerId'])
 @Check(
   'CHK_reactions_one_target',
-  '(("rjId" IS NOT NULL AND "programmeId" IS NULL) OR ("rjId" IS NULL AND "programmeId" IS NOT NULL))',
+  'num_nonnulls("rjId", "programmeId", "showOccurrenceId") = 1',
 )
 @Check(
   'CHK_reactions_type',
@@ -31,6 +31,10 @@ export class Reaction {
 
   @Column({ type: 'uuid', nullable: true })
   programmeId: string | null;
+
+  /** A reaction to one particular show (Like or Fire on a live-show card). */
+  @Column({ type: 'uuid', nullable: true })
+  showOccurrenceId: string | null;
 
   @Column({ type: 'varchar', length: 10 })
   type: 'like' | 'fire';
