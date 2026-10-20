@@ -30,6 +30,10 @@ export class Programme {
   @Column({ type: 'time', nullable: true })
   endTime: string | null;
 
+  /** Live-show call-in number; editable by the hosting RJs and the owning station. */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  callInPhone: string | null;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
