@@ -757,7 +757,7 @@ function ProgrammeSection({
       ) : (
         <ul className="mt-3 divide-y divide-zinc-100">
           {programmes.map((programme) => (
-            <ProgrammeRow key={programme.id} programme={programme} verified={verified} onChanged={onChanged} />
+            <ProgrammeRow key={programme.id} programme={programme} verified={verified} current={current} onChanged={onChanged} />
           ))}
         </ul>
       )}
@@ -828,10 +828,12 @@ function ProgrammeSection({
 function ProgrammeRow({
   programme,
   verified,
+  current,
   onChanged,
 }: {
   programme: MyProgramme;
   verified: boolean;
+  current: Affiliation | null;
   onChanged: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -899,6 +901,28 @@ function ProgrammeRow({
             <X size={14} aria-hidden="true" />
           </button>
         </div>
+      ) : null}
+      {!programme.stationName && programme.ownedByYou && current ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            if (!window.confirm(`Move ${programme.name} to ${current.stationName}? Use this if ${current.stationName} is the station you invited. You stay the owner until the station claims it.`)) return;
+            setBusy(true);
+            setError("");
+            try {
+              await api(`/rjs/me/programmes/${programme.id}/move-to-station`, { method: "POST" });
+              await onChanged();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not move the programme.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className={`${quietButton} mt-2`}
+        >
+          Move to {current.stationName}
+        </button>
       ) : null}
       {error ? <Notice kind="error" text={error} /> : null}
       <ScheduleEditor programme={programme} onChanged={onChanged} />

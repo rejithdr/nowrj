@@ -445,6 +445,39 @@ export class RjDashboardService {
     return rj;
   }
 
+  /**
+   * A programme still waiting on a station invite can be moved onto the RJ's
+   * current (verified) station, e.g. when the station joined through another
+   * invite. Only the RJ who owns the programme can do this.
+   */
+  async moveToCurrentStation(listenerId: string, programmeId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const rj = await this.ownRj(listenerId, manager);
+      const programme = await manager.findOneBy(Programme, { id: programmeId });
+      if (!programme || programme.ownerRjId !== rj.id) {
+        throw new ForbiddenException('Only the RJ who owns this programme can move it.');
+      }
+      if (programme.stationId) {
+        throw new ConflictException('This programme is already on a station.');
+      }
+      const current = await manager.findOne(RjStationAffiliation, {
+        where: { rjId: rj.id, leftOn: IsNull() },
+      });
+      const station = current
+        ? await manager.findOneBy(Station, {
+            id: current.stationId,
+            isActive: true,
+            verificationStatus: In(['verified', 'legacy']),
+          })
+        : null;
+      if (!station) {
+        throw new BadRequestException('Set your current station first. It must be on NowRJ.');
+      }
+      await manager.update(Programme, { id: programme.id }, { stationId: station.id });
+      return { id: programme.id, stationName: station.name };
+    });
+  }
+
   /** Hosting RJs may change a programme's call-in number. */
   async updateCallIn(listenerId: string, programmeId: string, callInPhoneInput: string | null | undefined) {
     const callInPhone = clean(callInPhoneInput);

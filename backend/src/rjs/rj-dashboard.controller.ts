@@ -79,6 +79,11 @@ export class RjDashboardController {
     return this.dashboard.endSlot(listenerId(req), id, slotId);
   }
 
+  @Post('programmes/:id/move-to-station')
+  moveToStation(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.dashboard.moveToCurrentStation(listenerId(req), id);
+  }
+
   @Patch('programmes/:id/call-in')
   updateCallIn(
     @Req() req: Request,
