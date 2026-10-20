@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EngagementPanel from "../../lib/engagement";
 import AuthControls from "../../AuthControls";
+import UpcomingShows from "../../lib/show-changes";
 import SongQueue from "../../lib/song-queue";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
@@ -39,9 +40,16 @@ type Affiliation = {
   joinedOn: string;
   leftOn: string | null;
   verificationStatus: string;
+  stationNote: string | null;
   current: boolean;
   stationId: string;
 };
+
+function affiliationText(row: Affiliation) {
+  if (row.verificationStatus === "verified") return "Confirmed by the station";
+  if (row.verificationStatus === "disputed") return `Disputed by the station${row.stationNote ? `: “${row.stationNote}”` : ""}`;
+  return "Awaiting the station's confirmation";
+}
 
 type Invite = {
   id: string;
@@ -345,7 +353,7 @@ function StationSection({
             <p className="font-semibold text-zinc-900">{current.stationName}</p>
             <p className="text-sm text-zinc-600">
               Since {formatDate(current.joinedOn)} ·{" "}
-              {current.verificationStatus === "verified" ? "Confirmed" : "Awaiting confirmation"}
+              {affiliationText(current)}
             </p>
           </div>
         </div>
@@ -411,11 +419,14 @@ function StationSection({
           <h3 className="text-sm font-semibold text-zinc-800">Station history</h3>
           <ul className="mt-2 divide-y divide-zinc-100 text-sm">
             {history.map((row) => (
-              <li key={row.id} className="flex justify-between gap-3 py-2">
-                <span className="text-zinc-900">{row.stationName}</span>
-                <span className="text-zinc-600">
-                  {formatDate(row.joinedOn)} – {row.leftOn ? formatDate(row.leftOn) : "present"}
-                </span>
+              <li key={row.id} className="py-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-zinc-900">{row.stationName}</span>
+                  <span className="text-zinc-600">
+                    {formatDate(row.joinedOn)} – {row.leftOn ? formatDate(row.leftOn) : "present"}
+                  </span>
+                </div>
+                <p className={`text-xs ${row.verificationStatus === "disputed" ? "text-red-700" : "text-zinc-500"}`}>{affiliationText(row)}</p>
               </li>
             ))}
           </ul>
@@ -950,6 +961,7 @@ function ProgrammeRow({
       ) : null}
       {error ? <Notice kind="error" text={error} /> : null}
       <ScheduleEditor programme={programme} onChanged={onChanged} />
+      {programme.schedule.length ? <UpcomingShows programmeId={programme.id} /> : null}
     </li>
   );
 }

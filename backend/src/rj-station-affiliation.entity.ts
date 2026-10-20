@@ -53,6 +53,10 @@ export class RjStationAffiliation {
   @Column({ type: 'timestamp', nullable: true })
   verifiedAt: Date | null;
 
+  /** The station's note, e.g. why it disputed this period. */
+  @Column({ type: 'varchar', length: 280, nullable: true })
+  stationNote: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -11,6 +11,7 @@ import { ProgrammeClaim } from '../programme-claim.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
 import { Rj } from '../rj.entity';
 import { Station } from '../station.entity';
+import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { describeDays, sortSlots } from '../programmes/schedule-rules';
 import { assertStationRep, clean, PHONE, transferProgrammeToStation, writeAudit } from './helpers';
 
@@ -95,6 +96,43 @@ export class ClaimsService {
     }
     await m.update(Programme, { id: programmeId }, { callInPhone });
     return { id: programmeId, callInPhone };
+  }
+
+  /** RJs who say they work or worked at this station, newest first. */
+  async stationRjs(listenerId: string, stationId: string) {
+    await assertStationRep(this.dataSource.manager, listenerId, stationId);
+    const rows: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT a.id, a."joinedOn"::text AS "joinedOn", a."leftOn"::text AS "leftOn", a."verificationStatus", a."stationNote",
+              r.name, r.slug, r."verificationStatus" AS "rjStatus"
+         FROM rj_station_affiliations a JOIN rjs r ON r.id = a."rjId"
+        WHERE a."stationId" = $1
+        ORDER BY (a."leftOn" IS NULL) DESC, a."joinedOn" DESC`,
+      [stationId],
+    );
+    return rows;
+  }
+
+  /** The station confirms an RJ's time there, or disputes it with a reason. */
+  async decideAffiliation(listenerId: string, stationId: string, affiliationId: string, confirm: boolean, noteInput: unknown) {
+    const note = clean(noteInput);
+    if (!confirm && !note) throw new BadRequestException('Say what is wrong, so the RJ can correct it.');
+    if (note && note.length > 280) throw new BadRequestException('Note is too long (280 characters at most).');
+    return this.dataSource.transaction(async (m) => {
+      await assertStationRep(m, listenerId, stationId);
+      const row = await m.findOneBy(RjStationAffiliation, { id: affiliationId, stationId });
+      if (!row) throw new NotFoundException('That RJ is not listed at your station.');
+      row.verificationStatus = confirm ? 'verified' : 'disputed';
+      row.stationNote = note;
+      row.verifiedByListenerId = listenerId;
+      row.verifiedAt = new Date();
+      await m.save(row);
+      await writeAudit(m, listenerId, confirm ? 'affiliation.confirmed' : 'affiliation.disputed', 'rj_station_affiliation', row.id, {
+        stationId,
+        rjId: row.rjId,
+        note,
+      });
+      return { id: row.id, verificationStatus: row.verificationStatus };
+    });
   }
 
   // ----------------------------------------------------------------- RJ side

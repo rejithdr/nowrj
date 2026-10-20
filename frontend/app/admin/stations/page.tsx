@@ -37,6 +37,8 @@ type AuditRow = { id: string; action: string; actor: string | null; createdAt: s
 const actionText: Record<string, string> = {
   "station.join_requested": "Station applied through an RJ's invite",
   "station.application_submitted": "Station applied directly",
+  "affiliation.confirmed": "Station confirmed an RJ's dates",
+  "affiliation.disputed": "Station disputed an RJ's dates",
   "station_rep.approved": "Station representative approved",
   "station_rep.rejected": "Station representative rejected",
   "claim.created": "Station claimed a programme",

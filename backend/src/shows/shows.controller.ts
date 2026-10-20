@@ -16,6 +16,7 @@ import type { Request } from 'express';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
 import { SongRequestsService } from './song-requests.service';
+import { ShowChangesService } from './show-changes.service';
 import type { SongRequestInput } from './song-requests.service';
 import type { ReactionType } from './shows.service';
 
@@ -39,7 +40,41 @@ export class ShowsController {
     private readonly shows: ShowsService,
     private readonly engagement: EngagementService,
     private readonly songRequests: SongRequestsService,
+    private readonly changes: ShowChangesService,
   ) {}
+
+  /** The programme's next 7 days of shows, for hosts and the owning station. */
+  @Get('changes/:programmeId')
+  upcomingShows(@Req() req: Request, @Param('programmeId', ParseUUIDPipe) programmeId: string) {
+    return this.changes.upcoming(listenerId(req), programmeId);
+  }
+
+  @Post('changes/:programmeId/cancel')
+  cancelShow(
+    @Req() req: Request,
+    @Param('programmeId', ParseUUIDPipe) programmeId: string,
+    @Body() body: { originalStartsAt?: string; reason?: string },
+  ) {
+    return this.changes.cancel(listenerId(req), programmeId, body ?? {});
+  }
+
+  @Post('changes/:programmeId/move')
+  moveShow(
+    @Req() req: Request,
+    @Param('programmeId', ParseUUIDPipe) programmeId: string,
+    @Body() body: { originalStartsAt?: string; startTime?: string; endTime?: string; reason?: string },
+  ) {
+    return this.changes.move(listenerId(req), programmeId, body ?? {});
+  }
+
+  @Post('changes/:programmeId/restore')
+  restoreShow(
+    @Req() req: Request,
+    @Param('programmeId', ParseUUIDPipe) programmeId: string,
+    @Body() body: { originalStartsAt?: string },
+  ) {
+    return this.changes.restore(listenerId(req), programmeId, body ?? {});
+  }
 
   /** The signed-in RJ's request queue for live and upcoming shows. */
   @Get('song-requests/rj')

@@ -18,7 +18,7 @@ export type ShowStatus = 'scheduled' | 'cancelled';
  * owner are a snapshot taken until the show starts, then kept as aired.
  */
 @Entity('show_occurrences')
-@Unique('UQ_show_occurrences_programme_start', ['programmeId', 'startsAt'])
+@Unique('UQ_show_occurrences_programme_original_start', ['programmeId', 'originalStartsAt'])
 @Index('IDX_show_occurrences_startsAt', ['startsAt'])
 @Index('IDX_show_occurrences_endsAt', ['endsAt'])
 export class ShowOccurrence {
@@ -41,6 +41,10 @@ export class ShowOccurrence {
 
   @Column({ type: 'timestamptz' })
   startsAt: Date;
+
+  /** When the schedule said it would start; differs from startsAt only if the show was moved. */
+  @Column({ type: 'timestamptz' })
+  originalStartsAt: Date;
 
   @Column({ type: 'timestamptz' })
   endsAt: Date;

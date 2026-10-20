@@ -13,6 +13,7 @@ import { ShowOccurrence } from '../show-occurrence.entity';
 import { ShowOccurrenceHost } from '../show-occurrence-host.entity';
 import { Reaction } from '../reaction.entity';
 import { Listener } from '../listener.entity';
+import { ScheduleException } from '../schedule-exception.entity';
 import { addDays, canReact, indiaDate, planShows } from './occurrence-rules';
 
 export type ReactionType = 'like' | 'fire';
@@ -57,11 +58,12 @@ export class ShowsService {
         .createQueryBuilder(ShowOccurrence, 'o')
         .where('o.airDate BETWEEN :fromDate AND :toDate', { fromDate, toDate })
         .getMany();
-      const existingByKey = new Map(existing.map((o) => [key(o.programmeId, o.startsAt), o]));
+      // Shows are matched by when the schedule said they start, so a moved show stays the same show.
+      const existingByKey = new Map(existing.map((o) => [key(o.programmeId, o.originalStartsAt), o]));
 
       // Future shows that no longer match a current slot go away.
       const stale = existing.filter(
-        (o) => o.startsAt > now && o.status === 'scheduled' && !plannedKeys.has(key(o.programmeId, o.startsAt)),
+        (o) => o.startsAt > now && !plannedKeys.has(key(o.programmeId, o.originalStartsAt)),
       );
       if (stale.length) {
         await m.delete(ShowOccurrence, { id: In(stale.map((o) => o.id)) });
@@ -71,6 +73,12 @@ export class ShowsService {
       if (!programmeIds.length) return;
       const programmes = new Map(
         (await m.findBy(Programme, { id: In(programmeIds) })).map((p) => [p.id, p]),
+      );
+      const exceptions = new Map(
+        (await m.findBy(ScheduleException, { programmeId: In(programmeIds) })).map((e) => [
+          key(e.programmeId, e.originalStartsAt),
+          e,
+        ]),
       );
       const hostsByProgramme = new Map<string, string[]>();
       for (const row of await m.findBy(ProgrammeRj, { programmeId: In(programmeIds) })) {
@@ -85,6 +93,12 @@ export class ShowsService {
           ownerRjId: programme.ownerRjId,
           ownerStationId: programme.ownerStationId,
         };
+        const change = exceptions.get(key(show.programmeId, show.startsAt));
+        const timing = {
+          startsAt: change?.action === 'move' ? change.newStartsAt! : show.startsAt,
+          endsAt: change?.action === 'move' ? change.newEndsAt! : show.endsAt,
+          status: (change?.action === 'cancel' ? 'cancelled' : 'scheduled') as 'cancelled' | 'scheduled',
+        };
         const current = existingByKey.get(key(show.programmeId, show.startsAt));
 
         if (!current) {
@@ -93,7 +107,7 @@ export class ShowsService {
             .createQueryBuilder()
             .insert()
             .into(ShowOccurrence)
-            .values({ id, programmeId: show.programmeId, airDate: show.airDate, startsAt: show.startsAt, endsAt: show.endsAt, status: 'scheduled', ...snapshot })
+            .values({ id, programmeId: show.programmeId, airDate: show.airDate, originalStartsAt: show.startsAt, ...timing, ...snapshot })
             .orIgnore()
             .returning(['id'])
             .execute();
@@ -101,7 +115,8 @@ export class ShowsService {
             await this.setHosts(m, id, hostsByProgramme.get(show.programmeId) ?? []);
           }
         } else if (current.startsAt > now) {
-          await m.update(ShowOccurrence, { id: current.id }, { ...snapshot, endsAt: show.endsAt });
+          // Not started yet: follow the latest schedule, one-day change, owner and hosts.
+          await m.update(ShowOccurrence, { id: current.id }, { ...snapshot, ...timing });
           await this.setHosts(m, current.id, hostsByProgramme.get(show.programmeId) ?? []);
         }
       }

@@ -77,6 +77,30 @@ export class StationRepController {
     return this.claims.createClaim(listenerId(req), stationId, programmeId);
   }
 
+  @Get('stations/:stationId/rjs')
+  stationRjs(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string) {
+    return this.claims.stationRjs(listenerId(req), stationId);
+  }
+
+  @Post('stations/:stationId/affiliations/:affiliationId/confirm')
+  confirmAffiliation(
+    @Req() req: Request,
+    @Param('stationId', ParseUUIDPipe) stationId: string,
+    @Param('affiliationId', ParseUUIDPipe) affiliationId: string,
+  ) {
+    return this.claims.decideAffiliation(listenerId(req), stationId, affiliationId, true, null);
+  }
+
+  @Post('stations/:stationId/affiliations/:affiliationId/dispute')
+  disputeAffiliation(
+    @Req() req: Request,
+    @Param('stationId', ParseUUIDPipe) stationId: string,
+    @Param('affiliationId', ParseUUIDPipe) affiliationId: string,
+    @Body() body: { note?: string },
+  ) {
+    return this.claims.decideAffiliation(listenerId(req), stationId, affiliationId, false, body?.note);
+  }
+
   @Patch('stations/:stationId/programmes/:programmeId/call-in')
   callIn(
     @Req() req: Request,

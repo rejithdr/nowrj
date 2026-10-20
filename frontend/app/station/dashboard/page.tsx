@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
 import AuthControls from "../../AuthControls";
+import UpcomingShows from "../../lib/show-changes";
+import StationRjs from "../../lib/station-rjs";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
 type MyStation = {
@@ -135,6 +137,10 @@ function StationPanel({ entry }: { entry: MyStation }) {
           <h2 className="mt-6 text-lg font-bold text-zinc-900">Listener engagement</h2>
           <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
 
+          <h2 className="mt-8 text-lg font-bold text-zinc-900">RJs at {station.name}</h2>
+          <p className="mt-1 text-sm text-zinc-600">RJs list your station in their history. Confirm the dates you recognise, or dispute them with a note.</p>
+          <StationRjs stationId={station.id} />
+
           <h2 className="mt-8 text-lg font-bold text-zinc-900">Programmes on {station.name}</h2>
           <p className="mt-1 text-sm text-zinc-600">
             Programmes an RJ created stay theirs until you claim them and the RJ agrees. If the RJ declines, the NowRJ team decides.
@@ -168,6 +174,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
                     {p.latestClaim?.status === "rejected_by_admin" ? (
                       <p className="mt-1 text-xs text-red-700">Previous claim not approved{p.latestClaim.adminReason ? `: ${p.latestClaim.adminReason}` : "."}</p>
                     ) : null}
+                    {p.ownedByStation && p.schedule ? <UpcomingShows programmeId={p.id} /> : null}
                   </li>
                 );
               })}

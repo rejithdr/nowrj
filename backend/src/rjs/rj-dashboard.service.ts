@@ -124,6 +124,7 @@ export class RjDashboardService {
       joinedOn: row.joinedOn,
       leftOn: row.leftOn,
       verificationStatus: row.verificationStatus,
+      stationNote: row.stationNote,
       current: row.leftOn === null,
     }));
   }
