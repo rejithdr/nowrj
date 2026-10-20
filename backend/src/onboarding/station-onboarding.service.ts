@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource, In, Not } from 'typeorm';
+import { DataSource, EntityManager, In, Not } from 'typeorm';
 import { Station } from '../station.entity';
 import { StationInvite } from '../station-invite.entity';
 import { Rj } from '../rj.entity';
@@ -66,66 +66,7 @@ export class StationOnboardingService {
         throw new ConflictException('Someone has already applied with this invite. The NowRJ team is reviewing it.');
       }
 
-      let station: Station;
-      if (input.mode === 'existing') {
-        const found = await m.findOneBy(Station, {
-          id: input.stationId ?? '',
-          isActive: true,
-          verificationStatus: In(['verified', 'legacy']),
-        });
-        if (!found) throw new NotFoundException('Station not found.');
-        station = found;
-      } else if (input.mode === 'new') {
-        const name = clean(input.name);
-        const contactPhone = clean(input.contactPhone);
-        const contactEmail = clean(input.contactEmail)?.toLowerCase() ?? null;
-        const reach = clean(input.reach);
-        if (!name) throw new BadRequestException('Enter the station name.');
-        if (name.length > 150) throw new BadRequestException('Station name is too long.');
-        if (!contactPhone && !contactEmail) {
-          throw new BadRequestException('Give a phone number or email so the NowRJ team can verify the station.');
-        }
-        if (contactPhone && !PHONE.test(contactPhone)) throw new BadRequestException('Phone number is not valid.');
-        if (contactEmail && !EMAIL.test(contactEmail)) throw new BadRequestException('Email is not valid.');
-        if (reach && reach !== 'national' && reach !== 'local') {
-          throw new BadRequestException('Reach must be national or local.');
-        }
-
-        const base = slugify(name, 'station');
-        let slug = base;
-        for (let n = 2; await m.exists(Station, { where: { slug } }); n++) slug = `${base}-${n}`;
-
-        station = await m.save(
-          m.create(Station, {
-            name,
-            slug,
-            city: clean(input.city),
-            state: clean(input.state),
-            reach: (reach as 'national' | 'local' | null) ?? null,
-            contactPhone,
-            contactEmail,
-            isActive: false,
-            verificationStatus: 'pending',
-            createdByListenerId: listenerId,
-          }),
-        );
-      } else {
-        throw new BadRequestException('Choose a new station or one already on NowRJ.');
-      }
-
-      const existingRole = await m.findOneBy(UserRole, {
-        listenerId,
-        role: 'station_rep',
-        stationId: station.id,
-        status: Not('revoked'),
-      });
-      if (existingRole) {
-        throw new ConflictException(`You already represent ${station.name} (${existingRole.status}).`);
-      }
-
-      const role = await m.save(
-        m.create(UserRole, { listenerId, role: 'station_rep', stationId: station.id, status: 'pending' }),
-      );
+      const { station, role } = await this.createApplication(m, listenerId, input);
       invite.stationId = station.id;
       await m.save(invite);
 
@@ -135,6 +76,86 @@ export class StationOnboardingService {
         mode: input.mode,
       });
 
+      return { stationId: station.id, stationName: station.name, roleStatus: role.status };
+    });
+  }
+
+  /**
+   * The shared part of applying to represent a station: create a new pending
+   * station (or pick a listed one) and a pending representative role.
+   */
+  private async createApplication(m: EntityManager, listenerId: string, input: JoinInput) {
+    let station: Station;
+    if (input.mode === 'existing') {
+      const found = await m.findOneBy(Station, {
+        id: input.stationId ?? '',
+        isActive: true,
+        verificationStatus: In(['verified', 'legacy']),
+      });
+      if (!found) throw new NotFoundException('Station not found.');
+      station = found;
+    } else if (input.mode === 'new') {
+      const name = clean(input.name);
+      const contactPhone = clean(input.contactPhone);
+      const contactEmail = clean(input.contactEmail)?.toLowerCase() ?? null;
+      const reach = clean(input.reach);
+      if (!name) throw new BadRequestException('Enter the station name.');
+      if (name.length > 150) throw new BadRequestException('Station name is too long.');
+      if (!contactPhone && !contactEmail) {
+        throw new BadRequestException('Give a phone number or email so the NowRJ team can verify the station.');
+      }
+      if (contactPhone && !PHONE.test(contactPhone)) throw new BadRequestException('Phone number is not valid.');
+      if (contactEmail && !EMAIL.test(contactEmail)) throw new BadRequestException('Email is not valid.');
+      if (reach && reach !== 'national' && reach !== 'local') {
+        throw new BadRequestException('Reach must be national or local.');
+      }
+
+      const base = slugify(name, 'station');
+      let slug = base;
+      for (let n = 2; await m.exists(Station, { where: { slug } }); n++) slug = `${base}-${n}`;
+
+      station = await m.save(
+        m.create(Station, {
+          name,
+          slug,
+          city: clean(input.city),
+          state: clean(input.state),
+          reach: (reach as 'national' | 'local' | null) ?? null,
+          contactPhone,
+          contactEmail,
+          isActive: false,
+          verificationStatus: 'pending',
+          createdByListenerId: listenerId,
+        }),
+      );
+    } else {
+      throw new BadRequestException('Choose a new station or one already on NowRJ.');
+    }
+
+    const existingRole = await m.findOneBy(UserRole, {
+      listenerId,
+      role: 'station_rep',
+      stationId: station.id,
+      status: Not('revoked'),
+    });
+    if (existingRole) {
+      throw new ConflictException(`You already represent ${station.name} (${existingRole.status}).`);
+    }
+
+    const role = await m.save(
+      m.create(UserRole, { listenerId, role: 'station_rep', stationId: station.id, status: 'pending' }),
+    );
+    return { station, role };
+  }
+
+  /** A station applying directly from the For stations page, without an RJ's invite. */
+  async apply(listenerId: string, input: JoinInput) {
+    return this.dataSource.transaction(async (m) => {
+      const { station, role } = await this.createApplication(m, listenerId, input);
+      await writeAudit(m, listenerId, 'station.application_submitted', 'station', station.id, {
+        roleId: role.id,
+        mode: input.mode,
+      });
       return { stationId: station.id, stationName: station.name, roleStatus: role.status };
     });
   }

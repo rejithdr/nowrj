@@ -7,8 +7,11 @@ import { AuditLog } from '../audit-log.entity';
 import { StationOnboardingService } from './station-onboarding.service';
 import { ClaimsService } from './claims.service';
 import { AdminStationsService } from './admin-stations.service';
+import { InsightsService } from './insights.service';
 import {
   AdminStationsController,
+  AdminInsightsController,
+  StationApplicationsController,
   RjClaimsController,
   StationInvitesController,
   StationRepController,
@@ -16,7 +19,7 @@ import {
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserRole, ProgrammeClaim, AuditLog]), AuthModule],
-  controllers: [StationInvitesController, StationRepController, RjClaimsController, AdminStationsController],
-  providers: [StationOnboardingService, ClaimsService, AdminStationsService],
+  controllers: [AdminInsightsController, StationInvitesController, StationApplicationsController, StationRepController, RjClaimsController, AdminStationsController],
+  providers: [StationOnboardingService, ClaimsService, AdminStationsService, InsightsService],
 })
 export class OnboardingModule {}

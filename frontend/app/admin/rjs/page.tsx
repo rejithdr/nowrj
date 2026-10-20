@@ -408,6 +408,12 @@ export default function AdminRJsPage() {
 
           <div className="flex items-center gap-2">
           <a
+            href="/admin/insights"
+            className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+          >
+            Insights
+          </a>
+          <a
             href="/admin/stations"
             className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
           >

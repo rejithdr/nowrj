@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, X } from "lucide-react";
+import AuthControls from "../../AuthControls";
 import { api, Card, dangerButton, Notice, primaryButton, StatusPill } from "../../lib/ui";
 
 type PendingRep = {
@@ -34,7 +35,8 @@ type DisputedClaim = {
 type AuditRow = { id: string; action: string; actor: string | null; createdAt: string; details: Record<string, unknown> | null };
 
 const actionText: Record<string, string> = {
-  "station.join_requested": "Station applied",
+  "station.join_requested": "Station applied through an RJ's invite",
+  "station.application_submitted": "Station applied directly",
   "station_rep.approved": "Station representative approved",
   "station_rep.rejected": "Station representative rejected",
   "claim.created": "Station claimed a programme",
@@ -96,10 +98,13 @@ export default function AdminStationsPage() {
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-6 sm:px-8">
       <div className="mx-auto max-w-4xl">
-        <Link href="/admin/rjs" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
-          <ArrowLeft size={16} aria-hidden="true" />
-          RJ management
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/admin/rjs" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
+            <ArrowLeft size={16} aria-hidden="true" />
+            RJ management
+          </Link>
+          <AuthControls />
+        </div>
         <h1 className="mt-3 text-3xl font-bold text-zinc-900">Stations and claims</h1>
         {error ? <Notice kind="error" text={error} /> : null}
         {message ? <Notice kind="ok" text={message} /> : null}

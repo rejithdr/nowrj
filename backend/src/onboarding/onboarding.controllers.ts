@@ -16,6 +16,7 @@ import { StationOnboardingService } from './station-onboarding.service';
 import type { JoinInput } from './station-onboarding.service';
 import { ClaimsService } from './claims.service';
 import { AdminStationsService } from './admin-stations.service';
+import { InsightsService } from './insights.service';
 
 function listenerId(req: Request): string {
   if (!req.isAuthenticated()) throw new UnauthorizedException('Please sign in first.');
@@ -35,6 +36,17 @@ export class StationInvitesController {
   @Post(':token/join')
   join(@Req() req: Request, @Param('token') token: string, @Body() body: JoinInput) {
     return this.onboarding.join(listenerId(req), token, body ?? {});
+  }
+}
+
+/** A station applying from the For stations page, without an RJ's invite. */
+@Controller('station-applications')
+export class StationApplicationsController {
+  constructor(private readonly onboarding: StationOnboardingService) {}
+
+  @Post()
+  apply(@Req() req: Request, @Body() body: JoinInput) {
+    return this.onboarding.apply(listenerId(req), body ?? {});
   }
 }
 
@@ -139,5 +151,17 @@ export class AdminStationsController {
   @Get('audit-log')
   audit() {
     return this.stations.auditLog();
+  }
+}
+
+/** Super Admin: platform-wide numbers. */
+@Controller('admin/insights')
+@UseGuards(SuperadminGuard)
+export class AdminInsightsController {
+  constructor(private readonly insights: InsightsService) {}
+
+  @Get()
+  overview() {
+    return this.insights.overview();
   }
 }

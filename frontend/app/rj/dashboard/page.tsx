@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EngagementPanel from "../../lib/engagement";
+import AuthControls from "../../AuthControls";
 import SongQueue from "../../lib/song-queue";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
@@ -225,10 +226,13 @@ export default function RjDashboardPage() {
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-6 sm:px-8">
       <div className="mx-auto max-w-3xl">
-        <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
-          <ArrowLeft size={16} aria-hidden="true" />
-          Back to NowRJ
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back to NowRJ
+          </Link>
+          <AuthControls />
+        </div>
 
         <header className="mt-4">
           <p className="text-sm font-semibold uppercase tracking-wide text-orange-700">RJ dashboard</p>

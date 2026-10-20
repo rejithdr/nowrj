@@ -9,6 +9,8 @@ import {
   Post,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import { AuthService, GoogleProfile } from './auth.service';
 import {
   GoogleAuthGuard,
@@ -17,7 +19,11 @@ import {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get('google')
   @UseGuards(GoogleAuthGuard)
@@ -76,8 +82,9 @@ export class AuthController {
     });
   }
 
+  /** The signed-in person and the roles that decide which dashboards they see. */
   @Get('me')
-  getCurrentListener(@Req() req: Request) {
+  async getCurrentListener(@Req() req: Request) {
     if (!req.isAuthenticated()) {
       throw new UnauthorizedException('Please sign in first.');
     }
@@ -86,12 +93,33 @@ export class AuthController {
       id: string;
       displayName: string | null;
       photoUrl: string | null;
+      email: string | null;
     };
+
+    const [rj] = await this.dataSource.query(
+      `SELECT name, slug, "verificationStatus" FROM rjs WHERE "ownerListenerId" = $1`,
+      [listener.id],
+    );
+    const stations: { id: string; name: string; status: string }[] = await this.dataSource.query(
+      `SELECT s.id, s.name, ur.status
+         FROM user_roles ur JOIN stations s ON s.id = ur."stationId"
+        WHERE ur."listenerId" = $1 AND ur.role = 'station_rep' AND ur.status <> 'revoked'
+        ORDER BY s.name`,
+      [listener.id],
+    );
+    const admins = (this.config.get<string>('SUPERADMIN_EMAILS') ?? '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    const email = listener.email?.trim().toLowerCase();
 
     return {
       id: listener.id,
       displayName: listener.displayName,
       photoUrl: listener.photoUrl,
+      rj: rj ? { name: rj.name, slug: rj.slug, verificationStatus: rj.verificationStatus } : null,
+      stations,
+      isSuperadmin: Boolean(email && admins.includes(email)),
     };
   }
 }

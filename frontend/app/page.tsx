@@ -328,9 +328,6 @@ export default async function Home() {
           </div>
         </section>
 
-        <footer className="py-8 text-center text-sm text-zinc-500">
-          NowRJ · Beyond the broadcast
-        </footer>
       </div>
     </main>
   );

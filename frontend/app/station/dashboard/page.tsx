@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
+import AuthControls from "../../AuthControls";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
 type MyStation = {
@@ -55,10 +56,13 @@ export default function StationDashboardPage() {
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-6 sm:px-8">
       <div className="mx-auto max-w-3xl">
-        <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
-          <ArrowLeft size={16} aria-hidden="true" />
-          Back to NowRJ
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-700 hover:underline">
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back to NowRJ
+          </Link>
+          <AuthControls />
+        </div>
         <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-orange-700">Station dashboard</p>
 
         {!signedIn ? (
@@ -73,7 +77,9 @@ export default function StationDashboardPage() {
         ) : stations.length === 0 ? (
           <Card>
             <h1 className="text-xl font-bold text-zinc-900">You don&apos;t represent a station yet</h1>
-            <p className="mt-2 text-zinc-600">Stations join NowRJ through an invite link from one of their RJs. Ask your RJ to send you theirs.</p>
+            <p className="mt-2 text-zinc-600">
+              Use the invite link one of your RJs sent you, or <Link href="/for-stations" className="font-semibold text-orange-700 hover:underline">apply to join</Link> directly.
+            </p>
           </Card>
         ) : (
           stations.map((entry) => <StationPanel key={entry.station.id} entry={entry} />)
