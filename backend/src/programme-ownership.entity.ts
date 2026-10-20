@@ -51,6 +51,10 @@ export class ProgrammeOwnership {
   @Column({ type: 'uuid', nullable: true })
   changedByListenerId: string | null;
 
+  /** The station claim that caused this change, if any. */
+  @Column({ type: 'uuid', nullable: true })
+  claimId: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource, EntityManager, IsNull } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull } from 'typeorm';
 import { randomBytes } from 'node:crypto';
 import { Rj } from '../rj.entity';
 import { Station } from '../station.entity';
@@ -147,7 +147,7 @@ export class RjDashboardService {
     return this.dataSource.transaction(async (manager) => {
       const rj = await this.ownRj(listenerId, manager);
       const station = await manager.findOne(Station, {
-        where: { id: input.stationId, isActive: true },
+        where: { id: input.stationId, isActive: true, verificationStatus: In(['verified', 'legacy']) },
       });
       if (!station) {
         throw new NotFoundException('Station not found.');
@@ -211,6 +211,9 @@ export class RjDashboardService {
       status: invite.status,
       expiresAt: invite.expiresAt,
       createdAt: invite.createdAt,
+      // Only the inviting RJ sees this; it is the secret part of the invite link.
+      token: invite.status === 'sent' ? invite.token : null,
+      stationApplied: invite.stationId !== null,
     }));
   }
 

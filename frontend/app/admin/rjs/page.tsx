@@ -374,6 +374,13 @@ export default function AdminRJsPage() {
             </span>
           </a>
 
+          <div className="flex items-center gap-2">
+          <a
+            href="/admin/stations"
+            className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-3 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+          >
+            Stations &amp; claims
+          </a>
           <a
             href="/"
             className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold hover:bg-zinc-50"
@@ -382,6 +389,7 @@ export default function AdminRJsPage() {
             <span className="hidden sm:inline">Back to site</span>
             <span className="sm:hidden">Back</span>
           </a>
+          </div>
         </div>
       </header>
 

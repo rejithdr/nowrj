@@ -34,6 +34,21 @@ export class Station {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** 'legacy' for stations added before onboarding; 'pending' until a Super Admin verifies. */
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  verificationStatus: 'pending' | 'verified' | 'rejected' | 'legacy';
+
+  @Column({ type: 'uuid', nullable: true })
+  createdByListenerId: string | null;
+
+  /** Private: for the NowRJ team only, never shown publicly. */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  contactPhone: string | null;
+
+  /** Private: for the NowRJ team only, never shown publicly. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  contactEmail: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

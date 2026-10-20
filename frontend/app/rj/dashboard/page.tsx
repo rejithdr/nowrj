@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Check,
+  Copy,
+  MessageCircle,
   LoaderCircle,
   Mail,
   Pencil,
@@ -45,6 +47,18 @@ type Invite = {
   contactEmail: string | null;
   status: string;
   expiresAt: string;
+  token: string | null;
+  stationApplied: boolean;
+};
+
+type Claim = {
+  id: string;
+  status: string;
+  rjReason: string | null;
+  adminReason: string | null;
+  programmeName: string;
+  stationName: string;
+  youOwnIt: boolean;
 };
 
 type SlotDraft = { days: number[]; startTime: string; endTime: string };
@@ -138,17 +152,20 @@ export default function RjDashboardPage() {
   const [history, setHistory] = useState<Affiliation[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [programmes, setProgrammes] = useState<MyProgramme[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
   const [pageError, setPageError] = useState("");
 
   const refresh = useCallback(async () => {
-    const [h, i, p] = await Promise.all([
+    const [h, i, p, c] = await Promise.all([
       api<Affiliation[]>("/rjs/me/stations"),
       api<Invite[]>("/rjs/me/station-invites"),
       api<MyProgramme[]>("/rjs/me/programmes"),
+      api<Claim[]>("/rjs/me/claims"),
     ]);
     setHistory(h);
     setInvites(i);
     setProgrammes(p);
+    setClaims(c);
   }, []);
 
   useEffect(() => {
@@ -232,6 +249,7 @@ export default function RjDashboardPage() {
         {pageError ? <Notice kind="error" text={pageError} /> : null}
 
         <StationSection stations={stations} current={current} history={history} onChanged={refresh} />
+        <ClaimsSection claims={claims} onChanged={refresh} />
         <InviteSection invites={invites} onChanged={refresh} />
         <ProgrammeSection
           current={current}
@@ -442,8 +460,15 @@ function InviteSection({ invites, onChanged }: { invites: Invite[]; onChanged: (
                 </p>
               </div>
               <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-bold capitalize text-zinc-700">
-                {invite.status === "sent" ? "Waiting for station" : invite.status}
+                {invite.status === "accepted"
+                  ? "Joined NowRJ"
+                  : invite.status !== "sent"
+                    ? invite.status
+                    : invite.stationApplied
+                      ? "Station applied · being verified"
+                      : "Waiting for station"}
               </span>
+              {invite.token && !invite.stationApplied ? <InviteLink invite={invite} /> : null}
             </li>
           ))}
         </ul>
@@ -491,6 +516,109 @@ function InviteSection({ invites, onChanged }: { invites: Invite[]; onChanged: (
           Invite a station
         </button>
       )}
+    </Section>
+  );
+}
+
+function InviteLink({ invite }: { invite: Invite }) {
+  const [copied, setCopied] = useState(false);
+  const link = `${window.location.origin}/station/join/${invite.token}`;
+  const text = `Hi! I've added our programmes on NowRJ. Please join as ${invite.stationName} so you can manage them: ${link}`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this invite link:", link);
+    }
+  }
+
+  const phone = invite.contactPhone?.replace(/[^0-9]/g, "");
+  return (
+    <div className="flex w-full flex-wrap gap-2">
+      <button type="button" onClick={() => void copy()} className={quietButton}>
+        <Copy size={14} aria-hidden="true" />
+        {copied ? "Copied" : "Copy invite link"}
+      </button>
+      <a
+        href={`https://wa.me/${phone && phone.length >= 10 ? (phone.length === 10 ? `91${phone}` : phone) : ""}?text=${encodeURIComponent(text)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={quietButton}
+      >
+        <MessageCircle size={14} aria-hidden="true" />
+        Send on WhatsApp
+      </a>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------- claims
+
+const claimStatusText: Record<string, string> = {
+  awaiting_rj: "Waiting for you",
+  approved_by_rj: "You approved · station owns it",
+  rejected_by_rj: "You declined · NowRJ team reviewing",
+  approved_by_admin: "NowRJ team gave it to the station",
+  rejected_by_admin: "NowRJ team kept it with you",
+};
+
+function ClaimsSection({ claims, onChanged }: { claims: Claim[]; onChanged: () => Promise<void> }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  if (claims.length === 0) return null;
+
+  async function decide(claim: Claim, approve: boolean) {
+    let body: string | undefined;
+    if (approve) {
+      if (!window.confirm(`Hand ${claim.programmeName} over to ${claim.stationName}? The programme, its name and its history will belong to the station. Your followers stay with you.`)) return;
+    } else {
+      const reason = window.prompt(`Why are you declining ${claim.stationName}'s claim on ${claim.programmeName}? The NowRJ team will review it.`);
+      if (!reason) return;
+      body = JSON.stringify({ reason });
+    }
+    setBusy(claim.id);
+    setError("");
+    try {
+      await api(`/rjs/me/claims/${claim.id}/${approve ? "approve" : "reject"}`, { method: "POST", body });
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Section title="Station claims">
+      <p className="mt-2 text-sm text-zinc-600">A station that joined NowRJ is asking to take over a programme you created.</p>
+      {error ? <Notice kind="error" text={error} /> : null}
+      <ul className="mt-3 divide-y divide-zinc-100">
+        {claims.map((claim) => (
+          <li key={claim.id} className="py-3">
+            <p className="font-semibold text-zinc-900">
+              {claim.stationName} → {claim.programmeName}
+            </p>
+            <p className="text-sm text-zinc-600">
+              {claimStatusText[claim.status] ?? claim.status}
+              {claim.rjReason ? ` · your reason: “${claim.rjReason}”` : ""}
+            </p>
+            {claim.status === "awaiting_rj" && claim.youOwnIt ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" disabled={busy === claim.id} onClick={() => void decide(claim, true)} className={primaryButton}>
+                  <Check size={16} aria-hidden="true" /> Approve
+                </button>
+                <button type="button" disabled={busy === claim.id} onClick={() => void decide(claim, false)} className={quietButton}>
+                  <X size={14} aria-hidden="true" /> Decline
+                </button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }
