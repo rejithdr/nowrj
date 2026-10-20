@@ -117,7 +117,8 @@ const programme = programmes.find(
         programme: programme?.name ?? '',
 programmeSlug: programme?.slug ?? '',
 schedule: programme
-  ? [programme.startTime, programme.endTime]
+  ? programme.scheduleText ||
+    [programme.startTime, programme.endTime]
       .filter(Boolean)
       .join('–') || 'Schedule not specified'
   : '',

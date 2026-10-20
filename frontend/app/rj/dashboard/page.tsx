@@ -11,6 +11,7 @@ import {
   Phone,
   Plus,
   Radio,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -46,6 +47,13 @@ type Invite = {
   expiresAt: string;
 };
 
+type SlotDraft = { days: number[]; startTime: string; endTime: string };
+
+type ScheduleSlot = SlotDraft & { id: string; label: string };
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const emptySlot = (): SlotDraft => ({ days: [], startTime: "", endTime: "" });
+
 type MyProgramme = {
   id: string;
   name: string;
@@ -58,6 +66,7 @@ type MyProgramme = {
   invitedStationName: string | null;
   ownerStationName: string | null;
   ownedByYou: boolean;
+  schedule: ScheduleSlot[];
 };
 
 const inputClass =
@@ -486,6 +495,73 @@ function InviteSection({ invites, onChanged }: { invites: Invite[]; onChanged: (
   );
 }
 
+// --------------------------------------------------------------- schedules
+
+function SlotEditor({
+  slot,
+  index,
+  onChange,
+  onRemove,
+}: {
+  slot: SlotDraft;
+  index: number;
+  onChange: (slot: SlotDraft) => void;
+  onRemove?: () => void;
+}) {
+  const toggle = (day: number) =>
+    onChange({
+      ...slot,
+      days: slot.days.includes(day) ? slot.days.filter((d) => d !== day) : [...slot.days, day].sort(),
+    });
+  const preset = (days: number[]) => onChange({ ...slot, days });
+
+  return (
+    <fieldset className="rounded-xl border border-zinc-200 bg-white p-3">
+      <legend className="px-1 text-xs font-semibold text-zinc-600">Time slot {index + 1}</legend>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days it airs">
+        {DAYS.map((name, i) => {
+          const day = i + 1;
+          const on = slot.days.includes(day);
+          return (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(day)}
+              className={`min-h-9 min-w-11 rounded-full border px-2.5 text-sm font-semibold ${
+                on ? "border-orange-600 bg-orange-600 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-orange-300"
+              }`}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <button type="button" onClick={() => preset([1, 2, 3, 4, 5])} className="font-semibold text-orange-700 hover:underline">Weekdays</button>
+        <button type="button" onClick={() => preset([6, 7])} className="font-semibold text-orange-700 hover:underline">Weekend</button>
+        <button type="button" onClick={() => preset([1, 2, 3, 4, 5, 6, 7])} className="font-semibold text-orange-700 hover:underline">Every day</button>
+      </div>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor={`slot-${index}-start`} className="mb-1 block text-xs font-medium text-zinc-700">Starts</label>
+          <input id={`slot-${index}-start`} type="time" required value={slot.startTime} onChange={(e) => onChange({ ...slot, startTime: e.target.value })} className={`${inputClass} w-36`} />
+        </div>
+        <div>
+          <label htmlFor={`slot-${index}-end`} className="mb-1 block text-xs font-medium text-zinc-700">Ends</label>
+          <input id={`slot-${index}-end`} type="time" required value={slot.endTime} onChange={(e) => onChange({ ...slot, endTime: e.target.value })} className={`${inputClass} w-36`} />
+        </div>
+        {onRemove ? (
+          <button type="button" onClick={onRemove} className={quietButton} aria-label={`Remove time slot ${index + 1}`}>
+            <Trash2 size={14} aria-hidden="true" />
+            Remove
+          </button>
+        ) : null}
+      </div>
+    </fieldset>
+  );
+}
+
 // --------------------------------------------------------------- programmes
 
 function ProgrammeSection({
@@ -502,7 +578,8 @@ function ProgrammeSection({
   onChanged: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", where: "", startTime: "", endTime: "", callInPhone: "" });
+  const [form, setForm] = useState({ name: "", where: "", callInPhone: "" });
+  const [slots, setSlots] = useState<SlotDraft[]>([emptySlot()]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -521,8 +598,7 @@ function ProgrammeSection({
           name: form.name,
           stationId: kind === "station" ? id : null,
           stationInviteId: kind === "invite" ? id : null,
-          startTime: form.startTime || null,
-          endTime: form.endTime || null,
+          schedule: slots,
           callInPhone: form.callInPhone || null,
         }),
       });
@@ -531,7 +607,8 @@ function ProgrammeSection({
           ? `${created.name} is live on NowRJ.`
           : `${created.name} is saved. Listeners will see it once your profile is verified.`,
       );
-      setForm({ name: "", where: "", startTime: "", endTime: "", callInPhone: "" });
+      setForm({ name: "", where: "", callInPhone: "" });
+      setSlots([emptySlot()]);
       setOpen(false);
       await onChanged();
     } catch (err) {
@@ -575,13 +652,22 @@ function ProgrammeSection({
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="p-start" className={labelClass}>Starts</label>
-            <input id="p-start" type="time" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="p-end" className={labelClass}>Ends</label>
-            <input id="p-end" type="time" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} className={inputClass} />
+          <div className="space-y-3 sm:col-span-2">
+            <p className={labelClass}>When it airs *</p>
+            {slots.map((slot, index) => (
+              <SlotEditor
+                key={index}
+                slot={slot}
+                index={index}
+                onChange={(next) => setSlots((all) => all.map((s, i) => (i === index ? next : s)))}
+                onRemove={slots.length > 1 ? () => setSlots((all) => all.filter((_, i) => i !== index)) : undefined}
+              />
+            ))}
+            <button type="button" onClick={() => setSlots((all) => [...all, emptySlot()])} className={quietButton}>
+              <Plus size={14} aria-hidden="true" />
+              Add another time
+            </button>
+            <p className="text-xs text-zinc-500">Use another time slot when the show airs at a different time on other days, for example a weekend edition. An end time before the start means the show runs past midnight.</p>
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="p-call" className={labelClass}>Call-in number for the live show</label>
@@ -643,10 +729,9 @@ function ProgrammeRow({
   }
 
   const airsOn = programme.stationName ?? (programme.invitedStationName ? `${programme.invitedStationName} (invited)` : "—");
-  const time =
-    programme.startTime && programme.endTime
-      ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
-      : "Time not set";
+  const time = programme.schedule.length
+    ? programme.schedule.map((slot) => slot.label).join(" · ")
+    : "Schedule not set";
 
   return (
     <li className="py-3">
@@ -688,6 +773,82 @@ function ProgrammeRow({
         </div>
       ) : null}
       {error ? <Notice kind="error" text={error} /> : null}
+      <ScheduleEditor programme={programme} onChanged={onChanged} />
     </li>
+  );
+}
+
+function ScheduleEditor({ programme, onChanged }: { programme: MyProgramme; onChanged: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<SlotDraft>(emptySlot());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function run(action: () => Promise<unknown>) {
+    setError("");
+    setBusy(true);
+    try {
+      await action();
+      await onChanged();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function add(event: React.FormEvent) {
+    event.preventDefault();
+    const ok = await run(() =>
+      api(`/rjs/me/programmes/${programme.id}/schedule`, { method: "POST", body: JSON.stringify(draft) }),
+    );
+    if (ok) setDraft(emptySlot());
+  }
+
+  function remove(slot: ScheduleSlot) {
+    if (!window.confirm(`Stop the ${slot.label} slot from today? Past shows keep it in their history.`)) return;
+    void run(() => api(`/rjs/me/programmes/${programme.id}/schedule/${slot.id}`, { method: "DELETE" }));
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-2 text-sm font-semibold text-orange-700 hover:underline">
+        Edit schedule
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-xl bg-zinc-50 p-3">
+      {programme.schedule.length ? (
+        <ul className="space-y-1.5">
+          {programme.schedule.map((slot) => (
+            <li key={slot.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm">
+              <span className="text-zinc-900">{slot.label}</span>
+              <button type="button" disabled={busy} onClick={() => remove(slot)} className="inline-flex items-center gap-1 text-sm font-semibold text-red-700 hover:underline disabled:opacity-50">
+                <Trash2 size={14} aria-hidden="true" />
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-zinc-600">No time slots yet.</p>
+      )}
+      <form onSubmit={add} className="mt-3 space-y-2">
+        <SlotEditor slot={draft} index={programme.schedule.length} onChange={setDraft} />
+        <p className="text-xs text-zinc-500">Changes apply from today. To change a time, remove the old slot first, then add the new one.</p>
+        {error ? <Notice kind="error" text={error} /> : null}
+        <div className="flex gap-2">
+          <button type="submit" disabled={busy} className={primaryButton}>
+            {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+            Add time slot
+          </button>
+          <button type="button" onClick={() => { setOpen(false); setError(""); }} className={quietButton}>Done</button>
+        </div>
+      </form>
+    </div>
   );
 }

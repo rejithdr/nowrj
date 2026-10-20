@@ -125,6 +125,7 @@ const databaseStations: {
             rjName: string | null;
             startTime: string | null;
             endTime: string | null;
+            scheduleText?: string | null;
           };
 
           const databaseProgrammes: ApiProgramme[] =
@@ -149,9 +150,10 @@ const databaseRjs = rjResponse.ok ? await rjResponse.json() : [];
       rj.name.toLowerCase() === programme.rjName?.toLowerCase(),
   )?.slug ?? "",
               time:
-                programme.startTime && programme.endTime
+                programme.scheduleText ||
+                (programme.startTime && programme.endTime
                   ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
-                  : "Time not specified",
+                  : "Time not specified"),
             })),
           };
         }

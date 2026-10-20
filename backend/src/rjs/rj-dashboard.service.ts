@@ -14,9 +14,16 @@ import { ProgrammeRj } from '../programme-rj.entity';
 import { ProgrammeOwnership } from '../programme-ownership.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { StationInvite } from '../station-invite.entity';
+import { ProgrammeSchedule } from '../programme-schedule.entity';
+import {
+  describeDays,
+  normaliseSlot,
+  Slot,
+  SlotInput,
+  slotsOverlap,
+} from '../programmes/schedule-rules';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PHONE = /^\+?[0-9][0-9 -]{5,18}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -32,10 +39,34 @@ export type ProgrammeInput = {
   name?: string;
   stationId?: string | null;
   stationInviteId?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
+  /** One or more time slots: days of the week plus start and end time. */
+  schedule?: SlotInput[];
   callInPhone?: string | null;
 };
+
+/** Weekday order: earliest first day, then earliest start time. */
+function bySlotOrder(
+  a: { daysOfWeek: number[]; startTime: string },
+  b: { daysOfWeek: number[]; startTime: string },
+) {
+  return Math.min(...a.daysOfWeek) - Math.min(...b.daysOfWeek) || a.startTime.localeCompare(b.startTime);
+}
+
+function parseSlots(inputs: SlotInput[] | undefined): Slot[] {
+  const slots: Slot[] = [];
+  for (const [index, input] of (inputs ?? []).entries()) {
+    const slot = normaliseSlot(input ?? {});
+    if (typeof slot === 'string') {
+      throw new BadRequestException(inputs!.length > 1 ? `Time slot ${index + 1}: ${slot}` : slot);
+    }
+    const clash = slots.findIndex((other) => slotsOverlap(slot, other));
+    if (clash >= 0) {
+      throw new BadRequestException(`Time slots ${clash + 1} and ${index + 1} overlap.`);
+    }
+    slots.push(slot);
+  }
+  return slots;
+}
 
 /** Today's date in India, as YYYY-MM-DD. */
 export function todayInIndia(now = new Date()): string {
@@ -273,9 +304,26 @@ export class RjDashboardService {
         ownerStationName: string | null;
       }>();
 
+    const slots = rows.length
+      ? await this.dataSource.manager.find(ProgrammeSchedule, {
+          where: rows.map((row) => ({ programmeId: row.id, validTo: IsNull() })),
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+
     return rows.map(({ ownerRjId, ...row }) => ({
       ...row,
       ownedByYou: ownerRjId === rj.id,
+      schedule: slots
+        .filter((slot) => slot.programmeId === row.id)
+        .sort(bySlotOrder)
+        .map((slot) => ({
+          id: slot.id,
+          days: slot.daysOfWeek,
+          startTime: slot.startTime.slice(0, 5),
+          endTime: slot.endTime.slice(0, 5),
+          label: `${describeDays(slot.daysOfWeek)} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}`,
+        })),
     }));
   }
 
@@ -286,8 +334,10 @@ export class RjDashboardService {
    */
   async createProgramme(listenerId: string, input: ProgrammeInput) {
     const name = clean(input.name);
-    const startTime = clean(input.startTime);
-    const endTime = clean(input.endTime);
+    const slots = parseSlots(input.schedule);
+    const [firstSlot] = [...slots].sort((a, b) =>
+      bySlotOrder({ daysOfWeek: a.days, startTime: a.startTime }, { daysOfWeek: b.days, startTime: b.startTime }),
+    );
     const callInPhone = clean(input.callInPhone);
     const stationId = clean(input.stationId);
     const stationInviteId = clean(input.stationInviteId);
@@ -300,11 +350,6 @@ export class RjDashboardService {
     }
     if (Boolean(stationId) === Boolean(stationInviteId)) {
       throw new BadRequestException('Choose your station or one of your station invites.');
-    }
-    for (const [label, value] of [['Start time', startTime], ['End time', endTime]] as const) {
-      if (value && !TIME.test(value)) {
-        throw new BadRequestException(`${label} must be HH:MM.`);
-      }
     }
     checkPhone(callInPhone, 'Call-in number');
 
@@ -340,8 +385,8 @@ export class RjDashboardService {
           name,
           slug,
           rjName: rj.name,
-          startTime,
-          endTime,
+          startTime: firstSlot?.startTime ?? null,
+          endTime: firstSlot?.endTime ?? null,
           callInPhone,
           stationId: stationId ?? null,
           stationInviteId: stationInviteId ?? null,
@@ -354,6 +399,19 @@ export class RjDashboardService {
       );
 
       await manager.save(manager.create(ProgrammeRj, { programmeId: programme.id, rjId: rj.id }));
+
+      for (const slot of slots) {
+        await manager.save(
+          manager.create(ProgrammeSchedule, {
+            programmeId: programme.id,
+            daysOfWeek: slot.days,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            validFrom: todayInIndia(),
+            validTo: null,
+          }),
+        );
+      }
 
       await manager.save(
         manager.create(ProgrammeOwnership, {
@@ -370,20 +428,101 @@ export class RjDashboardService {
     });
   }
 
+  private async assertHost(
+    listenerId: string,
+    programmeId: string,
+    what: string,
+    manager: EntityManager = this.dataSource.manager,
+  ) {
+    const rj = await this.ownRj(listenerId, manager);
+    const hosts = await manager.exists(ProgrammeRj, { where: { programmeId, rjId: rj.id } });
+    if (!hosts) {
+      throw new ForbiddenException(`Only the programme’s hosts can change its ${what}.`);
+    }
+    return rj;
+  }
+
   /** Hosting RJs may change a programme's call-in number. */
   async updateCallIn(listenerId: string, programmeId: string, callInPhoneInput: string | null | undefined) {
     const callInPhone = clean(callInPhoneInput);
     checkPhone(callInPhone, 'Call-in number');
-
-    const rj = await this.ownRj(listenerId);
-    const hosts = await this.dataSource.manager.exists(ProgrammeRj, {
-      where: { programmeId, rjId: rj.id },
-    });
-    if (!hosts) {
-      throw new ForbiddenException('Only the programme’s hosts can change its call-in number.');
-    }
-
+    await this.assertHost(listenerId, programmeId, 'call-in number');
     await this.dataSource.manager.update(Programme, { id: programmeId }, { callInPhone });
     return { id: programmeId, callInPhone };
+  }
+
+  /** Keeps programmes.startTime/endTime (used by older pages) on the first current slot in weekday order. */
+  private async syncProgrammeTimes(manager: EntityManager, programmeId: string) {
+    const [first] = (
+      await manager.find(ProgrammeSchedule, { where: { programmeId, validTo: IsNull() } })
+    ).sort(bySlotOrder);
+    await manager.update(
+      Programme,
+      { id: programmeId },
+      { startTime: first?.startTime ?? null, endTime: first?.endTime ?? null },
+    );
+  }
+
+  /** Adds a time slot from today. It may not overlap the programme's current slots. */
+  async addSlot(listenerId: string, programmeId: string, input: SlotInput) {
+    const [slot] = parseSlots([input ?? {}]);
+
+    return this.dataSource.transaction(async (manager) => {
+      await this.assertHost(listenerId, programmeId, 'schedule', manager);
+      const current = await manager.find(ProgrammeSchedule, {
+        where: { programmeId, validTo: IsNull() },
+      });
+      const clash = current.find((other) =>
+        slotsOverlap(slot, {
+          days: other.daysOfWeek,
+          startTime: other.startTime.slice(0, 5),
+          endTime: other.endTime.slice(0, 5),
+        }),
+      );
+      if (clash) {
+        throw new ConflictException(
+          `This overlaps ${describeDays(clash.daysOfWeek)} ${clash.startTime.slice(0, 5)}–${clash.endTime.slice(0, 5)}. Remove that slot first.`,
+        );
+      }
+
+      const saved = await manager.save(
+        manager.create(ProgrammeSchedule, {
+          programmeId,
+          daysOfWeek: slot.days,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          validFrom: todayInIndia(),
+          validTo: null,
+        }),
+      );
+      await this.syncProgrammeTimes(manager, programmeId);
+      return { id: saved.id, label: `${describeDays(slot.days)} ${slot.startTime}–${slot.endTime}` };
+    });
+  }
+
+  /**
+   * Stops a time slot from today. A slot added today is simply removed;
+   * an older one is kept as history with yesterday as its last day.
+   */
+  async endSlot(listenerId: string, programmeId: string, slotId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      await this.assertHost(listenerId, programmeId, 'schedule', manager);
+      const slot = await manager.findOne(ProgrammeSchedule, {
+        where: { id: slotId, programmeId, validTo: IsNull() },
+      });
+      if (!slot) {
+        throw new NotFoundException('Time slot not found.');
+      }
+
+      const today = todayInIndia();
+      if (slot.validFrom >= today) {
+        await manager.delete(ProgrammeSchedule, { id: slot.id });
+      } else {
+        slot.validTo = dayBefore(today);
+        await manager.save(slot);
+      }
+      await this.syncProgrammeTimes(manager, programmeId);
+      return { id: slot.id, ended: true };
+    });
   }
 }

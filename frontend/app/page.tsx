@@ -30,6 +30,7 @@ type ApiProgramme = {
   isActive: boolean;
   stationId: string | null;
   callInPhone?: string | null;
+  scheduleText?: string | null;
 };
 
 type ApiStation = {
@@ -260,9 +261,10 @@ export default async function Home() {
         rjs: assignedRjs,
         station: station?.name ?? "Station not assigned",
         time:
-          programme.startTime && programme.endTime
+          programme.scheduleText ??
+          (programme.startTime && programme.endTime
             ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
-            : "Schedule not set",
+            : "Schedule not set"),
         initials: (programme.rjName ?? programme.name).charAt(0).toUpperCase(),
         contactNumber: programme.callInPhone ?? "",
       };

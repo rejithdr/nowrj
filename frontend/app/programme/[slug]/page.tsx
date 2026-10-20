@@ -86,7 +86,8 @@ export default async function ProgrammePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  let programme = programmes[slug as keyof typeof programmes];
+  // The database wins; the sample programmes are only a fallback.
+  let programme: (typeof programmes)[keyof typeof programmes] | undefined;
 
   if (!programme) {
     try {
@@ -103,6 +104,7 @@ export default async function ProgrammePage({
           startTime: string | null;
           endTime: string | null;
           stationId: string;
+          scheduleText?: string | null;
         }[] = await response.json();
 
         const databaseProgramme = databaseProgrammes.find(
@@ -148,13 +150,14 @@ export default async function ProgrammePage({
                   .filter(Boolean)
                   .join(", ")
               : "Location unavailable",
-            schedule: "Programme schedule",
+            schedule: databaseProgramme.scheduleText || "Schedule not set",
             time:
-              databaseProgramme.startTime && databaseProgramme.endTime
+              databaseProgramme.scheduleText ||
+              (databaseProgramme.startTime && databaseProgramme.endTime
                 ? databaseProgramme.startTime.slice(0, 5) +
                   "–" +
                   databaseProgramme.endTime.slice(0, 5)
-                : "Time not specified",
+                : "Time not specified"),
             description: "Discover " + databaseProgramme.name + " on NowRJ.",
           };
         }
@@ -184,6 +187,8 @@ export default async function ProgrammePage({
       // Keep RJ profile links hidden if the active-RJ list cannot be checked.
     }
   }
+
+  programme ??= programmes[slug as keyof typeof programmes];
 
   if (!programme) {
     return (
@@ -304,10 +309,12 @@ export default async function ProgrammePage({
                 <p className="font-semibold text-zinc-900">
                   {programme.schedule}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">
-                  Sample information only. Actual broadcast timings will be
-                  added when schedules are connected.
-                </p>
+                {programme.time === "Sample schedule" && (
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Sample information only. Actual broadcast timings will be
+                    added when schedules are connected.
+                  </p>
+                )}
               </div>
             </div>
           </div>

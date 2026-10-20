@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { RjDashboardService } from './rj-dashboard.service';
+import type { SlotInput } from '../programmes/schedule-rules';
 import type {
   InviteInput,
   ProgrammeInput,
@@ -57,6 +59,24 @@ export class RjDashboardController {
   @Post('programmes')
   createProgramme(@Req() req: Request, @Body() body: ProgrammeInput) {
     return this.dashboard.createProgramme(listenerId(req), body ?? {});
+  }
+
+  @Post('programmes/:id/schedule')
+  addSlot(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: SlotInput,
+  ) {
+    return this.dashboard.addSlot(listenerId(req), id, body ?? {});
+  }
+
+  @Delete('programmes/:id/schedule/:slotId')
+  endSlot(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('slotId', ParseUUIDPipe) slotId: string,
+  ) {
+    return this.dashboard.endSlot(listenerId(req), id, slotId);
   }
 
   @Patch('programmes/:id/call-in')
