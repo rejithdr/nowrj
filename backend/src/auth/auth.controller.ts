@@ -50,10 +50,11 @@ export class AuthController {
 
         const returnTo = (req as RequestWithReturnTo).nowrjReturnTo;
 
+        const site = (process.env.FRONTEND_URL ?? 'http://localhost:3001').split(',')[0].trim();
         return res.redirect(
           returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')
-            ? `http://localhost:3001${returnTo}`
-            : 'http://localhost:3001',
+            ? `${site}${returnTo}`
+            : site,
         );
       });
     } catch {

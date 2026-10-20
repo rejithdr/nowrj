@@ -1,9 +1,10 @@
 ﻿"use client";
+import { API_URL } from "../../lib/config";
 
 import { useEffect, useState } from "react";
 import { readReferral } from "../../lib/referral";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 type RjProfile = {
   id: string;

@@ -1,10 +1,11 @@
 "use client";
+import { API_URL } from "./lib/config";
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { claimReferralIfAny } from "./lib/referral";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 type Me = {
   displayName: string | null;

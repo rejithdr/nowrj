@@ -1,3 +1,4 @@
+import { SERVER_API_URL } from "../../lib/config";
 
 import Link from "next/link";
 import { ArrowLeft, Radio, Clock } from "lucide-react";
@@ -91,7 +92,7 @@ export default async function ProgrammePage({
 
   if (!programme) {
     try {
-      const response = await fetch("http://localhost:3000/programmes", {
+      const response = await fetch(`${SERVER_API_URL}/programmes`, {
         cache: "no-store",
       });
 
@@ -113,7 +114,7 @@ export default async function ProgrammePage({
 
         if (databaseProgramme) {
           const stationResponse = await fetch(
-            "http://localhost:3000/stations",
+            `${SERVER_API_URL}/stations`,
             { cache: "no-store" },
           );
 
@@ -129,7 +130,7 @@ export default async function ProgrammePage({
             (item) => item.id === databaseProgramme.stationId,
           );
 
-          const rjResponse = await fetch("http://localhost:3000/rjs");
+          const rjResponse = await fetch(`${SERVER_API_URL}/rjs`);
           const databaseRjs: { name: string; slug: string }[] =
             rjResponse.ok ? await rjResponse.json() : [];
 
@@ -171,7 +172,7 @@ export default async function ProgrammePage({
 
   if (programme?.rjSlug) {
     try {
-      const activeRjsResponse = await fetch("http://localhost:3000/rjs", {
+      const activeRjsResponse = await fetch(`${SERVER_API_URL}/rjs`, {
         cache: "no-store",
       });
 

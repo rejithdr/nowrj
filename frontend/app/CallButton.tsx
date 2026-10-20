@@ -1,8 +1,9 @@
 "use client";
+import { API_URL } from "./lib/config";
 
 import { Mic, Phone } from "lucide-react";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 /** A random id kept in this browser so signed-out taps can be counted once per device. */
 function deviceId(): string | null {

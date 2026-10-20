@@ -1,4 +1,5 @@
 'use client';
+import { API_URL } from "../lib/config";
 
 import { useState } from 'react';
 
@@ -7,7 +8,7 @@ export default function LogoutTestPage() {
 
   async function checkSession() {
     try {
-      const response = await fetch('http://localhost:3000/auth/me', {
+      const response = await fetch(`${API_URL}/auth/me`, {
         credentials: 'include',
       });
 
@@ -24,7 +25,7 @@ export default function LogoutTestPage() {
 
   async function logout() {
     try {
-      const response = await fetch('http://localhost:3000/auth/logout', {
+      const response = await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });

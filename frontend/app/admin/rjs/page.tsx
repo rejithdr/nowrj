@@ -1,5 +1,6 @@
 
 "use client";
+import { API_URL } from "../../lib/config";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -19,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 type RJ = {
   id: string;

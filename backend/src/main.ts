@@ -7,6 +7,18 @@ import passport from 'passport';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const production = process.env.NODE_ENV === 'production';
+
+  // Where the website lives (comma-separated if more than one).
+  const frontendUrls = (process.env.FRONTEND_URL ?? 'http://localhost:3001')
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  // Behind nginx in production: trust it so secure cookies work over HTTPS.
+  if (production) {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
 
   const sessionSecret = process.env.SESSION_SECRET;
   if (!sessionSecret) {
@@ -24,7 +36,7 @@ async function bootstrap() {
   const PgSession = connectPgSimple(session);
 
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: frontendUrls,
     credentials: true,
   });
 
@@ -40,7 +52,7 @@ async function bootstrap() {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: false,
+        secure: production,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },

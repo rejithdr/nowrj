@@ -1,5 +1,6 @@
 
 "use client";
+import { API_URL } from "./lib/config";
 
 import { useEffect, useState } from "react";
 
@@ -25,10 +26,10 @@ export default function HomeReactionSummary({
     async function loadSummary() {
       try {
         const [countsResponse, statusResponse] = await Promise.all([
-          fetch(`http://localhost:3000/reactions/rj/${rjId}/counts`, {
+          fetch(`${API_URL}/reactions/rj/${rjId}/counts`, {
             cache: "no-store",
           }),
-          fetch(`http://localhost:3000/reactions/rj/${rjId}/status`, {
+          fetch(`${API_URL}/reactions/rj/${rjId}/status`, {
             credentials: "include",
             cache: "no-store",
           }),

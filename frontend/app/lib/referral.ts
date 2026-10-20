@@ -1,7 +1,8 @@
+import { API_URL } from "./config";
 /** Remembers which RJ's referral link brought this visitor, for 30 days. */
 const KEY = "nowrjRef";
 const MAX_AGE_MS = 30 * 24 * 3600 * 1000;
-const API = "http://localhost:3000";
+const API = API_URL;
 
 export function saveReferral(code: string) {
   try {

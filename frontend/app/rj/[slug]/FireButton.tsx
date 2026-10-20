@@ -1,5 +1,6 @@
 
 "use client";
+import { API_URL } from "../../lib/config";
 
 import { useEffect, useState } from "react";
 import { Flame } from "lucide-react";
@@ -24,7 +25,7 @@ useEffect(() => {
   async function loadFireStatus() {
     try {
       const authResponse = await fetch(
-        "http://localhost:3000/auth/me",
+        `${API_URL}/auth/me`,
         { credentials: "include" },
       );
 
@@ -36,7 +37,7 @@ useEffect(() => {
       setIsSignedIn(true);
 
       const statusResponse = await fetch(
-        `http://localhost:3000/reactions/rj/${rjId}/status`,
+        `${API_URL}/reactions/rj/${rjId}/status`,
         { credentials: "include" },
       );
 
@@ -67,7 +68,7 @@ useEffect(() => {
 
   if (!isSignedIn) {
     sessionStorage.setItem("nowrjReturnTo", window.location.pathname);
-window.location.href = "http://localhost:3000/auth/google";
+window.location.href = `${API_URL}/auth/google`;
     return;
   }
 
@@ -75,7 +76,7 @@ window.location.href = "http://localhost:3000/auth/google";
 
   try {
     const response = await fetch(
-      `http://localhost:3000/reactions/rj/${rjId}?type=fire`,
+      `${API_URL}/reactions/rj/${rjId}?type=fire`,
       {
         method: isFired ? "DELETE" : "POST",
         credentials: "include",
@@ -84,7 +85,7 @@ window.location.href = "http://localhost:3000/auth/google";
 
     if (response.status === 401) {
   sessionStorage.setItem("nowrjReturnTo", window.location.pathname);
-  window.location.href = "http://localhost:3000/auth/google";
+  window.location.href = `${API_URL}/auth/google`;
   return;
 }
 

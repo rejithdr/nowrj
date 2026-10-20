@@ -1,7 +1,8 @@
 "use client";
+import { API_URL } from "./config";
 
 /** Small shared pieces for the signed-in dashboards. */
-export const API = "http://localhost:3000";
+export const API = API_URL;
 
 export const inputClass =
   "min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-zinc-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100";

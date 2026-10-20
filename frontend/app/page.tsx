@@ -1,5 +1,7 @@
+import { SERVER_API_URL } from "./lib/config";
 
 import Link from "next/link";
+import { connection } from "next/server";
 import LikeButton from "./rj/[slug]/LikeButton";
 import FireButton from "./rj/[slug]/FireButton";
 import AuthControls from "./AuthControls";
@@ -134,6 +136,8 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
 }
 
 export default async function Home() {
+  // Live shows depend on the current time, so this page is rendered on every visit.
+  await connection();
   let databaseProgrammes: ApiProgramme[] = [];
   let databaseStations: ApiStation[] = [];
   let databaseRjs: ApiRj[] = [];
@@ -148,10 +152,10 @@ export default async function Home() {
   try {
     const [programmeResponse, stationResponse, rjResponse, showsResponse] =
       await Promise.all([
-        fetch("http://localhost:3000/programmes", { cache: "no-store" }),
-        fetch("http://localhost:3000/stations", { cache: "no-store" }),
-        fetch("http://localhost:3000/rjs", { cache: "no-store" }),
-        fetch("http://localhost:3000/shows/now", { cache: "no-store" }),
+        fetch(`${SERVER_API_URL}/programmes`, { cache: "no-store" }),
+        fetch(`${SERVER_API_URL}/stations`, { cache: "no-store" }),
+        fetch(`${SERVER_API_URL}/rjs`, { cache: "no-store" }),
+        fetch(`${SERVER_API_URL}/shows/now`, { cache: "no-store" }),
       ]);
 
     if (showsResponse.ok) {

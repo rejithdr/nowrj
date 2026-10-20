@@ -1,3 +1,4 @@
+import { SERVER_API_URL } from "../../lib/config";
 
 import Link from "next/link";
 import { ArrowLeft, Radio, Clock } from "lucide-react";
@@ -81,14 +82,14 @@ export default async function RJProfilePage({
   if (!profile) {
   try {
     const response = await fetch(
-      `http://localhost:3000/rjs/${slug}`,
+      `${SERVER_API_URL}/rjs/${slug}`,
     );
 
     if (response.ok) {
       const rj = await response.json();
 
       const stationsResponse = await fetch(
-        'http://localhost:3000/stations',
+        `${SERVER_API_URL}/stations`,
       );
       const stations = stationsResponse.ok
         ? await stationsResponse.json()
@@ -98,7 +99,7 @@ export default async function RJProfilePage({
         (item: { id: string }) => item.id === rj.stationId,
       );
 const programmeResponse = await fetch(
-  'http://localhost:3000/programmes',
+  `${SERVER_API_URL}/programmes`,
 );
 const programmes = programmeResponse.ok
   ? await programmeResponse.json()

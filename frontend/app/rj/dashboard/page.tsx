@@ -1,4 +1,5 @@
 "use client";
+import { API_URL } from "../../lib/config";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -22,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 type RjProfile = {
   id: string;

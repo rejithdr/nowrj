@@ -1,5 +1,6 @@
 
 "use client";
+import { API_URL } from "../../lib/config";
 
 import { useEffect, useState } from "react";
 
@@ -23,7 +24,7 @@ export default function FollowButton({ rjId }: FollowButtonProps) {
     async function loadFollowStatus() {
       try {
         const authResponse = await fetch(
-          "http://localhost:3000/auth/me",
+          `${API_URL}/auth/me`,
           { credentials: "include" },
         );
 
@@ -35,7 +36,7 @@ export default function FollowButton({ rjId }: FollowButtonProps) {
         setIsSignedIn(true);
 
         const statusResponse = await fetch(
-          `http://localhost:3000/follows/${rjId}/status`,
+          `${API_URL}/follows/${rjId}/status`,
           { credentials: "include" },
         );
 
@@ -66,7 +67,7 @@ export default function FollowButton({ rjId }: FollowButtonProps) {
     }
 
     if (!isSignedIn) {
-      window.location.href = "http://localhost:3000/auth/google";
+      window.location.href = `${API_URL}/auth/google`;
       return;
     }
 
@@ -74,7 +75,7 @@ export default function FollowButton({ rjId }: FollowButtonProps) {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/follows/${rjId}`,
+        `${API_URL}/follows/${rjId}`,
         {
           method: isFollowing ? "DELETE" : "POST",
           credentials: "include",
@@ -82,7 +83,7 @@ export default function FollowButton({ rjId }: FollowButtonProps) {
       );
 
       if (response.status === 401) {
-        window.location.href = "http://localhost:3000/auth/google";
+        window.location.href = `${API_URL}/auth/google`;
         return;
       }
 

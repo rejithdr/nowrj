@@ -1,5 +1,6 @@
 
 "use client";
+import { API_URL } from "../lib/config";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -168,9 +169,9 @@ useEffect(() => {
   async function loadData() {
     const [stationResult, rjResult, programmeResult] =
       await Promise.allSettled([
-        fetch("http://localhost:3000/stations"),
-        fetch("http://localhost:3000/rjs"),
-        fetch("http://localhost:3000/programmes"),
+        fetch(`${API_URL}/stations`),
+        fetch(`${API_URL}/rjs`),
+        fetch(`${API_URL}/programmes`),
       ]);
 
     if (cancelled) return;

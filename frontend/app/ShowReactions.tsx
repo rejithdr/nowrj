@@ -1,9 +1,10 @@
 "use client";
+import { API_URL } from "./lib/config";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { Flame, Heart } from "lucide-react";
 
-const API = "http://localhost:3000";
+const API = API_URL;
 
 type Status = Record<string, { liked: boolean; fired: boolean }>;
 type Ctx = { signedIn: boolean | null; status: Status };

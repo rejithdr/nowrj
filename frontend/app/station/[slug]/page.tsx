@@ -1,3 +1,4 @@
+import { SERVER_API_URL } from "../../lib/config";
 
 import Link from "next/link";
 import { ArrowLeft, Radio, MapPin } from "lucide-react";
@@ -93,7 +94,7 @@ export default async function StationPage({
 
   if (!station) {
     try {
-      const response = await fetch("http://localhost:3000/stations", {
+      const response = await fetch(`${SERVER_API_URL}/stations`, {
         cache: "no-store",
       });
 
@@ -114,7 +115,7 @@ const databaseStations: {
 
         if (databaseStation) {
           const programmeResponse = await fetch(
-            `http://localhost:3000/programmes/station/${databaseStation.id}`,
+            `${SERVER_API_URL}/programmes/station/${databaseStation.id}`,
             { cache: "no-store" },
           );
 
@@ -131,7 +132,7 @@ const databaseStations: {
           const databaseProgrammes: ApiProgramme[] =
             programmeResponse.ok ? await programmeResponse.json() : [];
 
-            const rjResponse = await fetch('http://localhost:3000/rjs');
+            const rjResponse = await fetch(`${SERVER_API_URL}/rjs`);
 const databaseRjs = rjResponse.ok ? await rjResponse.json() : [];
           station = {
             name: databaseStation.name,
