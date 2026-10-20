@@ -31,12 +31,6 @@ export default function AuthControls() {
     window.location.replace(returnTo);
     return;
   }
-
-if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
-  sessionStorage.removeItem("nowrjReturnTo");
-  window.location.replace(returnTo);
-  return;
-}
         } else {
           setListener(null);
         }

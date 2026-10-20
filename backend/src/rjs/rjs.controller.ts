@@ -11,14 +11,16 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { RjsService } from './rjs.service';
+import { toPublicRj } from './public-rj';
 
 @Controller('rjs')
 export class RjsController {
   constructor(private readonly rjsService: RjsService) {}
 
   @Get()
-  findAll() {
-    return this.rjsService.findAll();
+  async findAll() {
+    const rjs = await this.rjsService.findAll();
+    return rjs.map(toPublicRj);
   }
 
   @Get('me')
@@ -71,7 +73,8 @@ export class RjsController {
   }
 
   @Get(':slug')
-  findBySlug(@Param('slug') slug: string) {
-    return this.rjsService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string) {
+    const rj = await this.rjsService.findBySlug(slug);
+    return rj ? toPublicRj(rj) : null;
   }
 }

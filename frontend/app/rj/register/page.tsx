@@ -32,6 +32,7 @@ export default function RjRegisterPage() {
         });
 
         if (authResponse.status === 401) {
+          sessionStorage.setItem("nowrjReturnTo", "/rj/register");
           window.location.href = `${API}/auth/google?returnTo=%2Frj%2Fregister`;
           return;
         }
@@ -93,6 +94,7 @@ export default function RjRegisterPage() {
       });
 
       if (response.status === 401) {
+        sessionStorage.setItem("nowrjReturnTo", "/rj/register");
         window.location.href = `${API}/auth/google?returnTo=%2Frj%2Fregister`;
         return;
       }

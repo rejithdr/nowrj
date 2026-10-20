@@ -8,36 +8,26 @@ import {
   UnauthorizedException,
   Post,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { AuthService, GoogleProfile } from './auth.service';
-
-type SessionWithReturnTo = Request['session'] & {
-  returnTo?: string;
-};
+import {
+  GoogleAuthGuard,
+  type RequestWithReturnTo,
+} from './guards/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  googleLogin(@Req() req: Request) {
-    const returnTo = req.query.returnTo;
-
-    if (
-      typeof returnTo === 'string' &&
-      returnTo.startsWith('/') &&
-      !returnTo.startsWith('//') &&
-      !returnTo.includes('\\') &&
-      !returnTo.includes('://')
-    ) {
-      (req.session as SessionWithReturnTo).returnTo = returnTo;
-    }
+  @UseGuards(GoogleAuthGuard)
+  googleLogin() {
+    // GoogleAuthGuard saves returnTo and redirects to Google;
+    // this handler is never reached on the outbound request.
   }
 
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleAuthGuard)
   async googleCallback(
     @Req() req: Request,
     @Res() res: Response,
@@ -52,9 +42,7 @@ export class AuthController {
           return res.status(500).send('Unable to create login session.');
         }
 
-        const session = req.session as SessionWithReturnTo;
-        const returnTo = session.returnTo;
-        delete session.returnTo;
+        const returnTo = (req as RequestWithReturnTo).nowrjReturnTo;
 
         return res.redirect(
           returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')

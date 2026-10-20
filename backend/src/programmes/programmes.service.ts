@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Programme } from '../programme.entity';
 import { ProgrammeRj } from '../programme-rj.entity';
+import { toPublicRj } from '../rjs/public-rj';
 
 @Injectable()
 export class ProgrammesService {
@@ -51,7 +52,7 @@ export class ProgrammesService {
     return programmes.map((programme) => ({
       ...programme,
       rjs: (rjsByProgramme.get(programme.id) ?? []).map(
-        (assignment) => assignment.rj,
+        (assignment) => toPublicRj(assignment.rj),
       ),
     }));
   }
