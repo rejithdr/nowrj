@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ShowReactions from "./ShowReactions";
 import CallButton from "./CallButton";
+import SongRequestButton from "./SongRequestButton";
 
 export type ApiShow = {
   id: string;
@@ -99,6 +100,7 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
         {kind === "live" && show.programme.callInPhone ? (
           <CallButton showId={show.id} phone={show.programme.callInPhone} />
         ) : null}
+        {kind !== "recent" ? <SongRequestButton showId={show.id} programmeName={show.programme.name} /> : null}
       </div>
     </article>
   );

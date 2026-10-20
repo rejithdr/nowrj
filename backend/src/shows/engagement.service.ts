@@ -20,9 +20,10 @@ type ShowRow = {
   fires: number;
   callTaps: number;
   callers: number;
+  songRequests: number;
 };
 
-type Totals = { likes: number; fires: number; callTaps: number; callers: number; shows: number };
+type Totals = { likes: number; fires: number; callTaps: number; callers: number; songRequests: number; shows: number };
 
 /**
  * Engagement numbers. "Callers" counts distinct people who tapped Call:
@@ -64,7 +65,8 @@ export class EngagementService {
              (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'fire') AS fires,
              (SELECT count(*)::int FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS "callTaps",
              (SELECT count(DISTINCT COALESCE(e."listenerId"::text, e."deviceId"))::int
-                FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS callers
+                FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS callers,
+             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id) AS "songRequests"
       FROM show_occurrences o
       JOIN programmes p ON p.id = o."programmeId"
       WHERE ${filterSql}
@@ -86,6 +88,7 @@ export class EngagementService {
       fires: inRange.reduce((n, r) => n + r.fires, 0),
       callTaps: inRange.reduce((n, r) => n + r.callTaps, 0),
       callers: inRange.reduce((n, r) => n + r.callers, 0),
+      songRequests: inRange.reduce((n, r) => n + r.songRequests, 0),
     };
   }
 

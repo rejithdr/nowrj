@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EngagementPanel from "../../lib/engagement";
+import SongQueue from "../../lib/song-queue";
 import {
   ArrowLeft,
   Check,
@@ -248,6 +249,10 @@ export default function RjDashboardPage() {
         </header>
 
         {pageError ? <Notice kind="error" text={pageError} /> : null}
+
+        <Section title="Song requests">
+          <SongQueue />
+        </Section>
 
         <Section title="Your engagement">
           <EngagementPanel path="/shows/engagement/rj" showHosts={false} />

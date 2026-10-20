@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -14,6 +15,8 @@ import {
 import type { Request } from 'express';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
+import { SongRequestsService } from './song-requests.service';
+import type { SongRequestInput } from './song-requests.service';
 import type { ReactionType } from './shows.service';
 
 function listenerId(req: Request): string {
@@ -35,7 +38,33 @@ export class ShowsController {
   constructor(
     private readonly shows: ShowsService,
     private readonly engagement: EngagementService,
+    private readonly songRequests: SongRequestsService,
   ) {}
+
+  /** The signed-in RJ's request queue for live and upcoming shows. */
+  @Get('song-requests/rj')
+  rjSongRequests(@Req() req: Request) {
+    return this.songRequests.forRj(listenerId(req));
+  }
+
+  @Patch('song-requests/:requestId')
+  setSongRequestStatus(
+    @Req() req: Request,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() body: { status?: string },
+  ) {
+    return this.songRequests.setStatus(listenerId(req), requestId, body?.status);
+  }
+
+  @Post(':id/song-requests')
+  requestSong(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: SongRequestInput) {
+    return this.songRequests.create(listenerId(req), id, body ?? {});
+  }
+
+  @Get(':id/song-requests/mine')
+  mySongRequests(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.songRequests.mine(listenerId(req), id);
+  }
 
   /** A tap on the show's Call button. Works signed out (device id) or signed in. */
   @Post(':id/call-tap')

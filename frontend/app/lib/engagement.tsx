@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, Notice } from "./ui";
 
-type Totals = { shows: number; likes: number; fires: number; callTaps: number; callers: number };
+type Totals = { shows: number; likes: number; fires: number; callTaps: number; callers: number; songRequests: number };
 type ShowRow = {
   id: string;
   airDate: string;
@@ -16,6 +16,7 @@ type ShowRow = {
   fires: number;
   callTaps: number;
   callers: number;
+  songRequests: number;
   live: boolean;
 };
 type Engagement = {
@@ -78,7 +79,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
       <p className="text-sm text-zinc-600">
         Last 7 days · {w.shows} show{w.shows === 1 ? "" : "s"} aired
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {data.followers ? (
           <Tile
             label="Followers"
@@ -89,6 +90,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
         <Tile label="Likes" value={w.likes} note={change(w.likes, p.likes)} />
         <Tile label="Fires" value={w.fires} note={change(w.fires, p.fires)} />
         <Tile label="Call taps" value={w.callTaps} note={change(w.callTaps, p.callTaps)} />
+        <Tile label="Song requests" value={w.songRequests} note={change(w.songRequests, p.songRequests)} />
         {!data.followers ? <Tile label="Shows aired" value={w.shows} note={change(w.shows, p.shows)} /> : null}
       </div>
       <p className="mt-2 text-xs text-zinc-500">
@@ -100,7 +102,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
         <p className="mt-2 text-sm text-zinc-600">No shows have aired yet. Shows appear here once they start.</p>
       ) : (
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full min-w-[32rem] text-left text-sm">
+          <table className="w-full min-w-[36rem] text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th scope="col" className="py-2 pr-3 font-semibold">Show</th>
@@ -108,7 +110,8 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Likes</th>
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Fires</th>
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Call taps</th>
-                <th scope="col" className="py-2 text-right font-semibold">Callers</th>
+                <th scope="col" className="py-2 pr-3 text-right font-semibold">Callers</th>
+                <th scope="col" className="py-2 text-right font-semibold">Requests</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -127,7 +130,8 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                   <td className="py-2 pr-3 text-right tabular-nums">{row.likes}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.fires}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.callTaps}</td>
-                  <td className="py-2 text-right tabular-nums">{row.callers}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{row.callers}</td>
+                  <td className="py-2 text-right tabular-nums">{row.songRequests}</td>
                 </tr>
               ))}
             </tbody>
