@@ -37,12 +37,26 @@ export class Programme {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @ManyToOne(() => Station, { onDelete: 'CASCADE' })
+  /** The station it airs on; empty while it waits on a station invite. */
+  @ManyToOne(() => Station, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'stationId' })
-  station: Station;
+  station: Station | null;
 
-  @Column({ type: 'uuid' })
-  stationId: string;
+  @Column({ type: 'uuid', nullable: true })
+  stationId: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  stationInviteId: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  createdByRjId: string | null;
+
+  /** Current owner: exactly one of ownerRjId / ownerStationId is set. */
+  @Column({ type: 'uuid', nullable: true })
+  ownerRjId: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  ownerStationId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
