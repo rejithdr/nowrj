@@ -60,4 +60,14 @@ export class RjsAdminController {
   ) {
     return this.rjsService.setActiveForAdmin(id, data.isActive);
   }
+    @Patch(':id/verification')
+  setVerification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() data: { verificationStatus: 'verified' | 'rejected' },
+  ) {
+    return this.rjsService.setVerificationForAdmin(
+      id,
+      data.verificationStatus,
+    );
+  }
 }

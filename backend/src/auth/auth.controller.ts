@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -5,11 +6,15 @@ import {
   Req,
   Res,
   UnauthorizedException,
-    Post,
+  Post,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { AuthService, GoogleProfile } from './auth.service';
+
+type SessionWithReturnTo = Request['session'] & {
+  returnTo?: string;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -17,7 +22,19 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleLogin() {}
+  googleLogin(@Req() req: Request) {
+    const returnTo = req.query.returnTo;
+
+    if (
+      typeof returnTo === 'string' &&
+      returnTo.startsWith('/') &&
+      !returnTo.startsWith('//') &&
+      !returnTo.includes('\\') &&
+      !returnTo.includes('://')
+    ) {
+      (req.session as SessionWithReturnTo).returnTo = returnTo;
+    }
+  }
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
@@ -35,12 +52,21 @@ export class AuthController {
           return res.status(500).send('Unable to create login session.');
         }
 
-        return res.redirect('http://localhost:3001');
+        const session = req.session as SessionWithReturnTo;
+        const returnTo = session.returnTo;
+        delete session.returnTo;
+
+        return res.redirect(
+          returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')
+            ? `http://localhost:3001${returnTo}`
+            : 'http://localhost:3001',
+        );
       });
     } catch {
       return res.status(500).send('Google sign-in failed.');
     }
   }
+
   @Post('logout')
   async logout(
     @Req() req: Request,
@@ -61,6 +87,7 @@ export class AuthController {
       });
     });
   }
+
   @Get('me')
   getCurrentListener(@Req() req: Request) {
     if (!req.isAuthenticated()) {

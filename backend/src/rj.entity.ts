@@ -6,11 +6,26 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  RelationId,
 } from 'typeorm';
 import { Station } from './station.entity';
+import { Listener } from './listener.entity';
 
 @Entity('rjs')
 export class Rj {
+  @ManyToOne(() => Listener, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'ownerListenerId' })
+  ownerListener: Listener | null;
+
+  @RelationId((rj: Rj) => rj.ownerListener)
+  ownerListenerId: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  verificationStatus: string;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
