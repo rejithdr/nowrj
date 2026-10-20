@@ -6,12 +6,14 @@ import { StationInvite } from '../station-invite.entity';
 import { RjsController } from './rjs.controller';
 import { RjsService } from './rjs.service';
 import { RjsAdminController } from './rjs-admin.controller';
+import { RjDashboardController } from './rj-dashboard.controller';
+import { RjDashboardService } from './rj-dashboard.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
  imports: [TypeOrmModule.forFeature([Rj, RjStationAffiliation, StationInvite]), AuthModule],
-  controllers: [RjsController, RjsAdminController],
-  providers: [RjsService],
+  controllers: [RjDashboardController, RjsController, RjsAdminController],
+  providers: [RjsService, RjDashboardService],
   exports: [RjsService],
 })
 export class RjsModule {}

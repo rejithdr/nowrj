@@ -30,6 +30,7 @@ type RJ = {
   photoUrl: string | null;
   isActive: boolean;
   stationId: string | null;
+  verificationStatus?: string;
 };
 
 type Station = {
@@ -76,6 +77,11 @@ async function readError(response: Response): Promise<string> {
     return "Access denied. This account does not have superadmin access.";
   }
   return `Request failed (${response.status}). Please try again.`;
+}
+
+/** Self-registered RJs waiting for a decision, or rejected ones that can be reconsidered. */
+function needsReview(rj: RJ) {
+  return rj.verificationStatus === "pending" || rj.verificationStatus === "rejected";
 }
 
 function slugify(value: string) {
@@ -282,6 +288,41 @@ export default function AdminRJsPage() {
       setFormError("Could not connect to the backend. Check that it is running.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function setVerification(rj: RJ, verificationStatus: "verified" | "rejected") {
+    const confirmed = window.confirm(
+      verificationStatus === "verified"
+        ? `Verify ${rj.name}? Their profile and programmes will become visible to listeners.`
+        : `Reject ${rj.name}? Their profile and programmes stay hidden.`,
+    );
+    if (!confirmed) return;
+
+    setChangingId(rj.id);
+    setPageError("");
+    setNotice("");
+
+    try {
+      const response = await fetch(`${API}/admin/rjs/${rj.id}/verification`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationStatus }),
+      });
+
+      if (!response.ok) {
+        setPageError(await readError(response));
+        setAccessDenied(response.status === 401 || response.status === 403);
+        return;
+      }
+
+      setNotice(`${rj.name} has been ${verificationStatus === "verified" ? "verified" : "rejected"}.`);
+      await loadData();
+    } catch {
+      setPageError("Could not connect to the backend. Check that it is running.");
+    } finally {
+      setChangingId(null);
     }
   }
 
@@ -730,6 +771,11 @@ export default function AdminRJsPage() {
                               <span className={`h-1.5 w-1.5 rounded-full ${rj.isActive ? "bg-emerald-500" : "bg-zinc-400"}`} />
                               {rj.isActive ? "Active" : "Inactive"}
                             </span>
+                            {needsReview(rj) && (
+                              <span className="mt-1.5 flex w-fit items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
+                                {rj.verificationStatus === "rejected" ? "Rejected" : "Awaiting verification"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center justify-end gap-2">
@@ -741,6 +787,29 @@ export default function AdminRJsPage() {
                                 <Pencil size={14} />
                                 Edit
                               </button>
+                              {needsReview(rj) ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={changingId === rj.id}
+                                    onClick={() => void setVerification(rj, "verified")}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                  >
+                                    <ShieldCheck size={14} />
+                                    {changingId === rj.id ? "Please wait…" : "Verify"}
+                                  </button>
+                                  {rj.verificationStatus !== "rejected" && (
+                                    <button
+                                      type="button"
+                                      disabled={changingId === rj.id}
+                                      onClick={() => void setVerification(rj, "rejected")}
+                                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                      Reject
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
                               <button
                                 type="button"
                                 disabled={changingId === rj.id}
@@ -749,6 +818,7 @@ export default function AdminRJsPage() {
                               >
                                 {changingId === rj.id ? "Please wait…" : rj.isActive ? "Deactivate" : "Activate"}
                               </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -782,6 +852,11 @@ export default function AdminRJsPage() {
                             <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rj.isActive ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>
                               {rj.isActive ? "Active" : "Inactive"}
                             </span>
+                            {needsReview(rj) && (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800">
+                                {rj.verificationStatus === "rejected" ? "Rejected" : "Awaiting verification"}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 break-all text-xs text-zinc-500">/rj/{rj.slug}</p>
                           <p className="mt-2 break-words text-sm text-zinc-700">{rj.email || "No email"}</p>
@@ -801,6 +876,28 @@ export default function AdminRJsPage() {
                           <Pencil size={15} />
                           Edit
                         </button>
+                        {needsReview(rj) ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={changingId === rj.id}
+                              onClick={() => void setVerification(rj, "verified")}
+                              className="flex-1 rounded-xl border border-emerald-200 px-3 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                              {changingId === rj.id ? "Please wait…" : "Verify"}
+                            </button>
+                            {rj.verificationStatus !== "rejected" && (
+                              <button
+                                type="button"
+                                disabled={changingId === rj.id}
+                                onClick={() => void setVerification(rj, "rejected")}
+                                className="flex-1 rounded-xl border border-red-200 px-3 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            )}
+                          </>
+                        ) : (
                         <button
                           type="button"
                           disabled={changingId === rj.id}
@@ -809,6 +906,7 @@ export default function AdminRJsPage() {
                         >
                           {changingId === rj.id ? "Please wait…" : rj.isActive ? "Deactivate" : "Activate"}
                         </button>
+                        )}
                       </div>
                     </article>
                   );

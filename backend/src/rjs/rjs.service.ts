@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Rj } from '../rj.entity';
 import { In, Repository } from 'typeorm';
 import { Listener } from '../listener.entity';
+import { Programme } from '../programme.entity';
 
 @Injectable()
 export class RjsService {
@@ -226,13 +227,17 @@ export class RjsService {
     }
 
     rj.verificationStatus = verificationStatus;
+    rj.isActive = verificationStatus === 'verified';
 
-    if (verificationStatus === 'verified') {
-      rj.isActive = true;
-    } else {
-      rj.isActive = false;
-    }
+    const saved = await this.rjRepository.save(rj);
 
-    return this.rjRepository.save(rj);
+    // Programmes the RJ still owns are public only while the RJ is verified.
+    await this.rjRepository.manager.update(
+      Programme,
+      { ownerRjId: rj.id },
+      { isActive: rj.isActive },
+    );
+
+    return saved;
   }
 }

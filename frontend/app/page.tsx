@@ -28,7 +28,8 @@ type ApiProgramme = {
   startTime: string | null;
   endTime: string | null;
   isActive: boolean;
-  stationId: string;
+  stationId: string | null;
+  callInPhone?: string | null;
 };
 
 type ApiStation = {
@@ -263,7 +264,7 @@ export default async function Home() {
             ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
             : "Schedule not set",
         initials: (programme.rjName ?? programme.name).charAt(0).toUpperCase(),
-        contactNumber: rj?.phone ?? "",
+        contactNumber: programme.callInPhone ?? "",
       };
     });
   return (

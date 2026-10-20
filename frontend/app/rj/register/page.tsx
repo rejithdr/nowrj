@@ -191,6 +191,16 @@ export default function RjRegisterPage() {
           <p className="mt-3 text-sm text-gray-500">
             Profile active: {profile.isActive ? "Yes" : "No"}
           </p>
+
+          <a
+            href="/rj/dashboard"
+            className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-orange-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-orange-700"
+          >
+            Open your RJ dashboard
+          </a>
+          <p className="mt-2 text-sm text-gray-500">
+            Set your station, invite it if it isn&apos;t listed, and add your programmes.
+          </p>
         </section>
       ) : (
         <form
