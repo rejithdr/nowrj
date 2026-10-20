@@ -86,7 +86,7 @@ export class ReferralsService {
       [rj.id, new Date(now.getTime() - 7 * DAY)],
     );
     const rjRows: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT r.name, r.slug, r."verificationStatus", f."activatedAt", f."rewardEndsAt", f."createdAt"
+      `SELECT r.name, r.slug, r."verificationStatus", f."createdAt"
          FROM referrals f JOIN rjs r ON r.id = f."referredRjId"
         WHERE f."referrerRjId" = $1 AND f.kind = 'rj'
         ORDER BY f."createdAt" DESC`,
@@ -95,17 +95,12 @@ export class ReferralsService {
     return {
       code: rj.referralCode,
       joined: listeners,
-      rjs: rjRows.map((r) => {
-        const endsAt = r.rewardEndsAt ? new Date(r.rewardEndsAt as string) : null;
-        return {
-          name: r.name,
-          slug: r.slug,
-          verificationStatus: r.verificationStatus,
-          rewardStartedAt: r.activatedAt,
-          rewardEndsAt: endsAt,
-          rewardStatus: !endsAt ? 'waiting_for_verification' : endsAt > now ? 'active' : 'ended',
-        };
-      }),
+      // Reward dates are not shown: the 12 months start when Now On FM monetisation launches.
+      rjs: rjRows.map((r) => ({
+        name: r.name,
+        slug: r.slug,
+        verificationStatus: r.verificationStatus,
+      })),
     };
   }
 

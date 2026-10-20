@@ -43,7 +43,7 @@ export class InsightsService {
         (SELECT count(*)::int FROM programmes WHERE "isActive") AS "programmesLive",
         (SELECT count(*)::int FROM programmes WHERE "isActive" AND "ownerStationId" IS NOT NULL) AS "programmesStationOwned",
         (SELECT count(*)::int FROM referrals WHERE kind = 'rj') AS "rjReferrals",
-        (SELECT count(*)::int FROM referrals WHERE kind = 'rj' AND "rewardEndsAt" > now()) AS "rewardsActive"
+        (SELECT count(*)::int FROM referrals WHERE kind = 'rj' AND "activatedAt" IS NOT NULL) AS "rjReferralsVerified"
     `);
 
     // One row per week, oldest first, for the last `weeks` weeks including this one.

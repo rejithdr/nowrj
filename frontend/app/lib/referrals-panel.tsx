@@ -7,7 +7,7 @@ import { api, Notice, quietButton } from "./ui";
 type Mine = {
   code: string;
   joined: { total: number; last7Days: number };
-  rjs: { name: string; verificationStatus: string; rewardEndsAt: string | null; rewardStatus: string }[];
+  rjs: { name: string; verificationStatus: string }[];
 };
 type Vouches = {
   rjId: string;
@@ -41,8 +41,6 @@ function ShareRow({ link, message }: { link: string; message: string }) {
   );
 }
 
-const endDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-
 /** The RJ's referral link and results. */
 export function ReferralsPanel() {
   const [data, setData] = useState<Mine | null>(null);
@@ -57,7 +55,7 @@ export function ReferralsPanel() {
   return (
     <div className="mt-2">
       <p className="text-sm text-zinc-600">
-        Share this on air, on Instagram and on WhatsApp. Everyone who joins NowRJ through it counts as yours. When another RJ joins through it and is verified, you earn 10% of their share for their first 12 months.
+        Share this on air, on Instagram and on WhatsApp. Everyone who joins NowRJ through it counts as yours. RJs who join through it are recorded as your referrals: once ads launch on Now On FM, you&apos;ll earn 10% of their share for 12 months.
       </p>
       <ShareRow link={link} message="Follow my show on NowRJ: react live, request songs and call in." />
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -69,7 +67,7 @@ export function ReferralsPanel() {
         <div className="rounded-xl border border-zinc-200 p-4">
           <p className="text-sm text-zinc-600">RJs who joined</p>
           <p className="mt-1 text-3xl font-bold tabular-nums text-zinc-900">{data.rjs.length}</p>
-          <p className="mt-1 text-xs text-zinc-500">{data.rjs.filter((r) => r.rewardStatus === "active").length} earning you a reward now</p>
+          <p className="mt-1 text-xs text-zinc-500">{data.rjs.filter((r) => ["verified", "legacy"].includes(r.verificationStatus)).length} verified</p>
         </div>
       </div>
       {data.rjs.length ? (
@@ -78,13 +76,11 @@ export function ReferralsPanel() {
             <li key={r.name} className="flex flex-wrap justify-between gap-2 py-2">
               <span className="font-semibold text-zinc-900">{r.name}</span>
               <span className="text-zinc-600">
-                {r.rewardStatus === "active" && r.rewardEndsAt
-                  ? `Reward active until ${endDate(r.rewardEndsAt)}`
-                  : r.rewardStatus === "ended"
-                    ? "Reward period ended"
-                    : r.verificationStatus === "rejected"
-                      ? "Not verified"
-                      : "Waiting for verification"}
+                {["verified", "legacy"].includes(r.verificationStatus)
+                  ? "Verified"
+                  : r.verificationStatus === "rejected"
+                    ? "Not verified"
+                    : "Waiting for verification"}
               </span>
             </li>
           ))}

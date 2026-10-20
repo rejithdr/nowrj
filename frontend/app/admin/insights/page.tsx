@@ -151,7 +151,7 @@ export default function InsightsPage() {
               <Tile label="Live RJs" value={t.rjsLive} note={`${t.rjsPending} waiting for verification`} />
               <Tile label="Live stations" value={t.stationsLive} note={`${t.stationsPending} waiting for verification`} />
               <Tile label="Live programmes" value={t.programmesLive} note={`${t.programmesStationOwned} owned by stations`} />
-              <Tile label="RJ referrals" value={t.rjReferrals} note={`${t.rewardsActive} earning a reward now`} />
+              <Tile label="RJ referrals" value={t.rjReferrals} note={`${t.rjReferralsVerified} verified · rewards start with Now On FM ads`} />
               <Tile label="Active listeners this week" value={thisWeek.activeListeners} note={`${thisWeek.returningListeners} came back from earlier weeks`} />
             </div>
 
