@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import EngagementPanel from "../../lib/engagement";
 import {
   ArrowLeft,
   Check,
@@ -247,6 +248,10 @@ export default function RjDashboardPage() {
         </header>
 
         {pageError ? <Notice kind="error" text={pageError} /> : null}
+
+        <Section title="Your engagement">
+          <EngagementPanel path="/shows/engagement/rj" showHosts={false} />
+        </Section>
 
         <StationSection stations={stations} current={current} history={history} onChanged={refresh} />
         <ClaimsSection claims={claims} onChanged={refresh} />

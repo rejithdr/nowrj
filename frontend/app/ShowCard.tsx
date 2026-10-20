@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Mic, Phone } from "lucide-react";
 import ShowReactions from "./ShowReactions";
+import CallButton from "./CallButton";
 
 export type ApiShow = {
   id: string;
@@ -97,14 +97,7 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
           notYetMessage={notYet}
         />
         {kind === "live" && show.programme.callInPhone ? (
-          <a
-            href={`tel:${show.programme.callInPhone.replace(/\s+/g, "")}`}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-          >
-            <Mic size={16} aria-hidden="true" />
-            <Phone size={16} aria-hidden="true" />
-            Call the show
-          </a>
+          <CallButton showId={show.id} phone={show.programme.callInPhone} />
         ) : null}
       </div>
     </article>

@@ -2,7 +2,6 @@
 import Link from "next/link";
 import LikeButton from "./rj/[slug]/LikeButton";
 import FireButton from "./rj/[slug]/FireButton";
-import { Mic, Phone } from "lucide-react";
 import AuthControls from "./AuthControls";
 import HomeReactionSummary from "./HomeReactionSummary";
 import ShowCard, { type ApiShow } from "./ShowCard";
@@ -127,16 +126,7 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
     <FireButton rjId={programme.rjId} />
   </>
 )}
- {programme.contactNumber && (
-  <a
-    href={`tel:${programme.contactNumber}`}
-    className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-  >
-    <Mic size={16} aria-hidden="true" />
-    <Phone size={16} aria-hidden="true" />
-    Call RJ
-  </a>
-)}
+
       </div>
        <HomeReactionSummary rjId={programme.rjId} />
     </article>

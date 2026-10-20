@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, LoaderCircle, Phone, X } from "lucide-react";
+import EngagementPanel from "../../lib/engagement";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
 type MyStation = {
@@ -125,7 +126,10 @@ function StationPanel({ entry }: { entry: MyStation }) {
         <Notice kind="info" text="The NowRJ team is verifying your station and your role. You'll be able to manage programmes once approved." />
       ) : (
         <>
-          <h2 className="mt-6 text-lg font-bold text-zinc-900">Programmes on {station.name}</h2>
+          <h2 className="mt-6 text-lg font-bold text-zinc-900">Listener engagement</h2>
+          <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
+
+          <h2 className="mt-8 text-lg font-bold text-zinc-900">Programmes on {station.name}</h2>
           <p className="mt-1 text-sm text-zinc-600">
             Programmes an RJ created stay theirs until you claim them and the RJ agrees. If the RJ declines, the NowRJ team decides.
           </p>

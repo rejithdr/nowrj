@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { ShowsService } from './shows.service';
+import { EngagementService } from './engagement.service';
 import type { ReactionType } from './shows.service';
 
 function listenerId(req: Request): string {
@@ -30,7 +32,31 @@ function reactionType(type: string | undefined): ReactionType {
 
 @Controller('shows')
 export class ShowsController {
-  constructor(private readonly shows: ShowsService) {}
+  constructor(
+    private readonly shows: ShowsService,
+    private readonly engagement: EngagementService,
+  ) {}
+
+  /** A tap on the show's Call button. Works signed out (device id) or signed in. */
+  @Post(':id/call-tap')
+  callTap(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { deviceId?: string },
+  ) {
+    const signedIn = req.isAuthenticated() ? (req.user as { id: string }).id : null;
+    return this.engagement.recordCallTap(id, signedIn, body?.deviceId);
+  }
+
+  @Get('engagement/rj')
+  rjEngagement(@Req() req: Request) {
+    return this.engagement.forRj(listenerId(req));
+  }
+
+  @Get('engagement/station/:stationId')
+  stationEngagement(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string) {
+    return this.engagement.forStation(listenerId(req), stationId);
+  }
 
   /** Live now, next 24 hours, and last 24 hours. Public. */
   @Get('now')

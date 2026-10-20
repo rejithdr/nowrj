@@ -4,11 +4,13 @@ import { ShowOccurrence } from '../show-occurrence.entity';
 import { ShowOccurrenceHost } from '../show-occurrence-host.entity';
 import { ShowsController } from './shows.controller';
 import { ShowsService } from './shows.service';
+import { EngagementService } from './engagement.service';
+import { EngagementEvent } from '../engagement-event.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ShowOccurrence, ShowOccurrenceHost])],
+  imports: [TypeOrmModule.forFeature([ShowOccurrence, ShowOccurrenceHost, EngagementEvent])],
   controllers: [ShowsController],
-  providers: [ShowsService],
+  providers: [ShowsService, EngagementService],
   exports: [ShowsService],
 })
 export class ShowsModule {}
