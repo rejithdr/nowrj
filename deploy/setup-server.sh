@@ -9,8 +9,8 @@ APP_DIR=/srv/nowrj
 REPO=https://github.com/rejithdr/nowrj.git
 
 echo "==> 1/8 System packages"
-sudo apt-get update -y
-sudo apt-get install -y git nginx postgresql postgresql-contrib certbot python3-certbot-nginx ufw
+sudo apt-get -o DPkg::Lock::Timeout=900 update -y
+sudo apt-get -o DPkg::Lock::Timeout=900 install -y git nginx postgresql postgresql-contrib certbot python3-certbot-nginx ufw
 
 # Run everything on India time, like the development machine.
 sudo timedatectl set-timezone Asia/Kolkata
@@ -79,7 +79,7 @@ sudo certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos
 
 echo "==> 8/8 Nightly database backup at 02:30"
 mkdir -p "$HOME/backups"
-( crontab -l 2>/dev/null | grep -v backup-db.sh ; echo "30 2 * * * bash $APP_DIR/deploy/backup-db.sh >> $HOME/backups/backup.log 2>&1" ) | crontab -
+( crontab -l 2>/dev/null | grep -v backup-db.sh || true ; echo "30 2 * * * bash $APP_DIR/deploy/backup-db.sh >> $HOME/backups/backup.log 2>&1" ) | crontab -
 
 echo
 echo "Setup finished. Next:"
