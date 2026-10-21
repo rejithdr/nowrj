@@ -47,9 +47,14 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
-          {initial}
-        </span>
+        {show.hosts[0]?.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={show.hosts[0].photoUrl} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
+            {initial}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold text-zinc-900">

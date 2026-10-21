@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
   Post,
   Delete,
+  Patch,
   Body,
   BadRequestException,
 } from '@nestjs/common';
@@ -65,6 +66,21 @@ export class AuthController {
     } catch {
       return res.status(500).send('Google sign-in failed.');
     }
+  }
+
+  /** Changes the name shown to RJs and stations, e.g. on song requests. */
+  @Patch('me')
+  async updateMe(@Req() req: Request, @Body() body: { displayName?: string }) {
+    if (!req.isAuthenticated()) {
+      throw new UnauthorizedException('Please sign in first.');
+    }
+    const displayName = (body?.displayName ?? '').trim().replace(/\s+/g, ' ');
+    if (displayName.length < 2 || displayName.length > 40) {
+      throw new BadRequestException('Your name must be 2 to 40 characters.');
+    }
+    const { id } = req.user as { id: string };
+    await this.dataSource.query(`UPDATE listeners SET "displayName" = $2, "updatedAt" = now() WHERE id = $1`, [id, displayName]);
+    return { displayName };
   }
 
   /** Deletes the signed-in person's account and personal data, then signs them out. */

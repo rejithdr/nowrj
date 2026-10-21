@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Rj } from '../rj.entity';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { writeAudit } from '../onboarding/helpers';
 import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
 import { activateRjReferral, recordRjReferral } from '../referrals/referral-rules';
@@ -17,6 +18,7 @@ export class RjsService {
   constructor(
     @InjectRepository(Rj)
     private readonly rjRepository: Repository<Rj>,
+    private readonly dataSource: DataSource,
   ) {}
   async findOwnProfile(listenerId: string) {
     return this.rjRepository.findOne({
@@ -98,12 +100,14 @@ export class RjsService {
       throw new NotFoundException('RJ profile not found.');
     }
 
+    const oldName = rj.name;
     if (data.name !== undefined) {
-      if (!data.name.trim()) {
-        throw new BadRequestException('RJ name cannot be empty.');
+      const name = (data.name ?? '').trim().replace(/\s+/g, ' ');
+      if (name.length < 2 || name.length > 60) {
+        throw new BadRequestException('RJ name must be 2 to 60 characters.');
       }
 
-      rj.name = data.name.trim();
+      rj.name = name;
     }
 
     if (data.phone !== undefined) {
@@ -114,7 +118,21 @@ export class RjsService {
       rj.photoUrl = data.photoUrl?.trim() || null;
     }
 
-    return this.rjRepository.save(rj);
+    if (rj.name === oldName) {
+      return this.rjRepository.save(rj);
+    }
+
+    // A new name: update the host name shown on this RJ's programmes and keep a record.
+    return this.dataSource.transaction(async (m) => {
+      const saved = await m.save(rj);
+      await m.query(
+        `UPDATE programmes SET "rjName" = $3
+          WHERE "rjName" = $2 AND id IN (SELECT "programmeId" FROM programme_rjs WHERE "rjId" = $1)`,
+        [rj.id, oldName, rj.name],
+      );
+      await writeAudit(m, listenerId, 'rj.renamed', 'rj', rj.id, { from: oldName, to: rj.name });
+      return saved;
+    });
   }
   
   // Public: list active RJs

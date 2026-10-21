@@ -4,11 +4,50 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LoaderCircle, Trash2 } from "lucide-react";
 import AuthControls from "../AuthControls";
-import { api, Card, inputClass, labelClass, Notice, signInAndReturn } from "../lib/ui";
+import { api, Card, inputClass, labelClass, Notice, primaryButton, signInAndReturn } from "../lib/ui";
 
 type Me = { displayName: string | null; rj: { name: string } | null; stations: { name: string }[] };
 
-/** Account settings: currently just deleting the account. */
+/** The name RJs and stations see, for example on song requests. */
+function NameCard({ initial }: { initial: string }) {
+  const [name, setName] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api<{ displayName: string }>("/auth/me", { method: "PATCH", body: JSON.stringify({ displayName: name }) });
+      setName(result.displayName);
+      setSaved(result.displayName);
+      setMessage({ kind: "ok", text: "Name saved." });
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : "Could not save your name." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Your name">
+      <form onSubmit={save}>
+        <label htmlFor="display-name" className={`${labelClass} mt-3`}>Name shown to RJs and stations</label>
+        <input id="display-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
+        <p className="mt-1.5 text-xs text-zinc-500">Appears with your song requests. A first name or nickname is fine.</p>
+        {message ? <div className="mt-3"><Notice kind={message.kind} text={message.text} /></div> : null}
+        <button type="submit" className={`${primaryButton} mt-3`} disabled={busy || name.trim() === saved}>
+          {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : null}
+          Save name
+        </button>
+      </form>
+    </Card>
+  );
+}
+
+/** Account settings: your name, and deleting the account. */
 export default function AccountPage() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [confirm, setConfirm] = useState("");
@@ -64,6 +103,8 @@ export default function AccountPage() {
               </button>
             </Card>
           ) : (
+            <>
+            <NameCard initial={me.displayName ?? ""} />
             <Card title="Delete my account">
               <p className="text-sm leading-6 text-zinc-700">
                 This permanently erases your name, email, photo, follows, Likes and Fires, and song requests, and signs you out
@@ -96,6 +137,7 @@ export default function AccountPage() {
                 Delete my account
               </button>
             </Card>
+            </>
           )}
         </div>
       </div>

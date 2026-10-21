@@ -71,6 +71,7 @@ export default async function RJProfilePage({
   let profile: {
     id?: string;
     name: string;
+    photoUrl?: string | null;
     station: string;
     stationSlug: string;
     programme: string;
@@ -113,6 +114,7 @@ const programme = programmes.find(
       profile = {
         id: rj.id,
         name: rj.name,
+        photoUrl: rj.photoUrl ?? null,
         station: station?.name ?? 'Station details unavailable',
         stationSlug: station?.slug ?? '',
         programme: programme?.name ?? '',
@@ -188,12 +190,17 @@ schedule: programme
 
         <section className="mt-5 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-            <div
-              className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-orange-100 text-4xl font-bold text-orange-700"
-              aria-label={`Profile placeholder for RJ ${profile.name}`}
-            >
-              {profile.name.charAt(0)}
-            </div>
+            {profile.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.photoUrl} alt={`RJ ${profile.name}`} className="h-24 w-24 shrink-0 rounded-full object-cover" />
+            ) : (
+              <div
+                className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-orange-100 text-4xl font-bold text-orange-700"
+                aria-label={`Profile placeholder for RJ ${profile.name}`}
+              >
+                {profile.name.charAt(0)}
+              </div>
+            )}
 
             <div className="min-w-0">
               <p className="text-sm font-semibold uppercase tracking-widest text-orange-600">

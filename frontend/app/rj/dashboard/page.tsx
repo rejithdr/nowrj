@@ -7,6 +7,7 @@ import EngagementPanel from "../../lib/engagement";
 import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import SongQueue from "../../lib/song-queue";
+import { RjProfileEditor } from "../../lib/rj-profile";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
   ArrowLeft,
@@ -28,6 +29,7 @@ const API = API_URL;
 type RjProfile = {
   id: string;
   name: string;
+  photoUrl: string | null;
   slug: string;
   verificationStatus: string;
   isActive: boolean;
@@ -263,6 +265,10 @@ export default function RjDashboardPage() {
         </header>
 
         {pageError ? <Notice kind="error" text={pageError} /> : null}
+
+        <Section title="Your profile">
+          <RjProfileEditor profile={profile} onChange={(change) => setProfile((p) => (p ? { ...p, ...change } : p))} />
+        </Section>
 
         {profile.verificationStatus === "pending" ? (
           <Section title="Get verified faster">

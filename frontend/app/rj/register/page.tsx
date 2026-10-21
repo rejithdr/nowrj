@@ -22,7 +22,6 @@ export default function RjRegisterPage() {
   const [profile, setProfile] = useState<RjProfile | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -91,7 +90,6 @@ export default function RjRegisterPage() {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim() || null,
-          photoUrl: photoUrl.trim() || null,
           referralCode: readReferral(),
         }),
       });
@@ -247,23 +245,9 @@ export default function RjRegisterPage() {
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="rj-photo"
-              className="mb-2 block text-sm font-medium text-gray-800"
-            >
-              Profile photo URL (optional)
-            </label>
-            <input
-              id="rj-photo"
-              type="url"
-              value={photoUrl}
-              onChange={(event) => setPhotoUrl(event.target.value)}
-              maxLength={255}
-              placeholder="https://example.com/your-photo.jpg"
-              className="min-h-12 w-full rounded-lg border border-gray-300 px-4 text-gray-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-            />
-          </div>
+          <p className="text-sm text-gray-600">
+            You can add your profile photo from your RJ dashboard after registering.
+          </p>
 
           
             <p className="text-sm leading-6 text-gray-600">

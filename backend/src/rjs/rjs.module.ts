@@ -10,11 +10,12 @@ import { RjsAdminController } from './rjs-admin.controller';
 import { RjDashboardController } from './rj-dashboard.controller';
 import { RjDashboardService } from './rj-dashboard.service';
 import { AuthModule } from '../auth/auth.module';
+import { RjOwnPhotoController, RjPhotoController, RjPhotosService } from './rj-photos';
 
 @Module({
  imports: [TypeOrmModule.forFeature([Rj, RjStationAffiliation, StationInvite, ProgrammeSchedule]), AuthModule],
-  controllers: [RjDashboardController, RjsController, RjsAdminController],
-  providers: [RjsService, RjDashboardService],
+  controllers: [RjOwnPhotoController, RjDashboardController, RjPhotoController, RjsController, RjsAdminController],
+  providers: [RjsService, RjDashboardService, RjPhotosService],
   exports: [RjsService],
 })
 export class RjsModule {}

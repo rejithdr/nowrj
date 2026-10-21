@@ -39,6 +39,7 @@ export class AccountService {
           `UPDATE station_invites SET status = 'cancelled' WHERE "invitedByRjId" = $1 AND status = 'sent'`,
           [rj.id],
         );
+        await m.query(`DELETE FROM rj_photos WHERE "rjId" = $1`, [rj.id]);
         await m.query(`DELETE FROM rj_vouches WHERE "rjId" = $1 OR "voucherRjId" = $1`, [rj.id]);
         await m.query(
           `UPDATE rjs SET name = 'Former RJ', slug = 'former-rj-' || left(id::text, 8),
