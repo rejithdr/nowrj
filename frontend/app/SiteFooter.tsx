@@ -14,8 +14,14 @@ export default function SiteFooter() {
           <a href="/rj/register" className="text-zinc-700 hover:text-orange-700">For RJs</a>
           <a href="/for-stations" className="text-zinc-700 hover:text-orange-700">For stations</a>
           <a href={NOWONFM_URL} className="text-zinc-700 hover:text-orange-700" rel="noopener">Advertise on Now On FM</a>
+          <a href="/privacy" className="text-zinc-700 hover:text-orange-700">Privacy</a>
+          <a href="/terms" className="text-zinc-700 hover:text-orange-700">Terms</a>
         </nav>
       </div>
+      <p className="mx-auto mt-4 max-w-3xl text-xs text-zinc-500">
+        NowRJ is for people aged 18 and over. By signing in you agree to our <a href="/terms" className="underline">Terms</a> and{" "}
+        <a href="/privacy" className="underline">Privacy Policy</a>. NowRJ is run by Now On FM.
+      </p>
     </footer>
   );
 }

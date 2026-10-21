@@ -7,11 +7,15 @@ import {
   Res,
   UnauthorizedException,
   Post,
+  Delete,
+  Body,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AuthService, GoogleProfile } from './auth.service';
+import { AccountService } from './account.service';
 import {
   GoogleAuthGuard,
   type RequestWithReturnTo,
@@ -23,6 +27,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    private readonly account: AccountService,
   ) {}
 
   @Get('google')
@@ -60,6 +65,29 @@ export class AuthController {
     } catch {
       return res.status(500).send('Google sign-in failed.');
     }
+  }
+
+  /** Deletes the signed-in person's account and personal data, then signs them out. */
+  @Delete('me')
+  async deleteMe(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: { confirm?: string },
+  ) {
+    if (!req.isAuthenticated()) {
+      throw new UnauthorizedException('Please sign in first.');
+    }
+    if (body?.confirm !== 'DELETE') {
+      throw new BadRequestException('Type DELETE to confirm.');
+    }
+    const { id } = req.user as { id: string };
+    await this.account.deleteAccount(id);
+    req.logout(() => {
+      req.session.destroy(() => {
+        res.clearCookie('connect.sid', { path: '/' });
+        res.status(200).json({ message: 'Your account has been deleted.' });
+      });
+    });
   }
 
   @Post('logout')

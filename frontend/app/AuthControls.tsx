@@ -85,9 +85,6 @@ export default function AuthControls() {
   if (!me) {
     return (
       <div className="flex items-center gap-2">
-        <a href="/rj/register" className="hidden text-sm font-semibold text-zinc-700 hover:text-orange-700 sm:inline">
-          For RJs
-        </a>
         <button
           type="button"
           onClick={signIn}
@@ -138,6 +135,7 @@ export default function AuthControls() {
           </>
         ) : null}
         <div className="mt-1 border-t border-zinc-100 pt-1">
+          <a href="/account" className={itemClass}>Account settings</a>
           <button type="button" onClick={() => void handleSignOut()} disabled={signingOut} className={`${itemClass} w-full text-left disabled:opacity-60`}>
             {signingOut ? "Signing out…" : "Sign out"}
           </button>

@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { GoogleStrategy } from './google.strategy';
 import { SessionSerializer } from './session.serializer';
 import { AuthController } from './auth.controller';
+import { AccountService } from './account.service';
 import { SuperadminGuard } from './guards/superadmin.guard';
 
 @Module({
@@ -14,6 +15,6 @@ import { SuperadminGuard } from './guards/superadmin.guard';
   ],
   controllers: [AuthController],
   exports: [AuthService, SuperadminGuard],
-  providers: [AuthService, GoogleStrategy, SessionSerializer, SuperadminGuard],
+  providers: [AccountService, AuthService, GoogleStrategy, SessionSerializer, SuperadminGuard],
 })
 export class AuthModule {}
