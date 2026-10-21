@@ -74,8 +74,12 @@ sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
 sudo ufw --force enable
 # Needs the domain's DNS already pointing at this server.
-sudo certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect || \
+if sudo certbot --nginx -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect; then
+  bash "$APP_DIR/deploy/redirect-www.sh"
+else
   echo "HTTPS certificate not issued yet. Once DNS points here, run: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN"
+  echo "and then: bash $APP_DIR/deploy/redirect-www.sh"
+fi
 
 echo "==> 8/8 Nightly database backup at 02:30"
 mkdir -p "$HOME/backups"
