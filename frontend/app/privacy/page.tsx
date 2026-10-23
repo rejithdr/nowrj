@@ -18,6 +18,7 @@ export default function PrivacyPage() {
         <li><strong>What you do on NowRJ:</strong> RJs you follow, Likes and Fires you give, song requests (song, artist and any message you write), and taps on a programme&rsquo;s call button.</li>
         <li><strong>If you are an RJ:</strong> your RJ name, photo, phone and email, the programmes and schedules you publish, your station, referrals and vouches.</li>
         <li><strong>If you represent a station:</strong> the station&rsquo;s details and contact phone and email, and the actions you take for the station.</li>
+        <li><strong>If you contact us about advertising:</strong> your name, company, phone or email and your message, used only to reply.</li>
         <li><strong>Technical data:</strong> a sign-in cookie that keeps you signed in, and, if you tap a call button while signed out, a random ID stored in your browser so we count each person once. We do not use advertising or tracking cookies.</li>
       </ul>
 
@@ -48,7 +49,7 @@ export default function PrivacyPage() {
       <h2>Your rights</h2>
       <ul>
         <li><strong>Access and correction:</strong> ask us for a summary of your data or to correct it.</li>
-        <li><strong>Deletion:</strong> delete your account at any time from <a href="/account">Account settings</a>. Your name, email, photo, follows, reactions, song requests and roles are erased. Totals stay, but no longer identify you. If you are an RJ, your profile becomes &ldquo;Former RJ&rdquo; and is hidden; programmes owned by a station stay with that station.</li>
+        <li><strong>Deletion:</strong> delete your account at any time from <a href="/account">Account settings</a>. Your name, email, photo, follows, roles and the messages you wrote with song requests are erased. Your Likes, Fires, call taps and requested songs stay in the shows&rsquo; totals, but no longer identify you. If you are an RJ, your profile becomes &ldquo;Former RJ&rdquo; and is hidden; programmes owned by a station stay with that station.</li>
         <li><strong>Withdraw consent:</strong> deleting your account withdraws your consent to processing.</li>
         <li><strong>Nominate:</strong> name someone to exercise these rights if you die or become unable to.</li>
         <li><strong>Complain:</strong> contact our Grievance Officer below. If you are not satisfied, you can approach the Data Protection Board of India.</li>

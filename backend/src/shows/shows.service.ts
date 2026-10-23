@@ -207,7 +207,7 @@ export class ShowsService {
 
     if (active) {
       if (!canReact(show, now)) {
-        throw new ForbiddenException('Reactions open when the show starts and close 24 hours after it ends.');
+        throw new ForbiddenException('Like and Fire open when the show starts and close 4 hours after it ends.');
       }
       await this.dataSource
         .createQueryBuilder()

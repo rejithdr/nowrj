@@ -82,6 +82,25 @@ export class ClaimsService {
     });
   }
 
+  /** The owning station may change its programmes' names. */
+  async stationRename(listenerId: string, stationId: string, programmeId: string, value: unknown) {
+    const name = clean(value);
+    if (!name) throw new BadRequestException('Enter the programme name.');
+    if (name.length > 150) throw new BadRequestException('Programme name is too long.');
+    return this.dataSource.transaction(async (m) => {
+      await assertStationRep(m, listenerId, stationId);
+      const programme = await m.findOneBy(Programme, { id: programmeId });
+      if (!programme || programme.ownerStationId !== stationId) {
+        throw new ForbiddenException('Only programmes your station owns can be changed here.');
+      }
+      if (programme.name !== name) {
+        await writeAudit(m, listenerId, 'programme.renamed', 'programme', programmeId, { from: programme.name, to: name });
+        await m.update(Programme, { id: programmeId }, { name });
+      }
+      return { id: programmeId, name };
+    });
+  }
+
   /** The owning station may change its programmes' call-in numbers. */
   async stationUpdateCallIn(listenerId: string, stationId: string, programmeId: string, value: unknown) {
     const callInPhone = clean(value);

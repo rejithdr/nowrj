@@ -879,26 +879,8 @@ function ProgrammeRow({
   onChanged: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState(programme.callInPhone ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  async function save() {
-    setError("");
-    setBusy(true);
-    try {
-      await api(`/rjs/me/programmes/${programme.id}/call-in`, {
-        method: "PATCH",
-        body: JSON.stringify({ callInPhone: phone || null }),
-      });
-      setEditing(false);
-      await onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const airsOn = programme.stationName ?? (programme.invitedStationName ? `${programme.invitedStationName} (invited)` : "—");
   const time = programme.schedule.length
@@ -919,6 +901,10 @@ function ProgrammeRow({
           <p className="text-sm text-zinc-600">
             {airsOn} · {time}
           </p>
+          <p className="text-sm text-zinc-600">
+            <Phone size={13} className="mr-1 inline" aria-hidden="true" />
+            {programme.callInPhone ?? "No call-in number"}
+          </p>
           <p className="text-xs text-zinc-500">
             {programme.ownedByYou ? "Owned by you" : `Owned by ${programme.ownerStationName ?? "the station"}`}
             {!programme.isActive && !verified ? " · Hidden until you're verified" : ""}
@@ -926,25 +912,21 @@ function ProgrammeRow({
         </div>
         {!editing ? (
           <button type="button" onClick={() => setEditing(true)} className={quietButton}>
-            <Phone size={14} aria-hidden="true" />
-            {programme.callInPhone ?? "Add call-in number"}
+            <Pencil size={14} aria-hidden="true" />
+            Edit programme
           </button>
         ) : null}
       </div>
       {editing ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label htmlFor={`call-${programme.id}`} className="sr-only">Call-in number</label>
-          <input id={`call-${programme.id}`} type="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Studio number" className={`${inputClass} max-w-56`} />
-          <button type="button" onClick={save} disabled={busy} className={primaryButton}>
-            {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-            Save
-          </button>
-          <button type="button" onClick={() => { setEditing(false); setPhone(programme.callInPhone ?? ""); setError(""); }} className={quietButton} aria-label="Cancel">
-            <X size={14} aria-hidden="true" />
-          </button>
-        </div>
+        <ProgrammeForm
+          programme={programme}
+          onDone={async (saved) => {
+            setEditing(false);
+            if (saved) await onChanged();
+          }}
+        />
       ) : null}
-      {!programme.stationName && programme.ownedByYou && current ? (
+      {!editing && !programme.stationName && programme.ownedByYou && current ? (
         <button
           type="button"
           disabled={busy}
@@ -967,83 +949,75 @@ function ProgrammeRow({
         </button>
       ) : null}
       {error ? <Notice kind="error" text={error} /> : null}
-      <ScheduleEditor programme={programme} onChanged={onChanged} />
-      {programme.schedule.length ? <UpcomingShows programmeId={programme.id} /> : null}
+      {programme.schedule.length && !editing ? <UpcomingShows programmeId={programme.id} /> : null}
     </li>
   );
 }
 
-function ScheduleEditor({ programme, onChanged }: { programme: MyProgramme; onChanged: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<SlotDraft>(emptySlot());
+/** Name, call-in number and weekly time slots, saved together with one button. */
+function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: (saved: boolean) => Promise<void> }) {
+  const [name, setName] = useState(programme.name);
+  const [phone, setPhone] = useState(programme.callInPhone ?? "");
+  const [slots, setSlots] = useState<SlotDraft[]>(
+    programme.schedule.length
+      ? programme.schedule.map((s) => ({ days: [...s.days], startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5) }))
+      : [emptySlot()],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function run(action: () => Promise<unknown>) {
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
     setError("");
     setBusy(true);
     try {
-      await action();
-      await onChanged();
-      return true;
+      await api(`/rjs/me/programmes/${programme.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name, callInPhone: phone || null, schedule: slots }),
+      });
+      await onDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save.");
-      return false;
-    } finally {
       setBusy(false);
     }
   }
 
-  async function add(event: React.FormEvent) {
-    event.preventDefault();
-    const ok = await run(() =>
-      api(`/rjs/me/programmes/${programme.id}/schedule`, { method: "POST", body: JSON.stringify(draft) }),
-    );
-    if (ok) setDraft(emptySlot());
-  }
-
-  function remove(slot: ScheduleSlot) {
-    if (!window.confirm(`Stop the ${slot.label} slot from today? Past shows keep it in their history.`)) return;
-    void run(() => api(`/rjs/me/programmes/${programme.id}/schedule/${slot.id}`, { method: "DELETE" }));
-  }
-
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="mt-2 text-sm font-semibold text-orange-700 hover:underline">
-        Edit schedule
-      </button>
-    );
-  }
-
   return (
-    <div className="mt-3 rounded-xl bg-zinc-50 p-3">
-      {programme.schedule.length ? (
-        <ul className="space-y-1.5">
-          {programme.schedule.map((slot) => (
-            <li key={slot.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm">
-              <span className="text-zinc-900">{slot.label}</span>
-              <button type="button" disabled={busy} onClick={() => remove(slot)} className="inline-flex items-center gap-1 text-sm font-semibold text-red-700 hover:underline disabled:opacity-50">
-                <Trash2 size={14} aria-hidden="true" />
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-zinc-600">No time slots yet.</p>
-      )}
-      <form onSubmit={add} className="mt-3 space-y-2">
-        <SlotEditor slot={draft} index={programme.schedule.length} onChange={setDraft} />
-        <p className="text-xs text-zinc-500">Changes apply from today. To change a time, remove the old slot first, then add the new one.</p>
-        {error ? <Notice kind="error" text={error} /> : null}
-        <div className="flex gap-2">
-          <button type="submit" disabled={busy} className={primaryButton}>
-            {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-            Add time slot
-          </button>
-          <button type="button" onClick={() => { setOpen(false); setError(""); }} className={quietButton}>Done</button>
-        </div>
-      </form>
-    </div>
+    <form onSubmit={save} className="mt-3 space-y-4 rounded-xl bg-zinc-50 p-4">
+      <div>
+        <label htmlFor={`name-${programme.id}`} className={labelClass}>Programme name</label>
+        <input id={`name-${programme.id}`} required maxLength={150} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        <p className="mt-1 text-xs text-zinc-500">The programme&apos;s link stays the same when you rename it.</p>
+      </div>
+      <div className="space-y-3">
+        <p className={labelClass}>When it airs</p>
+        {slots.map((slot, index) => (
+          <SlotEditor
+            key={index}
+            slot={slot}
+            index={index}
+            onChange={(next) => setSlots((all) => all.map((s, i) => (i === index ? next : s)))}
+            onRemove={slots.length > 1 ? () => setSlots((all) => all.filter((_, i) => i !== index)) : undefined}
+          />
+        ))}
+        <button type="button" onClick={() => setSlots((all) => [...all, emptySlot()])} className={quietButton}>
+          <Plus size={14} aria-hidden="true" />
+          Add another time
+        </button>
+        <p className="text-xs text-zinc-500">Changes to the times apply from today. Past shows keep their times. An end time before the start means the show runs past midnight.</p>
+      </div>
+      <div>
+        <label htmlFor={`call-${programme.id}`} className={labelClass}>Call-in number for the live show</label>
+        <input id={`call-${programme.id}`} type="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Studio number listeners call" className={`${inputClass} max-w-64`} />
+      </div>
+      {error ? <Notice kind="error" text={error} /> : null}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className={primaryButton}>
+          {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+          Save changes
+        </button>
+        <button type="button" disabled={busy} onClick={() => void onDone(false)} className={quietButton}>Cancel</button>
+      </div>
+    </form>
   );
 }

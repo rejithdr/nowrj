@@ -44,114 +44,6 @@ type SearchItem = {
   keywords: string;
 };
 
-const items: SearchItem[] = [
-  {
-    name: "Ananya",
-    category: "RJs",
-    description: "RJ · Radio Mango",
-    href: "/rj/ananya",
-    keywords: "ananya radio mango morning vibes kerala",
-  },
-  {
-    name: "Arjun",
-    category: "RJs",
-    description: "RJ · Club FM",
-    href: "/rj/arjun",
-    keywords: "arjun club fm drive time kerala",
-  },
-  {
-    name: "Meera",
-    category: "RJs",
-    description: "RJ · Red FM",
-    href: "/rj/meera",
-    keywords: "meera red fm music mix kerala",
-  },
-  {
-    name: "Rahul",
-    category: "RJs",
-    description: "RJ · Radio City",
-    href: "/rj/rahul",
-    keywords: "rahul radio city evening show kerala",
-  },
-  {
-    name: "Nikhil",
-    category: "RJs",
-    description: "RJ · Club FM",
-    href: "/rj/nikhil",
-    keywords: "nikhil club fm night beats kerala",
-  },
-  {
-    name: "Radio Mango",
-    category: "Stations",
-    description: "Radio station · Kerala",
-    href: "/station/radio-mango",
-    keywords: "radio mango kerala ananya morning vibes",
-  },
-  {
-    name: "Club FM",
-    category: "Stations",
-    description: "Radio station · Kerala",
-    href: "/station/club-fm",
-    keywords: "club fm kerala arjun nikhil drive time night beats",
-  },
-  {
-    name: "Red FM",
-    category: "Stations",
-    description: "Radio station · Kerala",
-    href: "/station/red-fm",
-    keywords: "red fm kerala meera music mix",
-  },
-  {
-    name: "Radio City",
-    category: "Stations",
-    description: "Radio station · Kerala",
-    href: "/station/radio-city",
-    keywords: "radio city kerala rahul evening show",
-  },
-  {
-    name: "Morning Vibes",
-    category: "Programmes",
-    description: "Ananya · Radio Mango",
-    href: "/programme/morning-vibes",
-    keywords: "morning vibes ananya radio mango morning",
-  },
-  {
-    name: "Drive Time",
-    category: "Programmes",
-    description: "Arjun · Club FM",
-    href: "/programme/drive-time",
-    keywords: "drive time arjun club fm driving",
-  },
-  {
-    name: "Music Mix",
-    category: "Programmes",
-    description: "Meera · Red FM",
-    href: "/programme/music-mix",
-    keywords: "music mix meera red fm songs",
-  },
-  {
-    name: "The Evening Show",
-    category: "Programmes",
-    description: "Rahul · Radio City",
-    href: "/programme/evening-show",
-    keywords: "evening show rahul radio city",
-  },
-  {
-    name: "Night Beats",
-    category: "Programmes",
-    description: "Nikhil · Club FM",
-    href: "/programme/night-beats",
-    keywords: "night beats nikhil club fm night",
-  },
-  {
-    name: "Good Morning Kerala",
-    category: "Programmes",
-    description: "Ananya · Radio Mango",
-    href: "/programme/good-morning",
-    keywords: "good morning kerala ananya radio mango",
-  },
-];
-
 const categories: Category[] = ["All", "RJs", "Stations", "Programmes"];
 
 export default function SearchPage() {
@@ -260,23 +152,7 @@ const results = useMemo(() => {
     keywords: `${programme.name} ${programme.slug} ${programme.rjName ?? ""}`,
   }));
 
-  const databaseSlugs = new Set([
-    ...rjs.map((rj) => rj.slug),
-    ...programmes.map((programme) => programme.slug),
-  ]);
-
-  const sampleItems = items.filter((item) => {
-    if (item.category === "Stations") return false;
-    const slug = item.href.split("/").pop();
-    return !slug || !databaseSlugs.has(slug);
-  });
-
-  const searchableItems = [
-    ...sampleItems,
-    ...stationItems,
-    ...databaseRjItems,
-    ...databaseProgrammeItems,
-  ];
+  const searchableItems = [...stationItems, ...databaseRjItems, ...databaseProgrammeItems];
 
   return searchableItems.filter((item) => {
     const matchesCategory =
@@ -304,9 +180,6 @@ const results = useMemo(() => {
             Now<span className="text-orange-600">RJ</span>
           </Link>
           <AuthControls />
-          <span className="text-right text-xs font-medium text-zinc-500 sm:text-sm">
-            Beyond the broadcast
-          </span>
         </header>
 
         <Link
@@ -395,17 +268,14 @@ const results = useMemo(() => {
           </div>
 
           <div className="mt-3 space-y-3">
-{stationsLoading && category !== "RJs" && category !== "Programmes" && (
-  <p className="text-sm text-zinc-500" role="status">
-    Loading stations...
-  </p>
-)}
-
-{stationsError && category !== "RJs" && category !== "Programmes" && (
-  <p className="text-sm text-red-600" role="alert">
-    Unable to load stations. Please refresh the page and try again.
-  </p>
-)}
+            {stationsLoading ? (
+              <p className="text-sm text-zinc-500" role="status">Loading…</p>
+            ) : null}
+            {stationsError ? (
+              <p className="text-sm text-red-600" role="alert">
+                Unable to load the directory. Please refresh the page and try again.
+              </p>
+            ) : null}
             {results.map((item) => (
               <Link
                 key={`${item.category}-${item.href}`}
@@ -437,7 +307,7 @@ const results = useMemo(() => {
               </Link>
             ))}
 
-            {results.length === 0 && (
+            {!stationsLoading && results.length === 0 && (
               <div className="rounded-2xl border border-dashed border-zinc-300 px-5 py-10 text-center">
                 <Search
                   size={28}
@@ -465,10 +335,6 @@ const results = useMemo(() => {
           </div>
         </section>
 
-
-        <footer className="py-8 text-center text-sm text-zinc-500">
-          NowRJ · Beyond the broadcast
-        </footer>
       </div>
     </main>
   );

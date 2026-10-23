@@ -88,7 +88,13 @@ export default function SongQueue() {
                     </div>
                     {r.status === "new" ? (
                       <div className="flex gap-2">
-                        <button type="button" disabled={busy === r.id} onClick={() => void mark(r.id, "played")} className="min-h-9 rounded-full bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                        <button
+                          type="button"
+                          disabled={busy === r.id || new Date(show.startsAt) > new Date()}
+                          title={new Date(show.startsAt) > new Date() ? "Opens when the show starts" : undefined}
+                          onClick={() => void mark(r.id, "played")}
+                          className="min-h-9 rounded-full bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
                           Played
                         </button>
                         <button type="button" disabled={busy === r.id} onClick={() => void mark(r.id, "skipped")} className="min-h-9 rounded-full border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60">

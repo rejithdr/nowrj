@@ -35,6 +35,9 @@ type DisputedClaim = {
 type AuditRow = { id: string; action: string; actor: string | null; createdAt: string; details: Record<string, unknown> | null };
 
 const actionText: Record<string, string> = {
+  "rj.renamed": "RJ changed their name",
+  "programme.renamed": "Programme renamed",
+  "account.deleted": "Account deleted",
   "station.join_requested": "Station applied through an RJ's invite",
   "station.application_submitted": "Station applied directly",
   "affiliation.confirmed": "Station confirmed an RJ's dates",

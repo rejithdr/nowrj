@@ -5,10 +5,10 @@ import { writeAudit } from '../onboarding/helpers';
 /**
  * Deletes a person's account at their request.
  *
- * Personal data is erased: name, email, Google link, photo, follows,
- * reactions, song requests and station roles. The listener row itself stays
- * as an anonymous id so counts and history (call taps, referrals, audit log)
- * still add up, but nothing in it identifies the person.
+ * Personal data is erased: name, email, Google link, photo, follows, station
+ * roles and messages written with song requests. The listener row stays as an
+ * anonymous id, so Likes, Fires, call taps, requested songs, referrals and the
+ * audit log still add up, but nothing in them identifies the person.
  *
  * If the person is an RJ, the RJ profile is anonymised to "Former RJ" and
  * hidden. Programmes owned by a station stay with the station; programmes
@@ -50,9 +50,11 @@ export class AccountService {
         );
       }
 
+      // Follows end with the account. Likes, Fires, call taps and song requests
+      // stay in the shows' totals; they now point at an anonymous account, and
+      // any personal message written with a request is erased.
       await m.query(`DELETE FROM follows WHERE "listenerId" = $1`, [listenerId]);
-      await m.query(`DELETE FROM reactions WHERE "listenerId" = $1`, [listenerId]);
-      await m.query(`DELETE FROM song_requests WHERE "listenerId" = $1`, [listenerId]);
+      await m.query(`UPDATE song_requests SET message = NULL WHERE "listenerId" = $1`, [listenerId]);
       await m.query(`UPDATE user_roles SET status = 'revoked' WHERE "listenerId" = $1`, [listenerId]);
       await m.query(
         `UPDATE listeners SET "displayName" = 'Deleted user', email = NULL, "googleId" = NULL,
@@ -62,6 +64,7 @@ export class AccountService {
       );
       await writeAudit(m, listenerId, 'account.deleted', 'listener', listenerId, {
         rjProfilesAnonymised: rjs.length,
+        rjIds: rjs.map((rj) => rj.id),
       });
       // Sign the person out everywhere.
       await m.query(`DELETE FROM user_sessions WHERE sess->'passport'->>'user' = $1`, [listenerId]);

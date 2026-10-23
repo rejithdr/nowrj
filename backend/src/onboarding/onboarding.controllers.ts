@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -101,6 +102,16 @@ export class StationRepController {
     return this.claims.decideAffiliation(listenerId(req), stationId, affiliationId, false, body?.note);
   }
 
+  @Patch('stations/:stationId/programmes/:programmeId/name')
+  rename(
+    @Req() req: Request,
+    @Param('stationId', ParseUUIDPipe) stationId: string,
+    @Param('programmeId', ParseUUIDPipe) programmeId: string,
+    @Body() body: { name?: string },
+  ) {
+    return this.claims.stationRename(listenerId(req), stationId, programmeId, body?.name);
+  }
+
   @Patch('stations/:stationId/programmes/:programmeId/call-in')
   callIn(
     @Req() req: Request,
@@ -173,8 +184,8 @@ export class AdminStationsController {
   }
 
   @Get('audit-log')
-  audit() {
-    return this.stations.auditLog();
+  audit(@Query('limit') limit?: string) {
+    return this.stations.auditLog(Number(limit) || 50);
   }
 }
 

@@ -41,15 +41,23 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
   const initial = (show.hosts[0]?.name ?? show.programme.name).trim().charAt(0).toUpperCase();
   const notYet =
     kind === "upcoming"
-      ? `Like and Fire open when the show starts at ${clock(show.startsAt)}.`
-      : "Reactions for this show have closed.";
+      ? `Like and Fire open at ${clock(show.startsAt)}.`
+      : "Like and Fire have closed for this show.";
 
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
-        {show.hosts[0]?.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={show.hosts[0].photoUrl} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+        {show.hosts[0] ? (
+          <Link href={`/rj/${show.hosts[0].slug}`} aria-label={`View RJ ${show.hosts[0].name}`} className="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
+            {show.hosts[0].photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={show.hosts[0].photoUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
+                {initial}
+              </span>
+            )}
+          </Link>
         ) : (
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
             {initial}
@@ -87,7 +95,7 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
                 {show.station.name}
               </Link>
             ) : (
-              show.invitedStationName ?? "Station not assigned"
+              show.invitedStationName ? `${show.invitedStationName} (not on NowRJ yet)` : "Station not assigned"
             )}
           </p>
           <p className={`mt-1 text-xs font-semibold ${kind === "live" ? "text-red-700" : "text-orange-700"}`}>{when}</p>

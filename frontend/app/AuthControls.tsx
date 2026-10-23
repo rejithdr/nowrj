@@ -132,6 +132,7 @@ export default function AuthControls() {
             <a href="/admin/insights" className={itemClass}>Platform insights</a>
             <a href="/admin/rjs" className={itemClass}>RJs</a>
             <a href="/admin/stations" className={itemClass}>Stations &amp; claims</a>
+            <a href="/admin/activity" className={itemClass}>Activity &amp; enquiries</a>
           </>
         ) : null}
         <div className="mt-1 border-t border-zinc-100 pt-1">

@@ -107,8 +107,9 @@ export default function AccountPage() {
             <NameCard initial={me.displayName ?? ""} />
             <Card title="Delete my account">
               <p className="text-sm leading-6 text-zinc-700">
-                This permanently erases your name, email, photo, follows, Likes and Fires, and song requests, and signs you out
-                everywhere. Totals on shows stay but no longer identify you. It cannot be undone.
+                This permanently erases your name, email, photo, the RJs you follow and the messages you wrote with song
+                requests, and signs you out everywhere. Your Likes, Fires and requested songs stay in the shows&rsquo; totals but no
+                longer identify you. It cannot be undone.
               </p>
               {me.rj ? (
                 <p className="mt-3 text-sm leading-6 text-zinc-700">

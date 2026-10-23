@@ -18,11 +18,14 @@ type ShowRow = {
   callers: number;
   songRequests: number;
   live: boolean;
+  upcoming: boolean;
 };
+type ProgrammeTotals = Totals & { programmeName: string; programmeSlug: string };
 type Engagement = {
   followers?: { total: number; new7Days: number };
   last7Days: Totals;
   previous7Days: Totals;
+  byProgramme: ProgrammeTotals[];
   shows: ShowRow[];
 };
 
@@ -77,7 +80,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
   return (
     <div className="mt-3">
       <p className="text-sm text-zinc-600">
-        Last 7 days · {w.shows} show{w.shows === 1 ? "" : "s"} aired
+        Last 7 days · {w.shows} show{w.shows === 1 ? "" : "s"} aired · requests for the next 24 hours included
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {data.followers ? (
@@ -97,9 +100,53 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
         A call tap means a listener pressed Call on the show card. It does not confirm the call got through.
       </p>
 
-      <h3 className="mt-6 text-sm font-semibold text-zinc-800">Shows in the last 14 days</h3>
+      {data.byProgramme.length > 1 || (showHosts && data.byProgramme.length) ? (
+        <>
+          <h3 className="mt-6 text-sm font-semibold text-zinc-800">By programme · last 7 days</h3>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-left text-sm">
+              <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th scope="col" className="py-2 pr-3 font-semibold">Programme</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-semibold">Shows</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-semibold">Likes</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-semibold">Fires</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-semibold">Call taps</th>
+                  <th scope="col" className="py-2 text-right font-semibold">Requests</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {data.byProgramme.map((row) => (
+                  <tr key={row.programmeSlug}>
+                    <td className="py-2 pr-3">
+                      <Link href={`/programme/${row.programmeSlug}`} className="font-semibold text-zinc-900 hover:text-orange-700">
+                        {row.programmeName}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{row.shows}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{row.likes}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{row.fires}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{row.callTaps}</td>
+                    <td className="py-2 text-right tabular-nums">{row.songRequests}</td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td className="py-2 pr-3">Total</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{w.shows}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{w.likes}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{w.fires}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{w.callTaps}</td>
+                  <td className="py-2 text-right tabular-nums">{w.songRequests}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+
+      <h3 className="mt-6 text-sm font-semibold text-zinc-800">Shows · last 14 days and next 24 hours</h3>
       {data.shows.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-600">No shows have aired yet. Shows appear here once they start.</p>
+        <p className="mt-2 text-sm text-zinc-600">No shows yet. A show appears here 24 hours before it starts.</p>
       ) : (
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[36rem] text-left text-sm">
@@ -124,6 +171,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                     <span className="block text-xs text-zinc-500">
                       {showDate(row)}
                       {row.live ? <span className="ml-1.5 font-bold uppercase text-red-700">· Live</span> : null}
+                      {row.upcoming ? <span className="ml-1.5 font-semibold text-orange-700">· Coming up</span> : null}
                     </span>
                   </td>
                   {showHosts ? <td className="py-2 pr-3 text-zinc-700">{row.hosts ?? "—"}</td> : null}

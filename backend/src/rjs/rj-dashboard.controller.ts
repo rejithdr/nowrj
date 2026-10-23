@@ -84,6 +84,16 @@ export class RjDashboardController {
     return this.dashboard.moveToCurrentStation(listenerId(req), id);
   }
 
+  /** The programme form's one Save changes button: name, call-in number and time slots. */
+  @Patch('programmes/:id')
+  updateProgramme(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { name?: string; callInPhone?: string | null; schedule?: SlotInput[] },
+  ) {
+    return this.dashboard.updateProgramme(listenerId(req), id, body ?? {});
+  }
+
   @Patch('programmes/:id/call-in')
   updateCallIn(
     @Req() req: Request,

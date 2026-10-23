@@ -14,6 +14,8 @@ import { ReactionsModule } from './reactions/reactions.module';
 import { ShowsModule } from './shows/shows.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { PagesModule } from './pages/pages';
+import { EnquiriesModule } from './enquiries/enquiries';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { ReferralsModule } from './referrals/referrals.module';
     ShowsModule,
     OnboardingModule,
     ReferralsModule,
+    PagesModule,
+    EnquiriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

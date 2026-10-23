@@ -1,5 +1,3 @@
-const NOWONFM_URL = process.env.NEXT_PUBLIC_NOWONFM_URL ?? "https://nowonfm.com";
-
 /** Shown on every page: where each group goes. */
 export default function SiteFooter() {
   return (
@@ -13,7 +11,7 @@ export default function SiteFooter() {
           <a href="/search" className="text-zinc-700 hover:text-orange-700">Find RJs</a>
           <a href="/rj/register" className="text-zinc-700 hover:text-orange-700">For RJs</a>
           <a href="/for-stations" className="text-zinc-700 hover:text-orange-700">For stations</a>
-          <a href={NOWONFM_URL} className="text-zinc-700 hover:text-orange-700" rel="noopener">Advertise on Now On FM</a>
+          <a href="/advertise" className="text-zinc-700 hover:text-orange-700">Advertise on Now On FM</a>
           <a href="/privacy" className="text-zinc-700 hover:text-orange-700">Privacy</a>
           <a href="/terms" className="text-zinc-700 hover:text-orange-700">Terms</a>
         </nav>

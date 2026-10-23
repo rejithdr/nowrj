@@ -219,6 +219,9 @@ export class RjsService {
     if (!rj) {
       throw new NotFoundException('RJ not found.');
     }
+    if (rj.verificationStatus === 'deleted') {
+      throw new BadRequestException('This RJ deleted their account; the profile cannot be changed.');
+    }
 
     if (data.slug && data.slug !== rj.slug) {
       const existing = await this.rjRepository.findOne({
@@ -242,6 +245,9 @@ export class RjsService {
       throw new NotFoundException('RJ not found.');
     }
 
+    if (rj.verificationStatus === 'deleted') {
+      throw new BadRequestException('This RJ deleted their account; the profile cannot be changed.');
+    }
     rj.isActive = isActive;
     return this.rjRepository.save(rj);
   }
@@ -255,6 +261,9 @@ export class RjsService {
       throw new NotFoundException('RJ not found.');
     }
 
+    if (rj.verificationStatus === 'deleted') {
+      throw new BadRequestException('This RJ deleted their account; the profile cannot be changed.');
+    }
     rj.verificationStatus = verificationStatus;
     rj.isActive = verificationStatus === 'verified';
 

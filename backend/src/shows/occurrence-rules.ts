@@ -60,8 +60,8 @@ export function planShows(slots: ScheduleSlot[], fromDate: string, toDate: strin
   return shows;
 }
 
-/** Listeners can react from the start of a show until 24 hours after it ends. */
-export const REACTION_WINDOW_AFTER_MS = DAY_MS;
+/** Listeners can react from the start of a show until 4 hours after it ends. */
+export const REACTION_WINDOW_AFTER_MS = 4 * 3600 * 1000;
 
 export function canReact(show: { startsAt: Date; endsAt: Date; status: string }, now: Date): boolean {
   return (

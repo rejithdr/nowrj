@@ -111,7 +111,7 @@ export default function SongRequestButton({ showId, programmeName }: { showId: s
               </div>
               <div>
                 <label htmlFor={`msg-${showId}`} className="mb-1 block text-xs font-medium text-zinc-700">Dedication or message</label>
-                <input id={`msg-${showId}`} maxLength={280} value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} placeholder="For my sister on her birthday…" className={inputClass} />
+                <input id={`msg-${showId}`} maxLength={200} value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} placeholder="For my sister on her birthday…" className={inputClass} />
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button type="submit" disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-orange-600 px-4 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60">

@@ -43,7 +43,7 @@ export class SongRequestsService {
   async create(listenerId: string, occurrenceId: string, input: SongRequestInput, now = new Date()) {
     const songTitle = clean(input.songTitle, 150, 'Song title');
     const artist = clean(input.artist, 150, 'Artist');
-    const message = clean(input.message, 280, 'Message');
+    const message = clean(input.message, 200, 'Message');
     if (!songTitle) throw new BadRequestException('Enter the song you want to hear.');
 
     return this.dataSource.transaction(async (m) => {
@@ -162,7 +162,7 @@ export class SongRequestsService {
   }
 
   /** A host marks a request played, skipped, or back to new. */
-  async setStatus(listenerId: string, requestId: string, status: unknown) {
+  async setStatus(listenerId: string, requestId: string, status: unknown, now = new Date()) {
     if (status !== 'played' && status !== 'skipped' && status !== 'new') {
       throw new BadRequestException('Status must be played, skipped or new.');
     }
@@ -174,6 +174,12 @@ export class SongRequestsService {
       rjId: rj.id,
     });
     if (!hosts) throw new ForbiddenException('Only the RJs hosting this show can handle its requests.');
+    if (status === 'played') {
+      const show = await this.dataSource.manager.findOneBy(ShowOccurrence, { id: request.showOccurrenceId });
+      if (show && show.startsAt.getTime() > now.getTime()) {
+        throw new BadRequestException('You can mark a song as played once the show has started. You can skip it any time.');
+      }
+    }
 
     request.status = status as SongRequestStatus;
     request.handledByListenerId = status === 'new' ? null : listenerId;

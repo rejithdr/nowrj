@@ -15,6 +15,7 @@ import { ProgrammeOwnership } from '../programme-ownership.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { StationInvite } from '../station-invite.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
+import { writeAudit } from '../onboarding/helpers';
 import {
   describeDays,
   normaliseSlot,
@@ -486,6 +487,71 @@ export class RjDashboardService {
     await this.assertHost(listenerId, programmeId, 'call-in number');
     await this.dataSource.manager.update(Programme, { id: programmeId }, { callInPhone });
     return { id: programmeId, callInPhone };
+  }
+
+  /**
+   * Saves the whole programme form at once: name, call-in number and the full
+   * list of weekly time slots. Slots that are unchanged stay as they are;
+   * removed ones stop from today; new ones start today.
+   */
+  async updateProgramme(
+    listenerId: string,
+    programmeId: string,
+    input: { name?: string; callInPhone?: string | null; schedule?: SlotInput[] },
+  ) {
+    const name = input.name === undefined ? undefined : clean(input.name);
+    if (name !== undefined) {
+      if (!name) throw new BadRequestException('Enter the programme name.');
+      if (name.length > 150) throw new BadRequestException('Programme name is too long.');
+    }
+    const callInPhone = input.callInPhone === undefined ? undefined : clean(input.callInPhone);
+    if (callInPhone !== undefined) checkPhone(callInPhone, 'Call-in number');
+    const slots = input.schedule === undefined ? undefined : parseSlots(input.schedule);
+    if (slots && !slots.length) throw new BadRequestException('Keep at least one time slot.');
+
+    return this.dataSource.transaction(async (manager) => {
+      await this.assertHost(listenerId, programmeId, 'details', manager);
+      const programme = await manager.findOneByOrFail(Programme, { id: programmeId });
+
+      if (name !== undefined && name !== programme.name) {
+        await writeAudit(manager, listenerId, 'programme.renamed', 'programme', programmeId, { from: programme.name, to: name });
+        programme.name = name;
+      }
+      if (callInPhone !== undefined) programme.callInPhone = callInPhone;
+      await manager.save(programme);
+
+      if (slots) {
+        const same = (a: { days: number[]; startTime: string; endTime: string }, b: ProgrammeSchedule) =>
+          a.startTime === b.startTime.slice(0, 5) &&
+          a.endTime === b.endTime.slice(0, 5) &&
+          a.days.join(',') === [...b.daysOfWeek].sort((x, y) => x - y).join(',');
+        const current = await manager.find(ProgrammeSchedule, { where: { programmeId, validTo: IsNull() } });
+        const today = todayInIndia();
+
+        for (const old of current.filter((c) => !slots.some((s) => same(s, c)))) {
+          if (old.validFrom >= today) {
+            await manager.delete(ProgrammeSchedule, { id: old.id });
+          } else {
+            old.validTo = dayBefore(today);
+            await manager.save(old);
+          }
+        }
+        for (const slot of slots.filter((s) => !current.some((c) => same(s, c)))) {
+          await manager.save(
+            manager.create(ProgrammeSchedule, {
+              programmeId,
+              daysOfWeek: slot.days,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              validFrom: today,
+              validTo: null,
+            }),
+          );
+        }
+        await this.syncProgrammeTimes(manager, programmeId);
+      }
+      return { id: programme.id, name: programme.name, callInPhone: programme.callInPhone };
+    });
   }
 
   /** Keeps programmes.startTime/endTime (used by older pages) on the first current slot in weekday order. */

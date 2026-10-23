@@ -186,8 +186,10 @@ function StationPanel({ entry }: { entry: MyStation }) {
   );
 }
 
+/** Name and call-in number of a programme the station owns, saved together. */
 function CallInEditor({ stationId, programme, onSaved }: { stationId: string; programme: StationProgramme; onSaved: () => Promise<void> }) {
   const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(programme.name);
   const [value, setValue] = useState(programme.callInPhone ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -196,10 +198,13 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
     setBusy(true);
     setError("");
     try {
-      await api(`/station-reps/me/stations/${stationId}/programmes/${programme.id}/call-in`, {
-        method: "PATCH",
-        body: JSON.stringify({ callInPhone: value || null }),
-      });
+      const base = `/station-reps/me/stations/${stationId}/programmes/${programme.id}`;
+      if (name.trim() !== programme.name) {
+        await api(`${base}/name`, { method: "PATCH", body: JSON.stringify({ name }) });
+      }
+      if ((value || null) !== programme.callInPhone) {
+        await api(`${base}/call-in`, { method: "PATCH", body: JSON.stringify({ callInPhone: value || null }) });
+      }
       setEditing(false);
       await onSaved();
     } catch (err) {
@@ -213,20 +218,26 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
     return (
       <button type="button" onClick={() => setEditing(true)} className={quietButton}>
         <Phone size={14} aria-hidden="true" />
-        {programme.callInPhone ?? "Add call-in number"}
+        {programme.callInPhone ?? "Add call-in number"} · Edit
       </button>
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor={`call-${programme.id}`} className="sr-only">Call-in number</label>
+    <div className="w-full space-y-2 rounded-xl bg-zinc-50 p-3">
+      <label htmlFor={`name-${programme.id}`} className="block text-sm font-medium text-zinc-800">Programme name</label>
+      <input id={`name-${programme.id}`} maxLength={150} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+      <label htmlFor={`call-${programme.id}`} className="block text-sm font-medium text-zinc-800">Call-in number</label>
       <input id={`call-${programme.id}`} type="tel" maxLength={20} value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClass} max-w-48`} />
-      <button type="button" onClick={() => void save()} disabled={busy} className={primaryButton}>
-        {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-        Save
-      </button>
-      <button type="button" onClick={() => setEditing(false)} className={quietButton} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
-      {error ? <p className="w-full text-sm text-red-700">{error}</p> : null}
+      <div className="flex gap-2">
+        <button type="button" onClick={() => void save()} disabled={busy} className={primaryButton}>
+          {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
+          Save changes
+        </button>
+        <button type="button" onClick={() => { setEditing(false); setName(programme.name); setValue(programme.callInPhone ?? ""); }} className={quietButton}>
+          <X size={14} aria-hidden="true" /> Cancel
+        </button>
+      </div>
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </div>
   );
 }

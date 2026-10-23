@@ -817,7 +817,7 @@ export default function AdminRJsPage() {
                           <td className="px-5 py-4">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${rj.isActive ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${rj.isActive ? "bg-emerald-500" : "bg-zinc-400"}`} />
-                              {rj.isActive ? "Active" : "Inactive"}
+                              {rj.verificationStatus === "deleted" ? "Deleted account" : rj.isActive ? "Active" : "Inactive"}
                             </span>
                             {needsReview(rj) && (
                               <span className="mt-1.5 flex w-fit items-center rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
@@ -857,7 +857,7 @@ export default function AdminRJsPage() {
                                     </button>
                                   )}
                                 </>
-                              ) : (
+                              ) : rj.verificationStatus === "deleted" ? null : (
                               <button
                                 type="button"
                                 disabled={changingId === rj.id}
@@ -898,7 +898,7 @@ export default function AdminRJsPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-bold">{rj.name}</h3>
                             <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rj.isActive ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>
-                              {rj.isActive ? "Active" : "Inactive"}
+                              {rj.verificationStatus === "deleted" ? "Deleted account" : rj.isActive ? "Active" : "Inactive"}
                             </span>
                             {needsReview(rj) && (
                               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800">
@@ -946,7 +946,7 @@ export default function AdminRJsPage() {
                               </button>
                             )}
                           </>
-                        ) : (
+                        ) : rj.verificationStatus === "deleted" ? null : (
                         <button
                           type="button"
                           disabled={changingId === rj.id}

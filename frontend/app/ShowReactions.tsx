@@ -105,6 +105,23 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
     }
   }
 
+  if (!canReact) {
+    // Closed: show the totals only, so nothing looks clickable outside show time.
+    return (
+      <>
+        <span className="inline-flex min-h-10 items-center gap-1.5 px-1 text-sm text-zinc-500" aria-label={`${state.likes} likes`}>
+          <Heart size={16} aria-hidden="true" fill={state.liked ? "currentColor" : "none"} />
+          <span className="tabular-nums">{state.likes}</span>
+        </span>
+        <span className="inline-flex min-h-10 items-center gap-1.5 px-1 text-sm text-zinc-500" aria-label={`${state.fires} fires`}>
+          <Flame size={16} aria-hidden="true" fill={state.fired ? "currentColor" : "none"} />
+          <span className="tabular-nums">{state.fires}</span>
+        </span>
+        <span className="text-xs text-zinc-500">{notYetMessage}</span>
+      </>
+    );
+  }
+
   const base =
     "inline-flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60";
   const off = "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50";
@@ -117,7 +134,7 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
         disabled={busy !== null || signedIn === null}
         aria-pressed={state.liked}
         aria-label={`Like this show, ${state.likes} likes`}
-        className={`${base} ${state.liked ? "border-rose-300 bg-rose-50 text-rose-700" : off} ${canReact ? "" : "opacity-60"}`}
+        className={`${base} ${state.liked ? "border-rose-300 bg-rose-50 text-rose-700" : off}`}
       >
         <Heart size={16} aria-hidden="true" fill={state.liked ? "currentColor" : "none"} />
         {busy === "like" ? "Saving…" : state.liked ? "Liked" : "Like"}
@@ -129,7 +146,7 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
         disabled={busy !== null || signedIn === null}
         aria-pressed={state.fired}
         aria-label={`Fire for this show, ${state.fires} fires`}
-        className={`${base} ${state.fired ? "border-orange-300 bg-orange-50 text-orange-700" : off} ${canReact ? "" : "opacity-60"}`}
+        className={`${base} ${state.fired ? "border-orange-300 bg-orange-50 text-orange-700" : off}`}
       >
         <Flame size={16} aria-hidden="true" fill={state.fired ? "currentColor" : "none"} />
         {busy === "fire" ? "Saving…" : "Fire"}

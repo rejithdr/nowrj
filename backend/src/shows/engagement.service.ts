@@ -24,6 +24,7 @@ type ShowRow = {
 };
 
 type Totals = { likes: number; fires: number; callTaps: number; callers: number; songRequests: number; shows: number };
+type ProgrammeTotals = Totals & { programmeName: string; programmeSlug: string };
 
 /**
  * Engagement numbers. "Callers" counts distinct people who tapped Call:
@@ -52,7 +53,10 @@ export class EngagementService {
     return { recorded: true };
   }
 
-  /** Per-show numbers for shows that started in the last `days` days, newest first. */
+  /**
+   * Per-show numbers for shows that started in the last `days` days, plus
+   * shows starting in the next 24 hours (song requests open a day early).
+   */
   private async shows(filterSql: string, param: string, now: Date, days: number): Promise<ShowRow[]> {
     const rows: ShowRow[] = await this.dataSource.query(
       `
@@ -75,15 +79,15 @@ export class EngagementService {
         AND o."startsAt" > $3
       ORDER BY o."startsAt" DESC
       `,
-      [param, now, new Date(now.getTime() - days * DAY)],
+      [param, new Date(now.getTime() + DAY), new Date(now.getTime() - days * DAY)],
     );
     return rows.map((r) => ({ ...r, startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) }));
   }
 
-  private totals(rows: ShowRow[], from: Date, to: Date): Totals {
+  private totals(rows: ShowRow[], from: Date, to: Date, now: Date): Totals {
     const inRange = rows.filter((r) => r.startsAt > from && r.startsAt <= to);
     return {
-      shows: inRange.length,
+      shows: inRange.filter((r) => r.startsAt <= now).length,
       likes: inRange.reduce((n, r) => n + r.likes, 0),
       fires: inRange.reduce((n, r) => n + r.fires, 0),
       callTaps: inRange.reduce((n, r) => n + r.callTaps, 0),
@@ -95,10 +99,31 @@ export class EngagementService {
   private summarise(rows: ShowRow[], now: Date) {
     const weekAgo = new Date(now.getTime() - 7 * DAY);
     const twoWeeksAgo = new Date(now.getTime() - 14 * DAY);
+    const weekRows = rows.filter((r) => r.startsAt > weekAgo);
+    const byProgramme = new Map<string, ProgrammeTotals>();
+    for (const r of weekRows) {
+      const t = byProgramme.get(r.programmeSlug) ?? {
+        programmeName: r.programmeName, programmeSlug: r.programmeSlug,
+        shows: 0, likes: 0, fires: 0, callTaps: 0, callers: 0, songRequests: 0,
+      };
+      if (r.startsAt <= now) t.shows += 1;
+      t.likes += r.likes;
+      t.fires += r.fires;
+      t.callTaps += r.callTaps;
+      t.callers += r.callers;
+      t.songRequests += r.songRequests;
+      byProgramme.set(r.programmeSlug, t);
+    }
     return {
-      last7Days: this.totals(rows, weekAgo, now),
-      previous7Days: this.totals(rows, twoWeeksAgo, weekAgo),
-      shows: rows.map((r) => ({ ...r, live: r.startsAt <= now && now < r.endsAt })),
+      // This week includes requests already sent for shows in the next 24 hours.
+      last7Days: this.totals(rows, weekAgo, new Date(now.getTime() + DAY), now),
+      previous7Days: this.totals(rows, twoWeeksAgo, weekAgo, now),
+      byProgramme: [...byProgramme.values()].sort((a, b) => a.programmeName.localeCompare(b.programmeName)),
+      shows: rows.map((r) => ({
+        ...r,
+        live: r.startsAt <= now && now < r.endsAt,
+        upcoming: r.startsAt > now,
+      })),
     };
   }
 
@@ -125,7 +150,8 @@ export class EngagementService {
   /** An approved station representative: every show aired on the station in the last 14 days. */
   async forStation(listenerId: string, stationId: string, now = new Date()) {
     await assertStationRep(this.dataSource.manager, listenerId, stationId);
-    const rows = await this.shows(`o."stationId" = $1`, stationId, now, 14);
+    // Shows aired on the station, and the station's own programmes.
+    const rows = await this.shows(`(o."stationId" = $1 OR p."ownerStationId" = $1)`, stationId, now, 14);
     return this.summarise(rows, now);
   }
 }

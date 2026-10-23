@@ -2,145 +2,16 @@ import { SERVER_API_URL } from "./lib/config";
 
 import Link from "next/link";
 import { connection } from "next/server";
-import LikeButton from "./rj/[slug]/LikeButton";
-import FireButton from "./rj/[slug]/FireButton";
 import AuthControls from "./AuthControls";
-import HomeReactionSummary from "./HomeReactionSummary";
 import ShowCard, { type ApiShow } from "./ShowCard";
 import { ShowReactionsProvider } from "./ShowReactions";
+import { ProgrammeRow, type ProgrammeSummary } from "./lib/public-pages";
 export const instant = false;
-type Programme = {
-  id: string;
-  title: string;
-  rj: string;
-  rjSlug?: string;
-  rjId?: string;
-  rjs?: ApiRj[];
-  station: string;
-  time: string;
-  initials: string;
-  contactNumber: string;
-};
-
-type ApiProgramme = {
-  id: string;
-  name: string;
-  slug: string;
-  rjName: string | null;
-  rjs?: ApiRj[];
-  startTime: string | null;
-  endTime: string | null;
-  isActive: boolean;
-  stationId: string | null;
-  callInPhone?: string | null;
-  scheduleText?: string | null;
-};
-
-type ApiStation = {
-  id: string;
-  name: string;
-  slug: string;
-  city: string | null;
-  state: string | null;
-  isActive: boolean;
-};
-
-type ApiRj = {
-  id: string;
-  name: string;
-  phone: string | null;
-  slug: string;
-  stationId: string | null;
-  isActive: boolean;
-};
-
-function ProgrammeCard({ programme }: { programme: Programme }) {
-  return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-center gap-3">
-    {programme.rjs && programme.rjs.length > 0 ? (
-  <div className="flex shrink-0 items-center gap-2">
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
-      {programme.initials}
-    </span>
-    <div className="flex min-w-0 flex-col gap-1">
-      {programme.rjs.map((rj) => (
-        <Link
-          key={rj.id}
-          href={`/rj/${rj.slug}`}
-          aria-label={`View ${rj.name} profile`}
-          className="max-w-36 truncate font-semibold text-orange-700 hover:text-orange-800"
-        >
-          {rj.name}
-        </Link>
-      ))}
-    </div>
-  </div>
-) : programme.rjSlug ? (
-  <Link
-    href={`/rj/${programme.rjSlug}`}
-    aria-label={`View ${programme.rj} profile`}
-    className="group flex min-h-14 shrink-0 items-center gap-2 rounded-xl p-1 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-  >
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700 group-hover:bg-orange-200">
-      {programme.initials}
-    </span>
-    <span className="max-w-36 truncate font-semibold text-orange-700 group-hover:text-orange-800">
-      {programme.rj}
-    </span>
-  </Link>
-) : (
-  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-100 text-lg font-bold text-orange-700">
-    {programme.initials}
-  </div>
-)}
-
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate font-bold text-zinc-900">
-            <Link
-               href={`/programme/${programme.id}`}
-            className="hover:text-orange-700"
-            >
-          {programme.title}
-          </Link>
-          </h3>
-          
-<p className="mt-1 text-sm text-zinc-600">
-  <Link
-    href={`/station/${programme.station
-      .toLowerCase()
-      .replace(/\s+/g, "-")}`}
-    className="hover:text-orange-700"
-  >
-    {programme.station}
-  </Link>
-</p>
-          <p className="mt-1 text-xs font-semibold text-orange-700">
-            {programme.time}
-          </p>
-        </div>
-      </div>
-
-<div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
-  {programme.rjId && (
-  <>
-    <LikeButton rjId={programme.rjId} />
-    <FireButton rjId={programme.rjId} />
-  </>
-)}
-
-      </div>
-       <HomeReactionSummary rjId={programme.rjId} />
-    </article>
-  );
-}
 
 export default async function Home() {
   // Live shows depend on the current time, so this page is rendered on every visit.
   await connection();
-  let databaseProgrammes: ApiProgramme[] = [];
-  let databaseStations: ApiStation[] = [];
-  let databaseRjs: ApiRj[] = [];
+  let programmes: ProgrammeSummary[] = [];
   let shows: { live: ApiShow[]; upcoming: ApiShow[]; recent: ApiShow[] } = {
     live: [],
     upcoming: [],
@@ -150,68 +21,21 @@ export default async function Home() {
   const now = new Date();
 
   try {
-    const [programmeResponse, stationResponse, rjResponse, showsResponse] =
-      await Promise.all([
-        fetch(`${SERVER_API_URL}/programmes`, { cache: "no-store" }),
-        fetch(`${SERVER_API_URL}/stations`, { cache: "no-store" }),
-        fetch(`${SERVER_API_URL}/rjs`, { cache: "no-store" }),
-        fetch(`${SERVER_API_URL}/shows/now`, { cache: "no-store" }),
-      ]);
-
+    const [programmeResponse, showsResponse] = await Promise.all([
+      fetch(`${SERVER_API_URL}/pages/programmes`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/shows/now`, { cache: "no-store" }),
+    ]);
     if (showsResponse.ok) {
       shows = await showsResponse.json();
       showsLoaded = true;
     }
-
     if (programmeResponse.ok) {
-      databaseProgrammes = await programmeResponse.json();
-    }
-
-    if (stationResponse.ok) {
-      databaseStations = await stationResponse.json();
-    }
-
-    if (rjResponse.ok) {
-      databaseRjs = await rjResponse.json();
+      programmes = await programmeResponse.json();
     }
   } catch {
-    // Keep the sample homepage available if the backend is unavailable.
+    // The page still renders; the notice below explains that shows could not be loaded.
   }
 
-  const databaseProgrammeCards: Programme[] = databaseProgrammes
-    .filter((programme) => programme.isActive)
-    .map((programme) => {
-      const station = databaseStations.find(
-        (item) => item.id === programme.stationId && item.isActive,
-      );
-
-          const assignedRjs = programme.rjs?.filter((item) => item.isActive) ?? [];
-
-      const rj =
-        assignedRjs[0] ??
-        databaseRjs.find(
-          (item) =>
-            item.isActive &&
-            item.name.toLowerCase() === programme.rjName?.toLowerCase(),
-        );
-
-      return {
-        id: programme.slug,
-        title: programme.name,
-        rj: programme.rjName ?? "RJ not assigned",
-        rjSlug: rj?.slug,
-        rjId: rj?.id,
-        rjs: assignedRjs,
-        station: station?.name ?? "Station not assigned",
-        time:
-          programme.scheduleText ??
-          (programme.startTime && programme.endTime
-            ? `${programme.startTime.slice(0, 5)}–${programme.endTime.slice(0, 5)}`
-            : "Schedule not set"),
-        initials: (programme.rjName ?? programme.name).charAt(0).toUpperCase(),
-        contactNumber: programme.callInPhone ?? "",
-      };
-    });
   return (
     <main className="min-h-screen px-4 py-5 sm:px-8">
       <div className="mx-auto max-w-3xl">
@@ -232,10 +56,6 @@ export default async function Home() {
       Search
     </Link>
     <AuthControls />
-
-    <span className="hidden text-right text-xs font-medium text-zinc-500 sm:inline">
-      Beyond the broadcast
-    </span>
   </div>
 </header>
 
@@ -272,7 +92,7 @@ export default async function Home() {
 
         {!showsLoaded ? (
           <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Live shows could not be loaded. Check that the NowRJ backend is running.
+            Live shows could not be loaded right now. Please refresh in a minute.
           </p>
         ) : null}
 
@@ -310,7 +130,7 @@ export default async function Home() {
 
           <section id="recent" className="mt-10 scroll-mt-5">
             <h2 className="mb-1 text-xl font-bold text-zinc-900">Recently aired</h2>
-            <p className="mb-4 text-sm text-zinc-500">You can still Like or Fire a show for 24 hours after it ends.</p>
+            <p className="mb-4 text-sm text-zinc-500">You can still Like or Fire a show for 4 hours after it ends.</p>
             {shows.recent.length ? (
               <div className="flex flex-col gap-3">
                 {shows.recent.map((show) => (
@@ -326,9 +146,10 @@ export default async function Home() {
         <section id="all-programmes" className="mt-10 scroll-mt-5">
           <h2 className="mb-4 text-xl font-bold text-zinc-900">All programmes</h2>
           <div className="flex flex-col gap-3">
-            {databaseProgrammeCards.map((programme) => (
-              <ProgrammeCard key={programme.id} programme={programme} />
+            {programmes.map((programme) => (
+              <ProgrammeRow key={programme.id} programme={programme} />
             ))}
+            {programmes.length === 0 ? <p className="text-sm text-zinc-600">No programmes yet.</p> : null}
           </div>
         </section>
 
