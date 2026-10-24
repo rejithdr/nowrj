@@ -82,6 +82,12 @@ export class ShowsController {
     return this.songRequests.forRj(listenerId(req));
   }
 
+  /** A station's queue of requests or questions, for its approved representatives. */
+  @Get('song-requests/station/:stationId')
+  stationSongRequests(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string) {
+    return this.songRequests.forStation(listenerId(req), stationId);
+  }
+
   @Patch('song-requests/:requestId')
   setSongRequestStatus(
     @Req() req: Request,

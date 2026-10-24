@@ -14,6 +14,7 @@ import { Station } from '../station.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { describeDays, sortSlots } from '../programmes/schedule-rules';
 import { assertStationRep, clean, PHONE, transferProgrammeToStation, writeAudit } from './helpers';
+import { programmeSettings } from '../rjs/rj-dashboard.service';
 
 const OPEN = ['awaiting_rj', 'rejected_by_rj'] as const;
 
@@ -49,6 +50,8 @@ export class ClaimsService {
         slug: p.slug,
         isActive: p.isActive,
         callInPhone: p.callInPhone,
+        interactionType: p.interactionType,
+        noticeText: p.noticeText,
         ownedByStation: p.ownerStationId === stationId,
         ownerRjName: owners.find((rj) => rj.id === p.ownerRjId)?.name ?? null,
         schedule: sortSlots(slots.filter((s) => s.programmeId === p.id))
@@ -99,6 +102,24 @@ export class ClaimsService {
       }
       return { id: programmeId, name };
     });
+  }
+
+  /** The owning station may switch a programme between song requests and questions, and set its notice. */
+  async stationUpdateSettings(
+    listenerId: string,
+    stationId: string,
+    programmeId: string,
+    input: { interactionType?: string; noticeText?: string | null },
+  ) {
+    const settings = programmeSettings(input);
+    const m = this.dataSource.manager;
+    await assertStationRep(m, listenerId, stationId);
+    const programme = await m.findOneBy(Programme, { id: programmeId });
+    if (!programme || programme.ownerStationId !== stationId) {
+      throw new ForbiddenException('Only programmes your station owns can be changed here.');
+    }
+    if (Object.keys(settings).length) await m.update(Programme, { id: programmeId }, settings);
+    return { id: programmeId, ...settings };
   }
 
   /** The owning station may change its programmes' call-in numbers. */

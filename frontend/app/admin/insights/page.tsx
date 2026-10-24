@@ -16,6 +16,7 @@ type Week = {
   fires: number;
   callTaps: number;
   songRequests: number;
+  questions: number;
   follows: number;
 };
 type Insights = {
@@ -188,6 +189,7 @@ export default function InsightsPage() {
                       <th scope="col" className="py-2 pr-3 font-semibold">Fires</th>
                       <th scope="col" className="py-2 pr-3 font-semibold">Call taps</th>
                       <th scope="col" className="py-2 pr-3 font-semibold">Requests</th>
+                      <th scope="col" className="py-2 pr-3 font-semibold">Questions</th>
                       <th scope="col" className="py-2 font-semibold">Follows</th>
                     </tr>
                   </thead>
@@ -203,6 +205,7 @@ export default function InsightsPage() {
                         <td className="py-2 pr-3">{w.fires}</td>
                         <td className="py-2 pr-3">{w.callTaps}</td>
                         <td className="py-2 pr-3">{w.songRequests}</td>
+                        <td className="py-2 pr-3">{w.questions}</td>
                         <td className="py-2">{w.follows}</td>
                       </tr>
                     ))}
@@ -261,7 +264,7 @@ export default function InsightsPage() {
                 )}
               </Card>
             </div>
-            <p className="mt-4 pb-6 text-xs text-zinc-500">Interactions are Likes, Fires, song requests and call taps on shows.</p>
+            <p className="mt-4 pb-6 text-xs text-zinc-500">Interactions are Likes, Fires, song requests, questions and call taps on shows.</p>
           </>
         ) : !error ? (
           <p className="mt-6 text-zinc-600">Loading…</p>

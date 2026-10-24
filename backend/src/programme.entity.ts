@@ -34,6 +34,14 @@ export class Programme {
   @Column({ type: 'varchar', length: 20, nullable: true })
   callInPhone: string | null;
 
+  /** What listeners send: song requests (default) or questions. */
+  @Column({ type: 'varchar', length: 20, default: 'song' })
+  interactionType: 'song' | 'question';
+
+  /** Notice shown above the question box; null means the default health notice. */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  noticeText: string | null;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

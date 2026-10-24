@@ -21,9 +21,23 @@ type ShowRow = {
   callTaps: number;
   callers: number;
   songRequests: number;
+  questions: number;
 };
 
-type Totals = { likes: number; fires: number; callTaps: number; callers: number; songRequests: number; shows: number };
+type Totals = {
+  likes: number;
+  fires: number;
+  callTaps: number;
+  callers: number;
+  songRequests: number;
+  questions: number;
+  shows: number;
+};
+
+/** A show "reached" this many interactions: Likes + Fires + call taps + requests + questions. */
+export const INTERACTION_MARK = 10;
+const interactions = (r: { likes: number; fires: number; callTaps: number; songRequests: number; questions: number }) =>
+  r.likes + r.fires + r.callTaps + r.songRequests + r.questions;
 type ProgrammeTotals = Totals & { programmeName: string; programmeSlug: string };
 
 /**
@@ -70,7 +84,8 @@ export class EngagementService {
              (SELECT count(*)::int FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS "callTaps",
              (SELECT count(DISTINCT COALESCE(e."listenerId"::text, e."deviceId"))::int
                 FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS callers,
-             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id) AS "songRequests"
+             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id AND s.kind = 'song') AS "songRequests",
+             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id AND s.kind = 'question') AS questions
       FROM show_occurrences o
       JOIN programmes p ON p.id = o."programmeId"
       WHERE ${filterSql}
@@ -93,6 +108,7 @@ export class EngagementService {
       callTaps: inRange.reduce((n, r) => n + r.callTaps, 0),
       callers: inRange.reduce((n, r) => n + r.callers, 0),
       songRequests: inRange.reduce((n, r) => n + r.songRequests, 0),
+      questions: inRange.reduce((n, r) => n + r.questions, 0),
     };
   }
 
@@ -104,7 +120,7 @@ export class EngagementService {
     for (const r of weekRows) {
       const t = byProgramme.get(r.programmeSlug) ?? {
         programmeName: r.programmeName, programmeSlug: r.programmeSlug,
-        shows: 0, likes: 0, fires: 0, callTaps: 0, callers: 0, songRequests: 0,
+        shows: 0, likes: 0, fires: 0, callTaps: 0, callers: 0, songRequests: 0, questions: 0,
       };
       if (r.startsAt <= now) t.shows += 1;
       t.likes += r.likes;
@@ -112,6 +128,7 @@ export class EngagementService {
       t.callTaps += r.callTaps;
       t.callers += r.callers;
       t.songRequests += r.songRequests;
+      t.questions += r.questions;
       byProgramme.set(r.programmeSlug, t);
     }
     return {
@@ -123,7 +140,10 @@ export class EngagementService {
         ...r,
         live: r.startsAt <= now && now < r.endsAt,
         upcoming: r.startsAt > now,
+        interactions: interactions(r),
+        reachedMark: interactions(r) >= INTERACTION_MARK,
       })),
+      interactionMark: INTERACTION_MARK,
     };
   }
 

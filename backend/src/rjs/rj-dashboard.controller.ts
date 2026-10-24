@@ -89,7 +89,14 @@ export class RjDashboardController {
   updateProgramme(
     @Req() req: Request,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { name?: string; callInPhone?: string | null; schedule?: SlotInput[] },
+    @Body()
+    body: {
+      name?: string;
+      callInPhone?: string | null;
+      schedule?: SlotInput[];
+      interactionType?: string;
+      noticeText?: string | null;
+    },
   ) {
     return this.dashboard.updateProgramme(listenerId(req), id, body ?? {});
   }

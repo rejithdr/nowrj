@@ -19,6 +19,7 @@ type Week = {
   fires: number;
   callTaps: number;
   songRequests: number;
+  questions: number;
   follows: number;
 };
 
@@ -72,7 +73,8 @@ export class InsightsService {
         (SELECT count(*)::int FROM reactions r WHERE r.type = 'like' AND date_trunc('week', ${IST_NAIVE('r."createdAt"')}) = wk.week) AS likes,
         (SELECT count(*)::int FROM reactions r WHERE r.type = 'fire' AND date_trunc('week', ${IST_NAIVE('r."createdAt"')}) = wk.week) AS fires,
         (SELECT count(*)::int FROM engagement_events e WHERE e.type = 'call_tap' AND date_trunc('week', ${IST_TZ('e."createdAt"')}) = wk.week) AS "callTaps",
-        (SELECT count(*)::int FROM song_requests s WHERE date_trunc('week', ${IST_TZ('s."createdAt"')}) = wk.week) AS "songRequests",
+        (SELECT count(*)::int FROM song_requests s WHERE s.kind = 'song' AND date_trunc('week', ${IST_TZ('s."createdAt"')}) = wk.week) AS "songRequests",
+        (SELECT count(*)::int FROM song_requests s WHERE s.kind = 'question' AND date_trunc('week', ${IST_TZ('s."createdAt"')}) = wk.week) AS questions,
         (SELECT count(*)::int FROM follows f WHERE date_trunc('week', ${IST_NAIVE('f."createdAt"')}) = wk.week) AS follows
       FROM wk
       ORDER BY wk.week

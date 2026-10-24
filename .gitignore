@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .next/
 dist/
 coverage/
@@ -16,3 +16,8 @@ backend/backups/
 *.tsbuildinfo
 # database backups (contain user data)
 *.dump
+# keys and certificates never belong in the repository
+*.pem
+*.key
+.aws/
+.nowrj-backup

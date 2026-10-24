@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, Notice } from "./ui";
 
-type Totals = { shows: number; likes: number; fires: number; callTaps: number; callers: number; songRequests: number };
+type Totals = {
+  shows: number;
+  likes: number;
+  fires: number;
+  callTaps: number;
+  callers: number;
+  songRequests: number;
+  questions: number;
+};
 type ShowRow = {
   id: string;
   airDate: string;
@@ -17,8 +25,11 @@ type ShowRow = {
   callTaps: number;
   callers: number;
   songRequests: number;
+  questions: number;
   live: boolean;
   upcoming: boolean;
+  interactions: number;
+  reachedMark: boolean;
 };
 type ProgrammeTotals = Totals & { programmeName: string; programmeSlug: string };
 type Engagement = {
@@ -27,6 +38,7 @@ type Engagement = {
   previous7Days: Totals;
   byProgramme: ProgrammeTotals[];
   shows: ShowRow[];
+  interactionMark: number;
 };
 
 function change(now: number, before: number) {
@@ -76,6 +88,10 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
 
   const w = data.last7Days;
   const p = data.previous7Days;
+  const hasQuestions = w.questions > 0 || p.questions > 0 || data.shows.some((r) => r.questions > 0);
+  const mark = data.interactionMark;
+  const reached = data.shows.filter((r) => !r.upcoming && r.reachedMark).length;
+  const aired = data.shows.filter((r) => !r.upcoming).length;
 
   return (
     <div className="mt-3">
@@ -94,6 +110,7 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
         <Tile label="Fires" value={w.fires} note={change(w.fires, p.fires)} />
         <Tile label="Call taps" value={w.callTaps} note={change(w.callTaps, p.callTaps)} />
         <Tile label="Song requests" value={w.songRequests} note={change(w.songRequests, p.songRequests)} />
+        {hasQuestions ? <Tile label="Questions" value={w.questions} note={change(w.questions, p.questions)} /> : null}
         {!data.followers ? <Tile label="Shows aired" value={w.shows} note={change(w.shows, p.shows)} /> : null}
       </div>
       <p className="mt-2 text-xs text-zinc-500">
@@ -112,7 +129,8 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                   <th scope="col" className="py-2 pr-3 text-right font-semibold">Likes</th>
                   <th scope="col" className="py-2 pr-3 text-right font-semibold">Fires</th>
                   <th scope="col" className="py-2 pr-3 text-right font-semibold">Call taps</th>
-                  <th scope="col" className="py-2 text-right font-semibold">Requests</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-semibold">Requests</th>
+                  {hasQuestions ? <th scope="col" className="py-2 text-right font-semibold">Questions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -127,7 +145,8 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                     <td className="py-2 pr-3 text-right tabular-nums">{row.likes}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{row.fires}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{row.callTaps}</td>
-                    <td className="py-2 text-right tabular-nums">{row.songRequests}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{row.songRequests}</td>
+                    {hasQuestions ? <td className="py-2 text-right tabular-nums">{row.questions}</td> : null}
                   </tr>
                 ))}
                 <tr className="font-semibold">
@@ -136,7 +155,8 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                   <td className="py-2 pr-3 text-right tabular-nums">{w.likes}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{w.fires}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{w.callTaps}</td>
-                  <td className="py-2 text-right tabular-nums">{w.songRequests}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{w.songRequests}</td>
+                  {hasQuestions ? <td className="py-2 text-right tabular-nums">{w.questions}</td> : null}
                 </tr>
               </tbody>
             </table>
@@ -145,6 +165,10 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
       ) : null}
 
       <h3 className="mt-6 text-sm font-semibold text-zinc-800">Shows · last 14 days and next 24 hours</h3>
+      <p className="mt-1 text-xs text-zinc-500">
+        Total = Likes + Fires + call taps + requests{hasQuestions ? " + questions" : ""}. ★ marks a show with {mark} or more.
+        {aired ? ` ${reached} of ${aired} aired show${aired === 1 ? "" : "s"} reached ${mark}.` : ""}
+      </p>
       {data.shows.length === 0 ? (
         <p className="mt-2 text-sm text-zinc-600">No shows yet. A show appears here 24 hours before it starts.</p>
       ) : (
@@ -158,7 +182,9 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Fires</th>
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Call taps</th>
                 <th scope="col" className="py-2 pr-3 text-right font-semibold">Callers</th>
-                <th scope="col" className="py-2 text-right font-semibold">Requests</th>
+                <th scope="col" className="py-2 pr-3 text-right font-semibold">Requests</th>
+                {hasQuestions ? <th scope="col" className="py-2 pr-3 text-right font-semibold">Questions</th> : null}
+                <th scope="col" className="py-2 text-right font-semibold">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -179,7 +205,16 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                   <td className="py-2 pr-3 text-right tabular-nums">{row.fires}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.callTaps}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.callers}</td>
-                  <td className="py-2 text-right tabular-nums">{row.songRequests}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{row.songRequests}</td>
+                  {hasQuestions ? <td className="py-2 pr-3 text-right tabular-nums">{row.questions}</td> : null}
+                  <td className="py-2 text-right font-semibold tabular-nums">
+                    {row.interactions}
+                    {row.reachedMark ? (
+                      <span className="ml-1 text-amber-500" title={`${mark} or more interactions`} aria-label={`reached ${mark} or more`}>
+                        ★
+                      </span>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

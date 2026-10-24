@@ -8,6 +8,8 @@ import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import SongQueue from "../../lib/song-queue";
 import { RjProfileEditor } from "../../lib/rj-profile";
+import { InteractionSettings } from "../../lib/interaction-settings";
+import type { InteractionType } from "../../lib/interaction";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
   ArrowLeft,
@@ -90,6 +92,8 @@ type MyProgramme = {
   startTime: string | null;
   endTime: string | null;
   callInPhone: string | null;
+  interactionType: InteractionType;
+  noticeText: string | null;
   isActive: boolean;
   stationName: string | null;
   invitedStationName: string | null;
@@ -276,7 +280,7 @@ export default function RjDashboardPage() {
           </Section>
         ) : null}
 
-        <Section title="Song requests">
+        <Section title="Song requests & questions">
           <SongQueue />
         </Section>
 
@@ -905,6 +909,9 @@ function ProgrammeRow({
             <Phone size={13} className="mr-1 inline" aria-hidden="true" />
             {programme.callInPhone ?? "No call-in number"}
           </p>
+          <p className="text-sm text-zinc-600">
+            Listeners can: {programme.interactionType === "question" ? "Ask a question" : "Request a song"}
+          </p>
           <p className="text-xs text-zinc-500">
             {programme.ownedByYou ? "Owned by you" : `Owned by ${programme.ownerStationName ?? "the station"}`}
             {!programme.isActive && !verified ? " · Hidden until you're verified" : ""}
@@ -958,6 +965,8 @@ function ProgrammeRow({
 function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: (saved: boolean) => Promise<void> }) {
   const [name, setName] = useState(programme.name);
   const [phone, setPhone] = useState(programme.callInPhone ?? "");
+  const [type, setType] = useState<InteractionType>(programme.interactionType ?? "song");
+  const [notice, setNotice] = useState(programme.noticeText ?? "");
   const [slots, setSlots] = useState<SlotDraft[]>(
     programme.schedule.length
       ? programme.schedule.map((s) => ({ days: [...s.days], startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5) }))
@@ -973,7 +982,13 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
     try {
       await api(`/rjs/me/programmes/${programme.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ name, callInPhone: phone || null, schedule: slots }),
+        body: JSON.stringify({
+          name,
+          callInPhone: phone || null,
+          schedule: slots,
+          interactionType: type,
+          noticeText: notice.trim() || null,
+        }),
       });
       await onDone(true);
     } catch (err) {
@@ -1010,6 +1025,7 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
         <label htmlFor={`call-${programme.id}`} className={labelClass}>Call-in number for the live show</label>
         <input id={`call-${programme.id}`} type="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Studio number listeners call" className={`${inputClass} max-w-64`} />
       </div>
+      <InteractionSettings id={programme.id} type={type} notice={notice} onType={setType} onNotice={setNotice} />
       {error ? <Notice kind="error" text={error} /> : null}
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className={primaryButton}>

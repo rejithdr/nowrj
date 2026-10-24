@@ -7,7 +7,13 @@ export type ApiShow = {
   id: string;
   startsAt: string;
   endsAt: string;
-  programme: { name: string; slug: string; callInPhone: string | null };
+  programme: {
+    name: string;
+    slug: string;
+    callInPhone: string | null;
+    interactionType?: "song" | "question";
+    noticeText?: string | null;
+  };
   station: { name: string; slug: string } | null;
   invitedStationName: string | null;
   hosts: { id: string; name: string; slug: string; photoUrl: string | null }[];
@@ -113,7 +119,12 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
         {kind === "live" && show.programme.callInPhone ? (
           <CallButton showId={show.id} phone={show.programme.callInPhone} />
         ) : null}
-        {kind !== "recent" ? <SongRequestButton showId={show.id} programmeName={show.programme.name} /> : null}
+        {kind !== "recent" ? <SongRequestButton
+            showId={show.id}
+            programmeName={show.programme.name}
+            mode={show.programme.interactionType ?? "song"}
+            notice={show.programme.noticeText ?? null}
+          /> : null}
       </div>
     </article>
   );

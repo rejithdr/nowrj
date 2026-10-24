@@ -83,7 +83,10 @@ It backs up the database, pulls the code, runs any new migrations and restarts.
     pm2 logs nowrj-web             # website errors
     pm2 restart all                # restart both
     ls ~/backups                   # nightly database backups (last 14 days)
+    bash /srv/nowrj/deploy/restore-test.sh   # prove the newest S3 backup restores (see BACKUPS.md)
     sudo certbot renew --dry-run   # check HTTPS auto-renewal
+
+Off-server copies in AWS S3: see **BACKUPS.md**.
 
 ## Restoring a backup
 

@@ -139,6 +139,7 @@ export class ShowsService {
       SELECT
         o.id, o."startsAt", o."endsAt", o.status,
         p.name AS "programmeName", p.slug AS "programmeSlug", p."callInPhone",
+        p."interactionType", p."noticeText",
         s.name AS "stationName", s.slug AS "stationSlug",
         i."stationName" AS "invitedStationName",
         COALESCE((
@@ -173,6 +174,8 @@ export class ShowsService {
           name: row.programmeName as string,
           slug: row.programmeSlug as string,
           callInPhone: (row.callInPhone as string | null) ?? null,
+          interactionType: (row.interactionType as 'song' | 'question') ?? 'song',
+          noticeText: (row.noticeText as string | null) ?? null,
         },
         station: row.stationName
           ? { name: row.stationName as string, slug: row.stationSlug as string }

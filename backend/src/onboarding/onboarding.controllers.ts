@@ -112,6 +112,16 @@ export class StationRepController {
     return this.claims.stationRename(listenerId(req), stationId, programmeId, body?.name);
   }
 
+  @Patch('stations/:stationId/programmes/:programmeId/settings')
+  settings(
+    @Req() req: Request,
+    @Param('stationId', ParseUUIDPipe) stationId: string,
+    @Param('programmeId', ParseUUIDPipe) programmeId: string,
+    @Body() body: { interactionType?: string; noticeText?: string | null },
+  ) {
+    return this.claims.stationUpdateSettings(listenerId(req), stationId, programmeId, body ?? {});
+  }
+
   @Patch('stations/:stationId/programmes/:programmeId/call-in')
   callIn(
     @Req() req: Request,

@@ -69,6 +69,26 @@ function parseSlots(inputs: SlotInput[] | undefined): Slot[] {
   return slots;
 }
 
+/**
+ * Validates the listener-interaction settings of a programme: song requests or
+ * questions, and the notice shown above the question box (empty = default).
+ */
+export function programmeSettings(input: { interactionType?: string; noticeText?: string | null }) {
+  const out: { interactionType?: 'song' | 'question'; noticeText?: string | null } = {};
+  if (input.interactionType !== undefined) {
+    if (input.interactionType !== 'song' && input.interactionType !== 'question') {
+      throw new BadRequestException('Choose song requests or questions.');
+    }
+    out.interactionType = input.interactionType;
+  }
+  if (input.noticeText !== undefined) {
+    const text = clean(input.noticeText);
+    if (text && text.length > 300) throw new BadRequestException('The notice is too long (300 characters at most).');
+    out.noticeText = text;
+  }
+  return out;
+}
+
 /** Today's date in India, as YYYY-MM-DD. */
 export function todayInIndia(now = new Date()): string {
   return new Date(now.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
@@ -286,6 +306,8 @@ export class RjDashboardService {
         'p.startTime AS "startTime"',
         'p.endTime AS "endTime"',
         'p.callInPhone AS "callInPhone"',
+        'p.interactionType AS "interactionType"',
+        'p.noticeText AS "noticeText"',
         'p.isActive AS "isActive"',
         's.name AS "stationName"',
         'i.stationName AS "invitedStationName"',
@@ -301,6 +323,8 @@ export class RjDashboardService {
         startTime: string | null;
         endTime: string | null;
         callInPhone: string | null;
+        interactionType: 'song' | 'question';
+        noticeText: string | null;
         isActive: boolean;
         stationName: string | null;
         invitedStationName: string | null;
@@ -497,8 +521,15 @@ export class RjDashboardService {
   async updateProgramme(
     listenerId: string,
     programmeId: string,
-    input: { name?: string; callInPhone?: string | null; schedule?: SlotInput[] },
+    input: {
+      name?: string;
+      callInPhone?: string | null;
+      schedule?: SlotInput[];
+      interactionType?: string;
+      noticeText?: string | null;
+    },
   ) {
+    const settings = programmeSettings(input);
     const name = input.name === undefined ? undefined : clean(input.name);
     if (name !== undefined) {
       if (!name) throw new BadRequestException('Enter the programme name.');
@@ -518,6 +549,7 @@ export class RjDashboardService {
         programme.name = name;
       }
       if (callInPhone !== undefined) programme.callInPhone = callInPhone;
+      Object.assign(programme, settings);
       await manager.save(programme);
 
       if (slots) {
@@ -550,7 +582,13 @@ export class RjDashboardService {
         }
         await this.syncProgrammeTimes(manager, programmeId);
       }
-      return { id: programme.id, name: programme.name, callInPhone: programme.callInPhone };
+      return {
+        id: programme.id,
+        name: programme.name,
+        callInPhone: programme.callInPhone,
+        interactionType: programme.interactionType,
+        noticeText: programme.noticeText,
+      };
     });
   }
 

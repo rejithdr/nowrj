@@ -7,6 +7,9 @@ import EngagementPanel from "../../lib/engagement";
 import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import StationRjs from "../../lib/station-rjs";
+import SongQueue from "../../lib/song-queue";
+import { InteractionSettings } from "../../lib/interaction-settings";
+import type { InteractionType } from "../../lib/interaction";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
 type MyStation = {
@@ -20,6 +23,8 @@ type StationProgramme = {
   slug: string;
   isActive: boolean;
   callInPhone: string | null;
+  interactionType: InteractionType;
+  noticeText: string | null;
   ownedByStation: boolean;
   ownerRjName: string | null;
   schedule: string;
@@ -134,7 +139,11 @@ function StationPanel({ entry }: { entry: MyStation }) {
         <Notice kind="info" text="The NowRJ team is verifying your station and your role. You'll be able to manage programmes once approved." />
       ) : (
         <>
-          <h2 className="mt-6 text-lg font-bold text-zinc-900">Listener engagement</h2>
+          <h2 className="mt-6 text-lg font-bold text-zinc-900">Song requests &amp; questions</h2>
+          <p className="mt-1 text-sm text-zinc-600">For shows live now, in the next 24 hours, or that ended in the last 2 hours.</p>
+          <SongQueue path={`/shows/song-requests/station/${station.id}`} />
+
+          <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
           <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
 
           <h2 className="mt-8 text-lg font-bold text-zinc-900">RJs at {station.name}</h2>
@@ -191,6 +200,8 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(programme.name);
   const [value, setValue] = useState(programme.callInPhone ?? "");
+  const [type, setType] = useState<InteractionType>(programme.interactionType ?? "song");
+  const [notice, setNotice] = useState(programme.noticeText ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -205,6 +216,12 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
       if ((value || null) !== programme.callInPhone) {
         await api(`${base}/call-in`, { method: "PATCH", body: JSON.stringify({ callInPhone: value || null }) });
       }
+      if (type !== programme.interactionType || (notice.trim() || null) !== programme.noticeText) {
+        await api(`${base}/settings`, {
+          method: "PATCH",
+          body: JSON.stringify({ interactionType: type, noticeText: notice.trim() || null }),
+        });
+      }
       setEditing(false);
       await onSaved();
     } catch (err) {
@@ -218,7 +235,7 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
     return (
       <button type="button" onClick={() => setEditing(true)} className={quietButton}>
         <Phone size={14} aria-hidden="true" />
-        {programme.callInPhone ?? "Add call-in number"} · Edit
+        {programme.callInPhone ?? "Add call-in number"} · {programme.interactionType === "question" ? "Questions" : "Song requests"} · Edit
       </button>
     );
   }
@@ -228,12 +245,13 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
       <input id={`name-${programme.id}`} maxLength={150} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
       <label htmlFor={`call-${programme.id}`} className="block text-sm font-medium text-zinc-800">Call-in number</label>
       <input id={`call-${programme.id}`} type="tel" maxLength={20} value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClass} max-w-48`} />
+      <InteractionSettings id={programme.id} type={type} notice={notice} onType={setType} onNotice={setNotice} />
       <div className="flex gap-2">
         <button type="button" onClick={() => void save()} disabled={busy} className={primaryButton}>
           {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
           Save changes
         </button>
-        <button type="button" onClick={() => { setEditing(false); setName(programme.name); setValue(programme.callInPhone ?? ""); }} className={quietButton}>
+        <button type="button" onClick={() => { setEditing(false); setName(programme.name); setValue(programme.callInPhone ?? ""); setType(programme.interactionType ?? "song"); setNotice(programme.noticeText ?? ""); }} className={quietButton}>
           <X size={14} aria-hidden="true" /> Cancel
         </button>
       </div>
