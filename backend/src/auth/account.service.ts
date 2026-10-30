@@ -54,7 +54,13 @@ export class AccountService {
       // stay in the shows' totals; they now point at an anonymous account, and
       // any personal message written with a request is erased.
       await m.query(`DELETE FROM follows WHERE "listenerId" = $1`, [listenerId]);
-      await m.query(`UPDATE song_requests SET message = NULL WHERE "listenerId" = $1`, [listenerId]);
+      // A question must keep some text (database rule), so its words are replaced instead.
+      await m.query(
+        `UPDATE song_requests
+            SET message = CASE WHEN kind = 'question' THEN 'Question removed (account deleted)' ELSE NULL END
+          WHERE "listenerId" = $1`,
+        [listenerId],
+      );
       await m.query(`UPDATE user_roles SET status = 'revoked' WHERE "listenerId" = $1`, [listenerId]);
       await m.query(
         `UPDATE listeners SET "displayName" = 'Deleted user', email = NULL, "googleId" = NULL,
