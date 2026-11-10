@@ -1,9 +1,7 @@
-import { ForbiddenException } from '@nestjs/common';
 import { EntityManager, IsNull } from 'typeorm';
 import { AuditLog } from '../audit-log.entity';
 import { Programme } from '../programme.entity';
 import { ProgrammeOwnership } from '../programme-ownership.entity';
-import { UserRole } from '../user-role.entity';
 
 export const PHONE = /^\+?[0-9][0-9 -]{5,18}$/;
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,20 +27,6 @@ export async function writeAudit(
   details?: Record<string, unknown>,
 ) {
   await m.save(m.create(AuditLog, { actorListenerId, action, entityType, entityId, details: details ?? null }));
-}
-
-/** Throws unless the listener is an approved representative of the station. */
-export async function assertStationRep(m: EntityManager, listenerId: string, stationId: string) {
-  const role = await m.findOneBy(UserRole, {
-    listenerId,
-    role: 'station_rep',
-    stationId,
-    status: 'active',
-  });
-  if (!role) {
-    throw new ForbiddenException('You are not an approved representative of this station.');
-  }
-  return role;
 }
 
 /**

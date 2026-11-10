@@ -98,6 +98,22 @@ const actionText: Record<string, string> = {
   "claim.rejected_by_rj": "RJ declined a claim",
   "claim.approved_by_admin": "Super Admin approved a claim",
   "claim.rejected_by_admin": "Super Admin rejected a claim",
+  "guest_session.created": "Guest recording added",
+  "guest_session.updated": "Guest recording changed",
+  "guest_session.cancelled": "Guest recording cancelled",
+  "organisation.created": "Network created",
+  "station.moved_to_organisation": "Station moved into a network",
+  "org_unit.created": "Region added",
+  "org_unit.updated": "Region or station moved or renamed",
+  "org_unit.deleted": "Region removed",
+  "designation.created": "Designation added",
+  "designation.updated": "Designation changed",
+  "designation.deleted": "Designation removed",
+  "org_invite.sent": "Staff invite sent",
+  "org_invite.cancelled": "Staff invite cancelled",
+  "org_member.joined": "Staff member joined",
+  "org_member.updated": "Staff member's place or designation changed",
+  "org_member.removed": "Staff member removed",
 };
 
 const filters = [

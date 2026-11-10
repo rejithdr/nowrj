@@ -32,7 +32,8 @@ const clock = (iso: string) =>
  * seconds. The RJ dashboard uses the RJ's queue; the station dashboard passes
  * the station's queue as `path`.
  */
-export default function SongQueue({ path = "/shows/song-requests/rj" }: { path?: string }) {
+/** readOnly: station staff whose designation only lets them view programmes. */
+export default function SongQueue({ path = "/shows/song-requests/rj", readOnly = false }: { path?: string; readOnly?: boolean }) {
   const [shows, setShows] = useState<QueueShow[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -105,7 +106,9 @@ export default function SongQueue({ path = "/shows/song-requests/rj" }: { path?:
                         {!isQuestion && r.message ? <> · “{r.message}”</> : null}
                       </p>
                     </div>
-                    {r.status === "new" ? (
+                    {readOnly ? (
+                      r.status === "new" ? null : <span className="text-sm text-zinc-500">{r.status === "played" ? itemWords.doneLong : "Skipped"}</span>
+                    ) : r.status === "new" ? (
                       <div className="flex gap-2">
                         <button
                           type="button"

@@ -11,6 +11,8 @@ import { StationInvite } from '../station-invite.entity';
 import { Rj } from '../rj.entity';
 import { UserRole } from '../user-role.entity';
 import { clean, EMAIL, PHONE, slugify, writeAudit } from './helpers';
+import { allStationAccess } from '../orgs/access';
+import { Organisation } from '../orgs/entities';
 
 export type JoinInput = {
   mode?: 'new' | 'existing';
@@ -93,6 +95,10 @@ export class StationOnboardingService {
         verificationStatus: In(['verified', 'legacy']),
       });
       if (!found) throw new NotFoundException('Station not found.');
+      const org = found.organisationId ? await m.findOneBy(Organisation, { id: found.organisationId }) : null;
+      if (org?.kind === 'network') {
+        throw new ConflictException(`${found.name} is managed by ${org.name}. Ask their admin to invite you as staff.`);
+      }
       station = found;
     } else if (input.mode === 'new') {
       const name = clean(input.name);
@@ -160,29 +166,55 @@ export class StationOnboardingService {
     });
   }
 
-  /** The stations this listener represents or has applied to represent. */
+  /**
+   * The stations this listener works at (through an organisation), and the
+   * station applications still waiting for the NowRJ team.
+   */
   async myStations(listenerId: string) {
-    const roles = await this.dataSource.manager.find(UserRole, {
-      where: { listenerId, role: 'station_rep', status: Not('revoked') },
+    const m = this.dataSource.manager;
+    const access = await allStationAccess(m, listenerId);
+    const pending = await m.find(UserRole, {
+      where: { listenerId, role: 'station_rep', status: 'pending' },
       order: { createdAt: 'ASC' },
     });
-    if (!roles.length) return [];
-    const stations = await this.dataSource.manager.findBy(Station, {
-      id: In(roles.map((r) => r.stationId!)),
+    const waiting = pending.filter((r) => !access.some((a) => a.stationId === r.stationId));
+    const stationIds = [...access.map((a) => a.stationId), ...waiting.map((r) => r.stationId!)];
+    if (!stationIds.length) return [];
+    const stations = await m.findBy(Station, { id: In(stationIds) });
+    const orgs = await m.findBy(Organisation, { id: In(access.map((a) => a.organisationId)) });
+    const describe = (station: Station) => ({
+      id: station.id,
+      name: station.name,
+      slug: station.slug,
+      city: station.city,
+      verificationStatus: station.verificationStatus,
+      isActive: station.isActive,
     });
-    return roles.map((role) => {
-      const station = stations.find((s) => s.id === role.stationId)!;
-      return {
-        roleStatus: role.status,
-        station: {
-          id: station.id,
-          name: station.name,
-          slug: station.slug,
-          city: station.city,
-          verificationStatus: station.verificationStatus,
-          isActive: station.isActive,
-        },
-      };
-    });
+    const active = access
+      .map((a) => {
+        const station = stations.find((s) => s.id === a.stationId)!;
+        const org = orgs.find((o) => o.id === a.organisationId)!;
+        return {
+          roleStatus: 'active' as const,
+          station: describe(station),
+          access: {
+            organisationId: org.id,
+            organisationName: org.name,
+            organisationKind: org.kind,
+            designationName: a.designationName,
+            manageStaff: a.manageStaff,
+            levels: a.levels,
+          },
+        };
+      })
+      .sort((x, y) => x.station.name.localeCompare(y.station.name));
+    return [
+      ...active,
+      ...waiting.map((r) => ({
+        roleStatus: 'pending' as const,
+        station: describe(stations.find((s) => s.id === r.stationId)!),
+        access: null,
+      })),
+    ];
   }
 }

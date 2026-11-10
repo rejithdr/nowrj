@@ -13,7 +13,8 @@ import { Rj } from '../rj.entity';
 import { Station } from '../station.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { describeDays, sortSlots } from '../programmes/schedule-rules';
-import { assertStationRep, clean, PHONE, transferProgrammeToStation, writeAudit } from './helpers';
+import { clean, PHONE, transferProgrammeToStation, writeAudit } from './helpers';
+import { assertStationAccess } from '../orgs/access';
 import { programmeSettings } from '../rjs/rj-dashboard.service';
 
 const OPEN = ['awaiting_rj', 'rejected_by_rj'] as const;
@@ -27,7 +28,7 @@ export class ClaimsService {
 
   async stationProgrammes(listenerId: string, stationId: string) {
     const m = this.dataSource.manager;
-    await assertStationRep(m, listenerId, stationId);
+    await assertStationAccess(m, listenerId, stationId, 'programmes', 'view');
 
     const programmes = await m.find(Programme, { where: { stationId }, order: { name: 'ASC' } });
     if (!programmes.length) return [];
@@ -66,7 +67,7 @@ export class ClaimsService {
 
   async createClaim(listenerId: string, stationId: string, programmeId: string) {
     return this.dataSource.transaction(async (m) => {
-      await assertStationRep(m, listenerId, stationId);
+      await assertStationAccess(m, listenerId, stationId, 'programmes', 'edit');
       const programme = await m.findOneBy(Programme, { id: programmeId });
       if (!programme || programme.stationId !== stationId) {
         throw new NotFoundException('That programme is not on your station.');
@@ -91,7 +92,7 @@ export class ClaimsService {
     if (!name) throw new BadRequestException('Enter the programme name.');
     if (name.length > 150) throw new BadRequestException('Programme name is too long.');
     return this.dataSource.transaction(async (m) => {
-      await assertStationRep(m, listenerId, stationId);
+      await assertStationAccess(m, listenerId, stationId, 'programmes', 'edit');
       const programme = await m.findOneBy(Programme, { id: programmeId });
       if (!programme || programme.ownerStationId !== stationId) {
         throw new ForbiddenException('Only programmes your station owns can be changed here.');
@@ -113,7 +114,7 @@ export class ClaimsService {
   ) {
     const settings = programmeSettings(input);
     const m = this.dataSource.manager;
-    await assertStationRep(m, listenerId, stationId);
+    await assertStationAccess(m, listenerId, stationId, 'programmes', 'edit');
     const programme = await m.findOneBy(Programme, { id: programmeId });
     if (!programme || programme.ownerStationId !== stationId) {
       throw new ForbiddenException('Only programmes your station owns can be changed here.');
@@ -129,7 +130,7 @@ export class ClaimsService {
       throw new BadRequestException('Call-in number must be 6 to 19 digits, optionally starting with +.');
     }
     const m = this.dataSource.manager;
-    await assertStationRep(m, listenerId, stationId);
+    await assertStationAccess(m, listenerId, stationId, 'programmes', 'edit');
     const programme = await m.findOneBy(Programme, { id: programmeId });
     if (!programme || programme.ownerStationId !== stationId) {
       throw new ForbiddenException('Only programmes your station owns can be changed here.');
@@ -140,7 +141,7 @@ export class ClaimsService {
 
   /** RJs who say they work or worked at this station, newest first. */
   async stationRjs(listenerId: string, stationId: string) {
-    await assertStationRep(this.dataSource.manager, listenerId, stationId);
+    await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'rjs', 'view');
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT a.id, a."joinedOn"::text AS "joinedOn", a."leftOn"::text AS "leftOn", a."verificationStatus", a."stationNote",
               r.name, r.slug, r."verificationStatus" AS "rjStatus"
@@ -158,7 +159,7 @@ export class ClaimsService {
     if (!confirm && !note) throw new BadRequestException('Say what is wrong, so the RJ can correct it.');
     if (note && note.length > 280) throw new BadRequestException('Note is too long (280 characters at most).');
     return this.dataSource.transaction(async (m) => {
-      await assertStationRep(m, listenerId, stationId);
+      await assertStationAccess(m, listenerId, stationId, 'rjs', 'edit');
       const row = await m.findOneBy(RjStationAffiliation, { id: affiliationId, stationId });
       if (!row) throw new NotFoundException('That RJ is not listed at your station.');
       row.verificationStatus = confirm ? 'verified' : 'disputed';

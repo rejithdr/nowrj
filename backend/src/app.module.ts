@@ -17,6 +17,7 @@ import { ReferralsModule } from './referrals/referrals.module';
 import { PagesModule } from './pages/pages';
 import { EnquiriesModule } from './enquiries/enquiries';
 import { GuestsModule } from './guests/guests';
+import { OrgsModule } from './orgs/orgs';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { GuestsModule } from './guests/guests';
     PagesModule,
     EnquiriesModule,
     GuestsModule,
+    OrgsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

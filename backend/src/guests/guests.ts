@@ -27,7 +27,7 @@ import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
 import { SongRequest } from '../song-request.entity';
 import { writeAudit } from '../onboarding/helpers';
-import { assertStationRep } from '../onboarding/helpers';
+import { assertStationAccess } from '../orgs/access';
 import { imageType, MAX_BYTES, publicApiUrl } from '../rjs/rj-photos';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from '../shows/text-rules';
 import {
@@ -251,7 +251,7 @@ export class GuestsService {
 
   /** A station's guest sessions, for its approved representatives. */
   async forStation(listenerId: string, stationId: string) {
-    await assertStationRep(this.dataSource.manager, listenerId, stationId);
+    await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'programmes', 'view');
     return this.withQuestions(`(p."stationId" = $1 OR p."ownerStationId" = $1)`, [stationId]);
   }
 

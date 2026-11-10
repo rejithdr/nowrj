@@ -63,6 +63,15 @@ export class AccountService {
       );
       await m.query(`UPDATE user_roles SET status = 'revoked' WHERE "listenerId" = $1`, [listenerId]);
       await m.query(
+        `UPDATE org_members SET status = 'removed', "removedAt" = now() WHERE "listenerId" = $1 AND status = 'active'`,
+        [listenerId],
+      );
+      await m.query(
+        `UPDATE org_invites SET status = 'cancelled'
+          WHERE status = 'sent' AND email = (SELECT lower(email) FROM listeners WHERE id = $1)`,
+        [listenerId],
+      );
+      await m.query(
         `UPDATE listeners SET "displayName" = 'Deleted user', email = NULL, "googleId" = NULL,
                 "facebookId" = NULL, "photoUrl" = NULL, "isActive" = false
           WHERE id = $1`,

@@ -5,6 +5,7 @@ import { Station } from '../station.entity';
 import { StationInvite } from '../station-invite.entity';
 import { UserRole } from '../user-role.entity';
 import { clean, writeAudit } from './helpers';
+import { addStationAdmin } from '../orgs/org-setup';
 
 /** Super Admin review of stations and their representatives. */
 @Injectable()
@@ -62,9 +63,14 @@ export class AdminStationsService {
         );
       }
 
+      // The representative becomes "Station admin" in the station's organisation.
+      const member = await addStationAdmin(m, station, role.listenerId, adminId);
+
       await writeAudit(m, adminId, 'station_rep.approved', 'user_role', role.id, {
         stationId: station.id,
         invitesAccepted: invites.length,
+        organisationId: member.organisationId,
+        memberId: member.id,
       });
       return { roleId: role.id, stationId: station.id, stationName: station.name };
     });

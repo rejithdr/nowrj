@@ -11,7 +11,7 @@ import { ProgrammeRj } from '../programme-rj.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
 import { ScheduleException } from '../schedule-exception.entity';
 import { Rj } from '../rj.entity';
-import { UserRole } from '../user-role.entity';
+import { hasStationAccess } from '../orgs/access';
 import { addDays, indiaDate, planShows } from './occurrence-rules';
 import { ShowsService } from './shows.service';
 
@@ -26,7 +26,7 @@ export class ShowChangesService {
     private readonly shows: ShowsService,
   ) {}
 
-  /** Throws unless the listener hosts the programme or represents the station that owns it. */
+  /** Throws unless the listener hosts the programme or is staff with Programmes edit at the station that owns it. */
   private async assertCanChange(listenerId: string, programmeId: string) {
     const programme = await this.dataSource.manager.findOneBy(Programme, { id: programmeId });
     if (!programme) throw new NotFoundException('Programme not found.');
@@ -34,14 +34,7 @@ export class ShowChangesService {
     const hosts = rj
       ? await this.dataSource.manager.existsBy(ProgrammeRj, { programmeId, rjId: rj.id })
       : false;
-    const stationRep = programme.ownerStationId
-      ? await this.dataSource.manager.existsBy(UserRole, {
-          listenerId,
-          role: 'station_rep',
-          stationId: programme.ownerStationId,
-          status: 'active',
-        })
-      : false;
+    const stationRep = await hasStationAccess(this.dataSource.manager, listenerId, programme.ownerStationId, 'programmes', 'edit');
     if (!hosts && !stationRep) {
       throw new ForbiddenException("Only the programme's hosts or the station that owns it can change its shows.");
     }

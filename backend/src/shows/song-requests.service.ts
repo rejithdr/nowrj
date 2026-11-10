@@ -11,8 +11,7 @@ import { SongRequest, SongRequestKind, SongRequestStatus } from '../song-request
 import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
 import { Rj } from '../rj.entity';
-import { UserRole } from '../user-role.entity';
-import { assertStationRep } from '../onboarding/helpers';
+import { assertStationAccess, hasStationAccess } from '../orgs/access';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from './text-rules';
 
 /** The same limit applies to song requests and to questions. */
@@ -243,15 +242,15 @@ export class SongRequestsService {
     return this.group(rows, now);
   }
 
-  /** The same queue for every show aired on a station, for its approved representatives. */
+  /** The same queue for every show aired on a station, for staff with Programmes view. */
   async forStation(listenerId: string, stationId: string, now = new Date()) {
-    await assertStationRep(this.dataSource.manager, listenerId, stationId);
+    await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'programmes', 'view');
     const rows = await this.queue(`o."stationId" = $1`, stationId, now);
     return this.group(rows, now);
   }
 
   /**
-   * A host RJ, or a representative of the show's station, marks a request
+   * A host RJ, or station staff with Programmes edit, marks a request
    * played (a question: answered on air), skipped, or back to new.
    */
   async setStatus(listenerId: string, requestId: string, status: unknown, now = new Date()) {
@@ -267,9 +266,7 @@ export class SongRequestsService {
 
     const rj = await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
     const isHost = rj ? await m.existsBy(ShowOccurrenceHost, { occurrenceId: show.id, rjId: rj.id }) : false;
-    const isStation = show.stationId
-      ? await m.existsBy(UserRole, { listenerId, role: 'station_rep', stationId: show.stationId, status: 'active' })
-      : false;
+    const isStation = await hasStationAccess(m, listenerId, show.stationId, 'programmes', 'edit');
     if (!isHost && !isStation) {
       throw new ForbiddenException('Only the RJs hosting this show, or its station, can handle its requests.');
     }

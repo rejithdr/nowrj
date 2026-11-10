@@ -1,4 +1,5 @@
 import { EntityManager } from 'typeorm';
+import { accessSql } from '../orgs/access-rules';
 
 const HOUR = 3600 * 1000;
 /** Questions for a guest open 24 hours before the recording... */
@@ -22,7 +23,7 @@ export function guestQuestionsOpen(session: { recordingAt: Date; status: string 
 
 /**
  * Who may set up a guest session for a programme and handle its questions:
- * an RJ hosting the programme, or an approved representative of the station
+ * an RJ hosting the programme, or staff with Programmes edit at the station
  * it airs on or that owns it.
  */
 export async function canManageProgramme(m: EntityManager, listenerId: string, programmeId: string): Promise<boolean> {
@@ -32,11 +33,8 @@ export async function canManageProgramme(m: EntityManager, listenerId: string, p
              SELECT 1 FROM programme_rjs pr JOIN rjs r ON r.id = pr."rjId"
               WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1
            )
-        OR EXISTS (
-             SELECT 1 FROM user_roles ur
-              WHERE ur."listenerId" = $1 AND ur.role = 'station_rep' AND ur.status = 'active'
-                AND ur."stationId" IN (p."stationId", p."ownerStationId")
-           ) AS allowed
+        OR ${accessSql('p."stationId"', 'programmes', 'edit')}
+        OR ${accessSql('p."ownerStationId"', 'programmes', 'edit')} AS allowed
       FROM programmes p
      WHERE p.id = $2
     `,

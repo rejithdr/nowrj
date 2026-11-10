@@ -11,6 +11,7 @@ type Me = {
   displayName: string | null;
   rj: { name: string; slug: string; verificationStatus: string } | null;
   stations: { id: string; name: string; status: string }[];
+  orgs?: { id: string; name: string }[];
   isSuperadmin: boolean;
 };
 
@@ -126,12 +127,19 @@ export default function AuthControls() {
             </span>
           </a>
         ) : null}
+        {me.orgs?.length ? (
+          <a href="/org" className={itemClass}>
+            Staff &amp; designations
+            <span className="block truncate text-xs text-zinc-500">{me.orgs.map((o) => o.name).join(", ")}</span>
+          </a>
+        ) : null}
         {me.isSuperadmin ? (
           <>
             <p className="mt-1 border-t border-zinc-100 px-3 pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Super Admin</p>
             <a href="/admin/insights" className={itemClass}>Platform insights</a>
             <a href="/admin/rjs" className={itemClass}>RJs</a>
             <a href="/admin/stations" className={itemClass}>Stations &amp; claims</a>
+            <a href="/admin/organisations" className={itemClass}>Organisations</a>
             <a href="/admin/activity" className={itemClass}>Activity &amp; enquiries</a>
           </>
         ) : null}

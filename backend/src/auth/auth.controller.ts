@@ -146,10 +146,25 @@ export class AuthController {
       [listener.id],
     );
     const stations: { id: string; name: string; status: string }[] = await this.dataSource.query(
-      `SELECT s.id, s.name, ur.status
+      `SELECT s.id, s.name, 'active' AS status
+         FROM station_access sa JOIN stations s ON s.id = sa."stationId"
+        WHERE sa."listenerId" = $1
+       UNION ALL
+       SELECT s.id, s.name, ur.status
          FROM user_roles ur JOIN stations s ON s.id = ur."stationId"
-        WHERE ur."listenerId" = $1 AND ur.role = 'station_rep' AND ur.status <> 'revoked'
-        ORDER BY s.name`,
+        WHERE ur."listenerId" = $1 AND ur.role = 'station_rep' AND ur.status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM station_access sa WHERE sa."listenerId" = $1 AND sa."stationId" = s.id)
+        ORDER BY name`,
+      [listener.id],
+    );
+    // Organisations where this person may manage staff.
+    const orgs: { id: string; name: string }[] = await this.dataSource.query(
+      `SELECT o.id, o.name
+         FROM org_members m
+         JOIN designations d ON d.id = m."designationId"
+         JOIN organisations o ON o.id = m."organisationId"
+        WHERE m."listenerId" = $1 AND m.status = 'active' AND d."manageStaff" AND o."isActive"
+        ORDER BY o.name`,
       [listener.id],
     );
     const admins = (this.config.get<string>('SUPERADMIN_EMAILS') ?? '')
@@ -164,6 +179,7 @@ export class AuthController {
       photoUrl: listener.photoUrl,
       rj: rj ? { name: rj.name, slug: rj.slug, verificationStatus: rj.verificationStatus } : null,
       stations,
+      orgs,
       isSuperadmin: Boolean(email && admins.includes(email)),
     };
   }

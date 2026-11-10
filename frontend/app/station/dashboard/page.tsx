@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, LoaderCircle, Phone, X } from "lucide-react";
+import { ArrowLeft, Building2, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
 import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
@@ -13,10 +13,23 @@ import { InteractionSettings } from "../../lib/interaction-settings";
 import type { InteractionType } from "../../lib/interaction";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
+type Level = "none" | "view" | "edit" | "authorise";
+type Area = "programmes" | "rjs" | "adsSponsored" | "adsShoutout" | "adsAired" | "stats";
+
 type MyStation = {
   roleStatus: "pending" | "active";
   station: { id: string; name: string; slug: string; city: string | null; verificationStatus: string; isActive: boolean };
+  access: {
+    organisationId: string;
+    organisationName: string;
+    organisationKind: "network" | "standalone";
+    designationName: string;
+    manageStaff: boolean;
+    levels: Record<Area, Level>;
+  } | null;
 };
+
+const rank: Record<Level, number> = { none: 0, view: 1, edit: 2, authorise: 3 };
 
 type StationProgramme = {
   id: string;
@@ -98,16 +111,19 @@ export default function StationDashboardPage() {
 }
 
 function StationPanel({ entry }: { entry: MyStation }) {
-  const { station, roleStatus } = entry;
+  const { station, roleStatus, access } = entry;
+  /** Levels are cumulative: Authorise includes Edit, Edit includes View. */
+  const can = (area: Area, need: Level) => rank[access?.levels[area] ?? "none"] >= rank[need];
+  const editProgrammes = can("programmes", "edit");
   const [programmes, setProgrammes] = useState<StationProgramme[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (roleStatus !== "active") return;
+    if (roleStatus !== "active" || rank[access?.levels.programmes ?? "none"] < rank.view) return;
     setProgrammes(await api<StationProgramme[]>(`/station-reps/me/stations/${station.id}/programmes`));
-  }, [roleStatus, station.id]);
+  }, [roleStatus, station.id, access]);
 
   useEffect(() => {
     refresh().catch((err) => setError(err instanceof Error ? err.message : "Could not load programmes."));
@@ -135,28 +151,64 @@ function StationPanel({ entry }: { entry: MyStation }) {
         {roleStatus === "pending" ? <StatusPill text="Awaiting verification" tone="amber" /> : <StatusPill text="Verified" tone="green" />}
       </div>
       {station.city ? <p className="text-sm text-zinc-600">{station.city}</p> : null}
+      {access ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-600">
+          <span>
+            {access.organisationKind === "network" ? `${access.organisationName} · ` : ""}
+            Your designation: <span className="font-semibold text-zinc-800">{access.designationName}</span>
+          </span>
+          {access.manageStaff ? (
+            <Link href={`/org?id=${access.organisationId}`} className="inline-flex items-center gap-1 font-semibold text-orange-700 hover:underline">
+              <Building2 size={14} aria-hidden="true" /> Staff &amp; designations
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {roleStatus === "pending" ? (
         <Notice kind="info" text="The NowRJ team is verifying your station and your role. You'll be able to manage programmes once approved." />
       ) : (
         <>
-          <h2 className="mt-6 text-lg font-bold text-zinc-900">Song requests &amp; questions</h2>
-          <p className="mt-1 text-sm text-zinc-600">For shows live now, in the next 24 hours, or that ended in the last 2 hours.</p>
-          <SongQueue path={`/shows/song-requests/station/${station.id}`} />
+          {can("programmes", "view") ? (
+            <>
+              <h2 className="mt-6 text-lg font-bold text-zinc-900">Song requests &amp; questions</h2>
+              <p className="mt-1 text-sm text-zinc-600">For shows live now, in the next 24 hours, or that ended in the last 2 hours.</p>
+              <SongQueue path={`/shows/song-requests/station/${station.id}`} readOnly={!editProgrammes} />
 
-          <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest</h2>
-          <GuestSessions
-            path={`/guest-sessions/station/${station.id}`}
-            programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
-          />
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest</h2>
+              <GuestSessions
+                path={`/guest-sessions/station/${station.id}`}
+                programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
+                readOnly={!editProgrammes}
+              />
+            </>
+          ) : null}
 
-          <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
-          <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
+          {can("stats", "view") ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
+              <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
+            </>
+          ) : null}
 
-          <h2 className="mt-8 text-lg font-bold text-zinc-900">RJs at {station.name}</h2>
-          <p className="mt-1 text-sm text-zinc-600">RJs list your station in their history. Confirm the dates you recognise, or dispute them with a note.</p>
-          <StationRjs stationId={station.id} />
+          {can("rjs", "view") ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">RJs at {station.name}</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                {can("rjs", "edit")
+                  ? "RJs list your station in their history. Confirm the dates you recognise, or dispute them with a note."
+                  : "RJs who list your station in their history."}
+              </p>
+              <StationRjs stationId={station.id} readOnly={!can("rjs", "edit")} />
+            </>
+          ) : null}
 
+          {!can("programmes", "view") && !can("stats", "view") && !can("rjs", "view") ? (
+            <Notice kind="info" text={`Your designation (${access?.designationName ?? "none"}) does not include any station areas yet. Ask your admin.`} />
+          ) : null}
+
+          {can("programmes", "view") ? (
+          <>
           <h2 className="mt-8 text-lg font-bold text-zinc-900">Programmes on {station.name}</h2>
           <p className="mt-1 text-sm text-zinc-600">
             Programmes an RJ created stay theirs until you claim them and the RJ agrees. If the RJ declines, the NowRJ team decides.
@@ -177,7 +229,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
                         <p className="text-sm text-zinc-600">{p.schedule || "Schedule not set"}</p>
                         <p className="text-xs text-zinc-500">{p.ownedByStation ? "Owned by your station" : `Owned by ${p.ownerRjName ?? "an RJ"}`}</p>
                       </div>
-                      {p.ownedByStation ? (
+                      {!editProgrammes ? null : p.ownedByStation ? (
                         <CallInEditor stationId={station.id} programme={p} onSaved={refresh} />
                       ) : pending && p.latestClaim?.status !== "rejected_by_admin" ? (
                         <StatusPill text={pending.text} tone={pending.tone} />
@@ -190,12 +242,14 @@ function StationPanel({ entry }: { entry: MyStation }) {
                     {p.latestClaim?.status === "rejected_by_admin" ? (
                       <p className="mt-1 text-xs text-red-700">Previous claim not approved{p.latestClaim.adminReason ? `: ${p.latestClaim.adminReason}` : "."}</p>
                     ) : null}
-                    {p.ownedByStation && p.schedule ? <UpcomingShows programmeId={p.id} /> : null}
+                    {editProgrammes && p.ownedByStation && p.schedule ? <UpcomingShows programmeId={p.id} /> : null}
                   </li>
                 );
               })}
             </ul>
           )}
+          </>
+          ) : null}
         </>
       )}
     </Card>

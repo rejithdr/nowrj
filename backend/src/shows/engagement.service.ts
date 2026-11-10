@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { ShowOccurrence } from '../show-occurrence.entity';
 import { EngagementEvent } from '../engagement-event.entity';
 import { Rj } from '../rj.entity';
-import { assertStationRep } from '../onboarding/helpers';
+import { assertStationAccess } from '../orgs/access';
 
 const DEVICE = /^[A-Za-z0-9-]{8,64}$/;
 const DAY = 24 * 3600 * 1000;
@@ -195,9 +195,9 @@ export class EngagementService {
     return { followers, ...this.summarise(rows, now) };
   }
 
-  /** An approved station representative: every show aired on the station in the last 14 days. */
+  /** Station staff with Stats view: every show aired on the station in the last 14 days. */
   async forStation(listenerId: string, stationId: string, now = new Date()) {
-    await assertStationRep(this.dataSource.manager, listenerId, stationId);
+    await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'stats', 'view');
     // Shows aired on the station, and the station's own programmes.
     const rows = await this.shows(
       `(o."stationId" = $1 OR p."ownerStationId" = $1)`,

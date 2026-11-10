@@ -34,6 +34,10 @@ export class Station {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** The organisation (network or standalone) this station belongs to. */
+  @Column({ type: 'uuid', nullable: true })
+  organisationId: string | null;
+
   /** 'legacy' for stations added before onboarding; 'pending' until a Super Admin verifies. */
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   verificationStatus: 'pending' | 'verified' | 'rejected' | 'legacy';

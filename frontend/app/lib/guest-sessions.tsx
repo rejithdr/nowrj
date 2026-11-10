@@ -38,7 +38,8 @@ function windowText(s: Session, now: Date) {
  * then see the questions and mark them used in the recording or skipped.
  * `path` is /guest-sessions/rj or /guest-sessions/station/<id>.
  */
-export default function GuestSessions({ path, programmes }: { path: string; programmes: { id: string; name: string }[] }) {
+/** readOnly: station staff whose designation only lets them view programmes. */
+export default function GuestSessions({ path, programmes, readOnly = false }: { path: string; programmes: { id: string; name: string }[]; readOnly?: boolean }) {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
@@ -156,7 +157,7 @@ export default function GuestSessions({ path, programmes }: { path: string; prog
             <button type="button" onClick={() => setAdding(false)} className={quietButton}>Cancel</button>
           </div>
         </form>
-      ) : programmes.length ? (
+      ) : readOnly ? null : programmes.length ? (
         <button type="button" onClick={() => setAdding(true)} className={`${quietButton} mt-4`}>
           <Plus size={14} aria-hidden="true" /> Add a guest recording
         </button>
@@ -196,7 +197,7 @@ export default function GuestSessions({ path, programmes }: { path: string; prog
                     <p className="text-xs font-semibold text-violet-700">{windowText(s, now)} · {s.questions.length} question{s.questions.length === 1 ? "" : "s"}</p>
                   </div>
                 </div>
-                {s.status !== "cancelled" ? (
+                {s.status !== "cancelled" && !readOnly ? (
                   <div className="flex flex-wrap gap-2">
                     <button type="button" className={quietButton} disabled={busy !== null} onClick={() => { photoFor.current = s.id; fileInput.current?.click(); }}>
                       {busy === `photo-${s.id}` ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : <Camera size={14} aria-hidden="true" />}
@@ -228,7 +229,9 @@ export default function GuestSessions({ path, programmes }: { path: string; prog
                         <p className={`font-medium ${q.status === "new" ? "text-zinc-900" : "text-zinc-500 line-through decoration-zinc-300"}`}>&ldquo;{q.message}&rdquo;</p>
                         <p className="text-sm text-zinc-600">from {q.listenerName}</p>
                       </div>
-                      {q.status === "new" ? (
+                      {readOnly ? (
+                        q.status === "new" ? null : <span className="text-sm text-zinc-500">{q.status === "played" ? "Used" : "Skipped"}</span>
+                      ) : q.status === "new" ? (
                         <div className="flex gap-2">
                           <button
                             type="button"

@@ -18,7 +18,8 @@ type StationRj = {
 const date = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 /** RJs who say they work or worked at this station; the station confirms or disputes each period. */
-export default function StationRjs({ stationId }: { stationId: string }) {
+/** readOnly: staff whose designation only lets them view RJs. */
+export default function StationRjs({ stationId, readOnly = false }: { stationId: string; readOnly?: boolean }) {
   const [rows, setRows] = useState<StationRj[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -81,10 +82,10 @@ export default function StationRjs({ stationId }: { stationId: string }) {
             ) : (
               <StatusPill text="Needs your review" tone="amber" />
             )}
-            {row.verificationStatus !== "verified" ? (
+            {!readOnly && row.verificationStatus !== "verified" ? (
               <button type="button" disabled={busy === row.id} onClick={() => void decide(row, true)} className="text-sm font-semibold text-emerald-700 hover:underline">Confirm</button>
             ) : null}
-            {row.verificationStatus !== "disputed" ? (
+            {!readOnly && row.verificationStatus !== "disputed" ? (
               <button type="button" disabled={busy === row.id} onClick={() => void decide(row, false)} className="text-sm font-semibold text-red-700 hover:underline">Dispute</button>
             ) : null}
           </div>
