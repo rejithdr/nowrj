@@ -18,10 +18,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 
-const MAX_BYTES = 1024 * 1024;
+export const MAX_BYTES = 1024 * 1024;
 
 /** Where the backend can be reached from a browser, for building photo links. */
-function publicApiUrl(): string {
+export function publicApiUrl(): string {
   if (process.env.API_PUBLIC_URL) return process.env.API_PUBLIC_URL.replace(/\/$/, '');
   if (process.env.NODE_ENV === 'production') {
     const site = (process.env.FRONTEND_URL ?? '').split(',')[0].trim().replace(/\/$/, '');
@@ -31,7 +31,7 @@ function publicApiUrl(): string {
 }
 
 /** Recognises JPEG, PNG and WebP by their first bytes, not by the file name. */
-function imageType(data: Buffer): string | null {
+export function imageType(data: Buffer): string | null {
   if (data.length > 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'image/jpeg';
   if (data.length > 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
   if (data.length > 12 && data.toString('ascii', 0, 4) === 'RIFF' && data.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';

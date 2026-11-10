@@ -8,6 +8,7 @@ import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import SongQueue from "../../lib/song-queue";
 import { RjProfileEditor } from "../../lib/rj-profile";
+import GuestSessions from "../../lib/guest-sessions";
 import { InteractionSettings } from "../../lib/interaction-settings";
 import type { InteractionType } from "../../lib/interaction";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
@@ -282,6 +283,10 @@ export default function RjDashboardPage() {
 
         <Section title="Song requests & questions">
           <SongQueue />
+        </Section>
+
+        <Section title="Ask the guest">
+          <GuestSessions path="/guest-sessions/rj" programmes={programmes.map((p) => ({ id: p.id, name: p.name }))} />
         </Section>
 
         <Section title="Your engagement">

@@ -2,7 +2,6 @@ import { EntityManager, IsNull } from 'typeorm';
 import { Referral } from '../referral.entity';
 import { Rj } from '../rj.entity';
 
-export const REWARD_MONTHS = 12;
 /** A listener referral can only be claimed by an account this new. */
 export const NEW_ACCOUNT_WINDOW_MS = 30 * 60 * 1000;
 
@@ -52,9 +51,8 @@ export async function recordRjReferral(
 
 /**
  * Called when a Super Admin verifies an RJ: records when the referred RJ was
- * verified. The 12-month reward window does NOT start here; it starts when
- * monetisation launches on Now On FM (decision of 20 Oct 2026), so
- * rewardEndsAt stays empty until then.
+ * verified, so the referrals list can show it. There is no referral reward
+ * (decided 10 Nov 2026).
  */
 export async function activateRjReferral(m: EntityManager, rjId: string, now = new Date()) {
   const referral = await m.findOneBy(Referral, { referredRjId: rjId, kind: 'rj', activatedAt: IsNull() });

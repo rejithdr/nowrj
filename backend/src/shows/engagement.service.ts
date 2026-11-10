@@ -22,6 +22,9 @@ type ShowRow = {
   callers: number;
   songRequests: number;
   questions: number;
+  /** 'guest' rows are Ask the guest sessions: only questions, dated at the recording. */
+  kind: 'show' | 'guest';
+  guestName: string | null;
 };
 
 type Totals = {
@@ -71,8 +74,28 @@ export class EngagementService {
    * Per-show numbers for shows that started in the last `days` days, plus
    * shows starting in the next 24 hours (song requests open a day early).
    */
-  private async shows(filterSql: string, param: string, now: Date, days: number): Promise<ShowRow[]> {
-    const rows: ShowRow[] = await this.dataSource.query(
+  private async shows(filterSql: string, guestFilterSql: string, param: string, now: Date, days: number): Promise<ShowRow[]> {
+    const guests: ShowRow[] = await this.dataSource.query(
+      `
+      SELECT g.id, (g."recordingAt" AT TIME ZONE 'Asia/Kolkata')::date::text AS "airDate",
+             g."recordingAt" AS "startsAt", g."recordingAt" AS "endsAt",
+             p.name AS "programmeName", p.slug AS "programmeSlug",
+             (SELECT string_agg(r.name, ', ' ORDER BY r.name)
+                FROM programme_rjs pr JOIN rjs r ON r.id = pr."rjId" WHERE pr."programmeId" = p.id) AS hosts,
+             0 AS likes, 0 AS fires, 0 AS "callTaps", 0 AS callers, 0 AS "songRequests",
+             (SELECT count(*)::int FROM song_requests s WHERE s."guestSessionId" = g.id) AS questions,
+             'guest' AS kind, g."guestName"
+      FROM guest_sessions g
+      JOIN programmes p ON p.id = g."programmeId"
+      WHERE ${guestFilterSql}
+        AND g.status = 'scheduled'
+        AND g."recordingAt" <= $2
+        AND g."recordingAt" > $3
+      `,
+      // Sessions recorded in the window, plus those taking questions now (up to 26 hours ahead).
+      [param, new Date(now.getTime() + DAY + 2 * 3600 * 1000), new Date(now.getTime() - days * DAY)],
+    );
+    const shows: ShowRow[] = await this.dataSource.query(
       `
       SELECT o.id, o."airDate"::text AS "airDate", o."startsAt", o."endsAt",
              p.name AS "programmeName", p.slug AS "programmeSlug",
@@ -85,7 +108,8 @@ export class EngagementService {
              (SELECT count(DISTINCT COALESCE(e."listenerId"::text, e."deviceId"))::int
                 FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS callers,
              (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id AND s.kind = 'song') AS "songRequests",
-             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id AND s.kind = 'question') AS questions
+             (SELECT count(*)::int FROM song_requests s WHERE s."showOccurrenceId" = o.id AND s.kind = 'question') AS questions,
+             'show' AS kind, NULL AS "guestName"
       FROM show_occurrences o
       JOIN programmes p ON p.id = o."programmeId"
       WHERE ${filterSql}
@@ -96,13 +120,15 @@ export class EngagementService {
       `,
       [param, new Date(now.getTime() + DAY), new Date(now.getTime() - days * DAY)],
     );
-    return rows.map((r) => ({ ...r, startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) }));
+    return [...shows, ...guests]
+      .map((r) => ({ ...r, startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) }))
+      .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
   }
 
   private totals(rows: ShowRow[], from: Date, to: Date, now: Date): Totals {
     const inRange = rows.filter((r) => r.startsAt > from && r.startsAt <= to);
     return {
-      shows: inRange.filter((r) => r.startsAt <= now).length,
+      shows: inRange.filter((r) => r.kind === 'show' && r.startsAt <= now).length,
       likes: inRange.reduce((n, r) => n + r.likes, 0),
       fires: inRange.reduce((n, r) => n + r.fires, 0),
       callTaps: inRange.reduce((n, r) => n + r.callTaps, 0),
@@ -122,7 +148,7 @@ export class EngagementService {
         programmeName: r.programmeName, programmeSlug: r.programmeSlug,
         shows: 0, likes: 0, fires: 0, callTaps: 0, callers: 0, songRequests: 0, questions: 0,
       };
-      if (r.startsAt <= now) t.shows += 1;
+      if (r.kind === 'show' && r.startsAt <= now) t.shows += 1;
       t.likes += r.likes;
       t.fires += r.fires;
       t.callTaps += r.callTaps;
@@ -132,8 +158,9 @@ export class EngagementService {
       byProgramme.set(r.programmeSlug, t);
     }
     return {
-      // This week includes requests already sent for shows in the next 24 hours.
-      last7Days: this.totals(rows, weekAgo, new Date(now.getTime() + DAY), now),
+      // This week includes requests already sent for shows in the next 24 hours,
+      // and questions for guest recordings up to 26 hours ahead.
+      last7Days: this.totals(rows, weekAgo, new Date(now.getTime() + DAY + 2 * 3600 * 1000), now),
       previous7Days: this.totals(rows, twoWeeksAgo, weekAgo, now),
       byProgramme: [...byProgramme.values()].sort((a, b) => a.programmeName.localeCompare(b.programmeName)),
       shows: rows.map((r) => ({
@@ -160,6 +187,7 @@ export class EngagementService {
     );
     const rows = await this.shows(
       `EXISTS (SELECT 1 FROM show_occurrence_hosts h WHERE h."occurrenceId" = o.id AND h."rjId" = $1)`,
+      `EXISTS (SELECT 1 FROM programme_rjs pr WHERE pr."programmeId" = p.id AND pr."rjId" = $1)`,
       rj.id,
       now,
       14,
@@ -171,7 +199,13 @@ export class EngagementService {
   async forStation(listenerId: string, stationId: string, now = new Date()) {
     await assertStationRep(this.dataSource.manager, listenerId, stationId);
     // Shows aired on the station, and the station's own programmes.
-    const rows = await this.shows(`(o."stationId" = $1 OR p."ownerStationId" = $1)`, stationId, now, 14);
+    const rows = await this.shows(
+      `(o."stationId" = $1 OR p."ownerStationId" = $1)`,
+      `(p."stationId" = $1 OR p."ownerStationId" = $1)`,
+      stationId,
+      now,
+      14,
+    );
     return this.summarise(rows, now);
   }
 }

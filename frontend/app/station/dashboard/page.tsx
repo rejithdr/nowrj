@@ -8,6 +8,7 @@ import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import StationRjs from "../../lib/station-rjs";
 import SongQueue from "../../lib/song-queue";
+import GuestSessions from "../../lib/guest-sessions";
 import { InteractionSettings } from "../../lib/interaction-settings";
 import type { InteractionType } from "../../lib/interaction";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
@@ -142,6 +143,12 @@ function StationPanel({ entry }: { entry: MyStation }) {
           <h2 className="mt-6 text-lg font-bold text-zinc-900">Song requests &amp; questions</h2>
           <p className="mt-1 text-sm text-zinc-600">For shows live now, in the next 24 hours, or that ended in the last 2 hours.</p>
           <SongQueue path={`/shows/song-requests/station/${station.id}`} />
+
+          <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest</h2>
+          <GuestSessions
+            path={`/guest-sessions/station/${station.id}`}
+            programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
+          />
 
           <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
           <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />

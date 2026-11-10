@@ -55,7 +55,7 @@ export function ReferralsPanel() {
   return (
     <div className="mt-2">
       <p className="text-sm text-zinc-600">
-        Share this on air, on Instagram and on WhatsApp. Everyone who joins NowRJ through it counts as yours. RJs who join through it are recorded as your referrals: once ads launch on Now On FM, you&apos;ll earn 10% of their share for 12 months.
+        Share this on air and on WhatsApp. Listeners and RJs who join NowRJ through your link are shown here.
       </p>
       <ShareRow link={link} message="Follow my show on NowRJ: react live, request songs and call in." />
       <div className="mt-4 grid grid-cols-2 gap-3">

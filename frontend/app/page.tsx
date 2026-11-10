@@ -6,12 +6,14 @@ import AuthControls from "./AuthControls";
 import ShowCard, { type ApiShow } from "./ShowCard";
 import { ShowReactionsProvider } from "./ShowReactions";
 import { ProgrammeRow, type ProgrammeSummary } from "./lib/public-pages";
+import { GuestCard, type GuestSession } from "./lib/guest-card";
 export const instant = false;
 
 export default async function Home() {
   // Live shows depend on the current time, so this page is rendered on every visit.
   await connection();
   let programmes: ProgrammeSummary[] = [];
+  let guests: GuestSession[] = [];
   let shows: { live: ApiShow[]; upcoming: ApiShow[]; recent: ApiShow[] } = {
     live: [],
     upcoming: [],
@@ -21,10 +23,14 @@ export default async function Home() {
   const now = new Date();
 
   try {
-    const [programmeResponse, showsResponse] = await Promise.all([
+    const [programmeResponse, showsResponse, guestsResponse] = await Promise.all([
       fetch(`${SERVER_API_URL}/pages/programmes`, { cache: "no-store" }),
       fetch(`${SERVER_API_URL}/shows/now`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/guest-sessions/open`, { cache: "no-store" }),
     ]);
+    if (guestsResponse.ok) {
+      guests = await guestsResponse.json();
+    }
     if (showsResponse.ok) {
       shows = await showsResponse.json();
       showsLoaded = true;
@@ -79,6 +85,11 @@ export default async function Home() {
           <a href="#live" className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white">
             Live now{shows.live.length ? ` (${shows.live.length})` : ""}
           </a>
+          {guests.length ? (
+            <a href="#ask-the-guest" className="rounded-full border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-800">
+              Ask the guest ({guests.length})
+            </a>
+          ) : null}
           <a href="#upcoming" className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700">
             Coming up
           </a>
@@ -114,6 +125,18 @@ export default async function Home() {
               </p>
             )}
           </section>
+
+          {guests.length ? (
+            <section id="ask-the-guest" className="mt-10 scroll-mt-5">
+              <h2 className="text-xl font-bold text-zinc-900">Ask the guest</h2>
+              <p className="mb-4 mt-1 text-sm text-zinc-600">Guests on upcoming recorded shows. Send your question before the recording.</p>
+              <div className="flex flex-col gap-3">
+                {guests.map((guest) => (
+                  <GuestCard key={guest.id} guest={guest} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section id="upcoming" className="mt-10 scroll-mt-5">
             <h2 className="mb-4 text-xl font-bold text-zinc-900">Coming up</h2>

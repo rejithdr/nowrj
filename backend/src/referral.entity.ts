@@ -21,10 +21,11 @@ export class Referral {
   @Column({ type: 'uuid', nullable: true })
   referredRjId: string | null;
 
-  /** When the referred RJ was verified; the reward window starts here. */
+  /** When the referred RJ was verified. */
   @Column({ type: 'timestamptz', nullable: true })
   activatedAt: Date | null;
 
+  /** Unused: referral rewards were dropped on 10 Nov 2026. Kept so no data is lost. */
   @Column({ type: 'timestamptz', nullable: true })
   rewardEndsAt: Date | null;
 

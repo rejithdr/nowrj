@@ -7,7 +7,7 @@ import { API, api, inputClass, labelClass, Notice, primaryButton, quietButton } 
 type Profile = { name: string; photoUrl?: string | null };
 
 /** Turns any photo into a small square JPEG in the browser before uploading. */
-async function squareJpeg(file: File, size = 480): Promise<Blob> {
+export async function squareJpeg(file: File, size = 480): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const side = Math.min(bitmap.width, bitmap.height);
   const canvas = document.createElement("canvas");

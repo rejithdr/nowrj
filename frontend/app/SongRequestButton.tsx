@@ -18,6 +18,8 @@ const statusText: Record<InteractionType, Record<string, string>> = {
   song: { new: "Requested", played: "Played ✓", skipped: "Not played this time" },
   question: { new: "Asked", played: "Answered on air ✓", skipped: "Not answered this time" },
 };
+/** Guest questions (Ask the guest): "played" means used in the recording. */
+const guestStatusText: Record<string, string> = { new: "Asked", played: "Used in the recording ✓", skipped: "Not used this time" };
 
 /**
  * Lets a signed-in listener request up to 3 songs for one show, or ask up to
@@ -29,11 +31,14 @@ export default function SongRequestButton({
   programmeName,
   mode = "song",
   notice = null,
+  guest = false,
 }: {
   showId: string;
   programmeName: string;
   mode?: InteractionType;
   notice?: string | null;
+  /** Ask the guest: `showId` is then a guest session id. */
+  guest?: boolean;
 }) {
   const words = wording[mode];
   const [open, setOpen] = useState(false);
@@ -57,7 +62,7 @@ export default function SongRequestButton({
         signInAndReturn();
         return;
       }
-      const data = await api<{ max: number; requests: MyRequest[] }>(`/shows/${showId}/song-requests/mine`);
+      const data = await api<{ max: number; requests: MyRequest[] }>(`${guest ? `/guest-sessions/${showId}/questions` : `/shows/${showId}/song-requests`}/mine`);
       setMine(data.requests);
       setMax(data.max);
       setOpen(true);
@@ -80,7 +85,7 @@ export default function SongRequestButton({
     setBusy(true);
     try {
       const body = mode === "question" ? { question: form.question } : { songTitle: form.songTitle, artist: form.artist, message: form.message };
-      const created = await api<MyRequest>(`/shows/${showId}/song-requests`, {
+      const created = await api<MyRequest>(guest ? `/guest-sessions/${showId}/questions` : `/shows/${showId}/song-requests`, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -112,7 +117,7 @@ export default function SongRequestButton({
         ) : (
           <Music size={16} aria-hidden="true" />
         )}
-        {words.button}
+        {guest ? "Ask the guest" : words.button}
       </button>
 
       {error && !open ? <p className="w-full text-sm text-red-700" role="alert">{error}</p> : null}
@@ -130,7 +135,7 @@ export default function SongRequestButton({
                       {kind === "song" && r.artist ? <span className="text-zinc-500"> · {r.artist}</span> : null}
                     </span>
                     <span className={`shrink-0 ${r.status === "played" ? "font-semibold text-emerald-700" : "text-zinc-600"}`}>
-                      {statusText[kind][r.status] ?? r.status}
+                      {(guest ? guestStatusText : statusText[kind])[r.status] ?? r.status}
                     </span>
                   </li>
                 );
@@ -142,10 +147,13 @@ export default function SongRequestButton({
             <form onSubmit={submit} className="space-y-2">
               {mode === "question" ? (
                 <>
-                  <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-900">
-                    <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-                    <span>{notice?.trim() || DEFAULT_QUESTION_NOTICE}</span>
-                  </p>
+                  {/* Guest sessions show a notice only when the programme set one (e.g. a doctor's talk). */}
+                  {!guest || notice?.trim() ? (
+                    <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-900">
+                      <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                      <span>{notice?.trim() || DEFAULT_QUESTION_NOTICE}</span>
+                    </p>
+                  ) : null}
                   <div>
                     <label htmlFor={`q-${showId}`} className="mb-1 block text-xs font-medium text-zinc-700">Your question *</label>
                     <textarea
@@ -181,11 +189,11 @@ export default function SongRequestButton({
                   {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
                   Send to {programmeName}
                 </button>
-                <span className="text-xs text-zinc-500">{left} of {max} {words.items} left for this show</span>
+                <span className="text-xs text-zinc-500">{left} of {max} {words.items} left for this {guest ? "guest" : "show"}</span>
               </div>
             </form>
           ) : (
-            <p className="text-sm text-zinc-600">You&apos;ve used all {max} {words.items} for this show.</p>
+            <p className="text-sm text-zinc-600">You&apos;ve used all {max} {words.items} for this {guest ? "guest" : "show"}.</p>
           )}
           {sent ? <p className="mt-2 text-sm text-emerald-700" role="status">{sent}</p> : null}
           {error ? <p className="mt-2 text-sm text-red-700" role="alert">{error}</p> : null}

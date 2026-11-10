@@ -26,7 +26,7 @@ export default function TermsPage() {
         <li>Give accurate information about yourself, your station and your programmes. We may verify it and may reject or remove profiles that are inaccurate or misleading.</li>
         <li>An RJ may create programmes. When a station joins NowRJ it can claim the programmes aired on it; ownership then moves to the station as described on the dashboards.</li>
         <li>Only publish content you have the right to share. You keep ownership of it and give us permission to display it on NowRJ and Now On FM.</li>
-        <li>Referral rewards and revenue shares will start only when Now On FM launches its advertising service, on terms we will publish then. Nothing is earned or payable before that.</li>
+        <li>Revenue shares will start only when Now On FM launches its advertising service, on terms we will publish then. Nothing is earned or payable before that.</li>
       </ul>
 
       <h2>Not allowed</h2>

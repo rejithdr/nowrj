@@ -28,6 +28,9 @@ type ShowRow = {
   questions: number;
   live: boolean;
   upcoming: boolean;
+  /** "guest" rows are Ask the guest sessions, dated at the recording. */
+  kind?: "show" | "guest";
+  guestName?: string | null;
   interactions: number;
   reachedMark: boolean;
 };
@@ -194,10 +197,14 @@ export default function EngagementPanel({ path, showHosts }: { path: string; sho
                     <Link href={`/programme/${row.programmeSlug}`} className="font-semibold text-zinc-900 hover:text-orange-700">
                       {row.programmeName}
                     </Link>
+                    {row.kind === "guest" ? (
+                      <span className="block text-xs font-semibold text-violet-700">Ask the guest: {row.guestName}</span>
+                    ) : null}
                     <span className="block text-xs text-zinc-500">
+                      {row.kind === "guest" ? "Recording " : ""}
                       {showDate(row)}
-                      {row.live ? <span className="ml-1.5 font-bold uppercase text-red-700">· Live</span> : null}
-                      {row.upcoming ? <span className="ml-1.5 font-semibold text-orange-700">· Coming up</span> : null}
+                      {row.kind !== "guest" && row.live ? <span className="ml-1.5 font-bold uppercase text-red-700">· Live</span> : null}
+                      {row.kind !== "guest" && row.upcoming ? <span className="ml-1.5 font-semibold text-orange-700">· Coming up</span> : null}
                     </span>
                   </td>
                   {showHosts ? <td className="py-2 pr-3 text-zinc-700">{row.hosts ?? "—"}</td> : null}

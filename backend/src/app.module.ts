@@ -16,6 +16,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { PagesModule } from './pages/pages';
 import { EnquiriesModule } from './enquiries/enquiries';
+import { GuestsModule } from './guests/guests';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { EnquiriesModule } from './enquiries/enquiries';
     ReferralsModule,
     PagesModule,
     EnquiriesModule,
+    GuestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

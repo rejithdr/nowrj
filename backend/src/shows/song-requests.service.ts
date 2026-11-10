@@ -260,7 +260,8 @@ export class SongRequestsService {
     }
     const m = this.dataSource.manager;
     const request = await m.findOneBy(SongRequest, { id: requestId });
-    if (!request) throw new NotFoundException('Request not found.');
+    // Guest questions are handled through /guest-sessions.
+    if (!request?.showOccurrenceId) throw new NotFoundException('Request not found.');
     const show = await m.findOneBy(ShowOccurrence, { id: request.showOccurrenceId });
     if (!show) throw new NotFoundException('Show not found.');
 

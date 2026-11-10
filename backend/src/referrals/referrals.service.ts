@@ -95,7 +95,6 @@ export class ReferralsService {
     return {
       code: rj.referralCode,
       joined: listeners,
-      // Reward dates are not shown: the 12 months start when Now On FM monetisation launches.
       rjs: rjRows.map((r) => ({
         name: r.name,
         slug: r.slug,

@@ -269,7 +269,7 @@ export class RjsService {
 
     const saved = await this.rjRepository.save(rj);
 
-    // Verification starts the referring RJ's 12-month reward window.
+    // Record that a referred RJ is now verified (shown in the referrer's list).
     if (verificationStatus === 'verified') {
       await activateRjReferral(this.rjRepository.manager, rj.id);
     }
