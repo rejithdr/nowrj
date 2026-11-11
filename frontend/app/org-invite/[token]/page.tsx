@@ -11,7 +11,7 @@ type Invite = {
   place: string;
   designationName: string;
   emailHint: string;
-  status: "sent" | "accepted" | "cancelled";
+  status: "awaiting_approval" | "sent" | "accepted" | "cancelled";
   expired: boolean;
 };
 
@@ -86,7 +86,7 @@ export default function OrgInvitePage({ params }: { params: Promise<{ token: str
             ) : unusable ? (
               <Notice
                 kind="error"
-                text={invite.status === "accepted" ? "This invite has already been used." : invite.status === "cancelled" ? "This invite was cancelled." : "This invite has expired. Ask for a new one."}
+                text={invite.status === "awaiting_approval" ? "This invite is waiting for approval by the NowRJ team. Try the link again once it is approved." : invite.status === "accepted" ? "This invite has already been used." : invite.status === "cancelled" ? "This invite was cancelled." : "This invite has expired. Ask for a new one."}
               />
             ) : signedIn === false ? (
               <>

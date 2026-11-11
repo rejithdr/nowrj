@@ -30,7 +30,7 @@ import { UserRole } from '../user-role.entity';
 import { clean, EMAIL, PHONE, slugify, writeAudit } from '../onboarding/helpers';
 import { AREAS, Area, isLevel, meets, withinScope, wouldCreateCycle } from './access';
 import { Designation, Level, Organisation, OrgInvite, OrgMember, OrgUnit, ORG_ENTITIES } from './entities';
-import { FULL_LEVELS, HEAD_OFFICE_ADMIN } from './org-setup';
+import { ensureStationOrganisation, FULL_LEVELS, HEAD_OFFICE_ADMIN, STATION_ADMIN } from './org-setup';
 
 const DAY = 24 * 3600 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -105,12 +105,30 @@ export class OrgsService {
     return m.find(OrgUnit, { where: { organisationId }, order: { name: 'ASC' } });
   }
 
-  /** A designation someone hands out may not go beyond their own. */
-  private assertNotAboveOwn(actor: Actor, designation: Designation) {
-    if (actor.superadmin || !actor.designation) return;
-    const over = AREAS.filter((a) => !meets(actor.designation![a], designation[a]));
-    if (over.length) {
-      throw new ForbiddenException(`"${designation.name}" has more access than your own designation (${over.join(', ')}).`);
+  /**
+   * Posts are ranked (1 = highest). Super Admin is above every post. A
+   * manager acts only on people in a lower post than their own.
+   */
+  private rankOf(actor: Actor) {
+    return actor.superadmin ? 0 : actor.designation?.rank ?? Number.MAX_SAFE_INTEGER;
+  }
+
+  /**
+   * Admins hire ordinary staff (programme managers and the like) only for
+   * their own place: head office, region or station. For the places under
+   * them they appoint only the admins, who then hire their own staff.
+   */
+  private assertPlacement(actor: Actor, unitId: string | null, designation: Designation, placeName: string) {
+    if (actor.superadmin || unitId === actor.scopeUnitId || designation.manageStaff) return;
+    throw new ForbiddenException(
+      `Staff at ${placeName} are added by its own admin. You can appoint its admin, or add "${designation.name}" at your own place.`,
+    );
+  }
+
+  /** Staff may edit or delete a designation only if it is below their own post. */
+  private assertBelow(actor: Actor, designation: Designation, what: string) {
+    if (!actor.superadmin && designation.rank <= this.rankOf(actor)) {
+      throw new ForbiddenException(`Only someone in a higher post, or the NowRJ team, can ${what} "${designation.name}".`);
     }
   }
 
@@ -169,7 +187,7 @@ export class OrgsService {
     const actor = await this.actor(m, listenerId, organisationId);
     const units = await this.units(m, organisationId);
     const stations = await m.findBy(Station, { id: In(units.map((u) => u.stationId).filter((id): id is string => Boolean(id))) });
-    const designations = await m.find(Designation, { where: { organisationId }, order: { name: 'ASC' } });
+    const designations = await m.find(Designation, { where: { organisationId }, order: { rank: 'ASC', name: 'ASC' } });
     const members: { id: string; listenerId: string; name: string | null; email: string | null; unitId: string | null; designationId: string; createdAt: Date }[] =
       await m.query(
         `SELECT om.id, om."listenerId", l."displayName" AS name, l.email, om."unitId", om."designationId", om."createdAt"
@@ -178,7 +196,7 @@ export class OrgsService {
           ORDER BY l."displayName"`,
         [organisationId],
       );
-    const invites = await m.find(OrgInvite, { where: { organisationId, status: 'sent' }, order: { createdAt: 'DESC' } });
+    const invites = await m.find(OrgInvite, { where: { organisationId, status: In(['sent', 'awaiting_approval']) }, order: { createdAt: 'DESC' } });
     const inScope = (unitId: string | null) => withinScope(units, actor.scopeUnitId, unitId);
 
     return {
@@ -188,6 +206,7 @@ export class OrgsService {
         memberId: actor.member?.id ?? null,
         wholeOrg: actor.scopeUnitId === null,
         scopeUnitId: actor.scopeUnitId,
+        rank: this.rankOf(actor),
       },
       units: units.map((u) => ({
         id: u.id,
@@ -202,6 +221,7 @@ export class OrgsService {
       designations: designations.map((d) => ({
         id: d.id,
         name: d.name,
+        rank: d.rank,
         ...Object.fromEntries(AREAS.map((a) => [a, d[a]])),
         manageStaff: d.manageStaff,
         memberCount: members.filter((x) => x.designationId === d.id).length,
@@ -214,7 +234,8 @@ export class OrgsService {
           email: i.email,
           unitId: i.unitId,
           designationId: i.designationId,
-          token: i.token,
+          token: i.status === 'sent' ? i.token : null,
+          status: i.status,
           expiresAt: i.expiresAt,
           expired: i.expiresAt < now,
         })),
@@ -327,8 +348,9 @@ export class OrgsService {
       this.assertWholeOrg(actor);
       await this.nameFree(m, organisationId, fields.name!);
       const none = Object.fromEntries(AREAS.map((a) => [a, 'none']));
-      const d = m.create(Designation, { organisationId, ...none, manageStaff: false, ...fields });
-      this.assertNotAboveOwn(actor, d);
+      // A new post goes to the bottom of the order; head office can move it up.
+      const [{ max }] = await m.query(`SELECT coalesce(max(rank), 0)::int AS max FROM designations WHERE "organisationId" = $1`, [organisationId]);
+      const d = m.create(Designation, { organisationId, ...none, manageStaff: false, ...fields, rank: max + 1 });
       const saved = await m.save(d);
       await writeAudit(m, listenerId, 'designation.created', 'designation', saved.id, { organisationId, ...fields });
       return { id: saved.id };
@@ -341,15 +363,12 @@ export class OrgsService {
       this.assertWholeOrg(actor);
       const d = await m.findOne(Designation, { where: { id: designationId, organisationId }, lock: { mode: 'pessimistic_write' } });
       if (!d) throw new NotFoundException('Designation not found.');
+      this.assertBelow(actor, d, 'change');
       const fields = this.designationFields(input ?? {}, d);
       if (fields.name) await this.nameFree(m, organisationId, fields.name, d.id);
       const before = { ...d };
       const admins = await this.headOfficeAdmins(m, organisationId);
       Object.assign(d, fields);
-      this.assertNotAboveOwn(actor, d);
-      if (!actor.superadmin && actor.designation?.id === d.id) {
-        throw new ForbiddenException('You cannot change your own designation. Ask another head-office admin.');
-      }
       await m.save(d);
       await this.keepAnAdmin(m, organisationId, admins);
       await writeAudit(m, listenerId, 'designation.updated', 'designation', d.id, {
@@ -367,6 +386,7 @@ export class OrgsService {
       this.assertWholeOrg(actor);
       const d = await m.findOneBy(Designation, { id: designationId, organisationId });
       if (!d) throw new NotFoundException('Designation not found.');
+      this.assertBelow(actor, d, 'remove');
       if (await m.existsBy(OrgMember, { designationId: d.id, status: 'active' })) {
         throw new ConflictException('Staff still hold this designation. Give them another one first.');
       }
@@ -375,6 +395,33 @@ export class OrgsService {
       await m.delete(Designation, { id: d.id });
       await writeAudit(m, listenerId, 'designation.deleted', 'designation', d.id, { organisationId, name: d.name });
       return { id: d.id };
+    });
+  }
+
+  /**
+   * Head office sets the order of posts, highest first. Posts at or above
+   * the admin's own keep their places; only those below can be reordered.
+   */
+  async reorderDesignations(listenerId: string, organisationId: string, ids: unknown) {
+    if (!Array.isArray(ids) || !ids.every((x) => typeof x === 'string')) throw new BadRequestException('Send the designations in their new order.');
+    return this.dataSource.transaction(async (m) => {
+      const actor = await this.actor(m, listenerId, organisationId);
+      this.assertWholeOrg(actor);
+      const current = await m.find(Designation, { where: { organisationId }, order: { rank: 'ASC', name: 'ASC' }, lock: { mode: 'pessimistic_write' } });
+      if (ids.length !== current.length || new Set(ids).size !== ids.length || !current.every((d) => ids.includes(d.id))) {
+        throw new BadRequestException('Send every designation exactly once.');
+      }
+      if (!actor.superadmin) {
+        const fixed = current.filter((d) => d.rank <= this.rankOf(actor)).map((d) => d.id);
+        if (fixed.some((id, i) => ids[i] !== id)) {
+          throw new ForbiddenException('You can only reorder posts below your own.');
+        }
+      }
+      for (const [i, id] of (ids as string[]).entries()) await m.update(Designation, { id }, { rank: i + 1 });
+      await writeAudit(m, listenerId, 'designation.reordered', 'organisation', organisationId, {
+        order: (ids as string[]).map((id) => current.find((d) => d.id === id)!.name),
+      });
+      return { ok: true };
     });
   }
 
@@ -392,8 +439,10 @@ export class OrgsService {
       if (!withinScope(units, actor.scopeUnitId, unit?.id ?? null)) {
         throw new ForbiddenException('You can only invite staff to your own part of the organisation.');
       }
-      // Any designation may be given; where it applies is limited to the manager's own part of the organisation.
       const designation = await this.designationInOrg(m, organisationId, input.designationId);
+      this.assertPlacement(actor, unit?.id ?? null, designation, unit?.name ?? 'the head office');
+      // A post above the inviter's own needs the NowRJ team's approval before the link works.
+      const needsApproval = !actor.superadmin && designation.rank < this.rankOf(actor);
 
       const [already] = await m.query(
         `SELECT 1 FROM org_members om JOIN listeners l ON l.id = om."listenerId"
@@ -401,8 +450,10 @@ export class OrgsService {
         [organisationId, email],
       );
       if (already) throw new ConflictException('This person is already on your staff. Change their designation instead.');
-      const open = await m.findOneBy(OrgInvite, { organisationId, email, status: 'sent' });
-      if (open && open.expiresAt > now) throw new ConflictException('An invite for this email is still open. Cancel it to send a new one.');
+      const open = await m.findOne(OrgInvite, { where: { organisationId, email, status: In(['sent', 'awaiting_approval']) } });
+      if (open && (open.status === 'awaiting_approval' || open.expiresAt > now)) {
+        throw new ConflictException('An invite for this email is still open. Cancel it to send a new one.');
+      }
       if (open) await m.update(OrgInvite, { id: open.id }, { status: 'cancelled' });
 
       const invite = await m.save(
@@ -412,18 +463,18 @@ export class OrgsService {
           designationId: designation.id,
           email,
           token: randomBytes(24).toString('hex'),
-          status: 'sent',
+          status: needsApproval ? 'awaiting_approval' : 'sent',
           invitedByListenerId: listenerId,
           expiresAt: new Date(now.getTime() + INVITE_DAYS * DAY),
         }),
       );
-      await writeAudit(m, listenerId, 'org_invite.sent', 'org_invite', invite.id, {
+      await writeAudit(m, listenerId, needsApproval ? 'org_invite.awaiting_approval' : 'org_invite.sent', 'org_invite', invite.id, {
         organisationId,
         email,
         unitId: invite.unitId,
         designation: designation.name,
       });
-      return { id: invite.id, token: invite.token, expiresAt: invite.expiresAt };
+      return { id: invite.id, status: invite.status, token: needsApproval ? null : invite.token, expiresAt: invite.expiresAt };
     });
   }
 
@@ -431,7 +482,7 @@ export class OrgsService {
     return this.dataSource.transaction(async (m) => {
       const actor = await this.actor(m, listenerId, organisationId);
       const invite = await m.findOneBy(OrgInvite, { id: inviteId, organisationId });
-      if (!invite || invite.status !== 'sent') throw new NotFoundException('Open invite not found.');
+      if (!invite || (invite.status !== 'sent' && invite.status !== 'awaiting_approval')) throw new NotFoundException('Open invite not found.');
       if (!withinScope(await this.units(m, organisationId), actor.scopeUnitId, invite.unitId)) {
         throw new ForbiddenException('This invite is outside your part of the organisation.');
       }
@@ -441,7 +492,11 @@ export class OrgsService {
     });
   }
 
-  private async memberForChange(m: EntityManager, actor: Actor, organisationId: string, memberId: string) {
+  /**
+   * removing: ordinary staff at a place below yours are removed by that
+   * place's own admin. A change is judged by where it leaves the person.
+   */
+  private async memberForChange(m: EntityManager, actor: Actor, organisationId: string, memberId: string, removing = false) {
     const member = await m.findOne(OrgMember, { where: { id: memberId, organisationId, status: 'active' }, lock: { mode: 'pessimistic_write' } });
     if (!member) throw new NotFoundException('Staff member not found.');
     if (!actor.superadmin && member.listenerId === actor.listenerId) {
@@ -451,6 +506,11 @@ export class OrgsService {
     if (!withinScope(units, actor.scopeUnitId, member.unitId)) {
       throw new ForbiddenException('This person works outside your part of the organisation.');
     }
+    const post = await m.findOneByOrFail(Designation, { id: member.designationId });
+    if (!actor.superadmin && post.rank <= this.rankOf(actor)) {
+      throw new ForbiddenException(`Only someone in a higher post, or the NowRJ team, can change or remove a ${post.name}.`);
+    }
+    if (removing) this.assertPlacement(actor, member.unitId, post, units.find((u) => u.id === member.unitId)?.name ?? 'the head office');
     return { member, units };
   }
 
@@ -472,8 +532,13 @@ export class OrgsService {
       }
       if (input.designationId !== undefined) {
         const designation = await this.designationInOrg(m, organisationId, input.designationId);
+        if (!actor.superadmin && designation.rank <= this.rankOf(actor)) {
+          throw new ForbiddenException(`Only the NowRJ team can give someone a post at or above your own (${designation.name}).`);
+        }
         member.designationId = designation.id;
       }
+      const post = await m.findOneByOrFail(Designation, { id: member.designationId });
+      this.assertPlacement(actor, member.unitId, post, units.find((u) => u.id === member.unitId)?.name ?? 'the head office');
       await m.save(member);
       await this.keepAnAdmin(m, organisationId, admins);
       await writeAudit(m, listenerId, 'org_member.updated', 'org_member', member.id, {
@@ -489,7 +554,7 @@ export class OrgsService {
   async removeMember(listenerId: string, organisationId: string, memberId: string, now = new Date()) {
     return this.dataSource.transaction(async (m) => {
       const actor = await this.actor(m, listenerId, organisationId);
-      const { member } = await this.memberForChange(m, actor, organisationId, memberId);
+      const { member } = await this.memberForChange(m, actor, organisationId, memberId, true);
       const admins = await this.headOfficeAdmins(m, organisationId);
       member.status = 'removed';
       member.removedAt = now;
@@ -531,6 +596,7 @@ export class OrgsService {
     return this.dataSource.transaction(async (m) => {
       const invite = await m.findOne(OrgInvite, { where: { token }, lock: { mode: 'pessimistic_write' } });
       if (!invite) throw new NotFoundException('This invite link is not valid.');
+      if (invite.status === 'awaiting_approval') throw new ForbiddenException('This invite is waiting for approval by the NowRJ team.');
       if (invite.status !== 'sent') throw new GoneException('This invite has already been used or cancelled.');
       if (invite.expiresAt < now) throw new GoneException('This invite has expired. Ask for a new one.');
       const listener = await m.findOneBy(Listener, { id: listenerId, isActive: true });
@@ -615,6 +681,72 @@ export class OrgsService {
   }
 
   // ------------------------------------------------------------- Super Admin
+
+  /** Invites to a post above the inviter's own, waiting for the NowRJ team. */
+  async adminInviteApprovals() {
+    return this.dataSource.query(`
+      SELECT i.id, i.email, i."createdAt", o.name AS "organisationName", d.name AS "designationName",
+             coalesce(u.name, CASE WHEN o.kind = 'network' THEN 'Head office' ELSE o.name END) AS place,
+             l."displayName" AS "invitedBy", idd.name AS "inviterDesignation"
+        FROM org_invites i
+        JOIN organisations o ON o.id = i."organisationId"
+        JOIN designations d ON d.id = i."designationId"
+        LEFT JOIN org_units u ON u.id = i."unitId"
+        LEFT JOIN listeners l ON l.id = i."invitedByListenerId"
+        LEFT JOIN org_members im ON im."listenerId" = i."invitedByListenerId" AND im."organisationId" = i."organisationId" AND im.status = 'active'
+        LEFT JOIN designations idd ON idd.id = im."designationId"
+       WHERE i.status = 'awaiting_approval'
+       ORDER BY i."createdAt"`);
+  }
+
+  async adminDecideInvite(adminId: string, inviteId: string, approve: boolean, now = new Date()) {
+    return this.dataSource.transaction(async (m) => {
+      const invite = await m.findOne(OrgInvite, { where: { id: inviteId }, lock: { mode: 'pessimistic_write' } });
+      if (!invite || invite.status !== 'awaiting_approval') throw new NotFoundException('Invite waiting for approval not found.');
+      invite.status = approve ? 'sent' : 'cancelled';
+      if (approve) invite.expiresAt = new Date(now.getTime() + INVITE_DAYS * DAY);
+      await m.save(invite);
+      await writeAudit(m, adminId, approve ? 'org_invite.approved' : 'org_invite.rejected', 'org_invite', invite.id, {
+        organisationId: invite.organisationId,
+        email: invite.email,
+      });
+      return { id: invite.id, status: invite.status };
+    });
+  }
+
+  /** Super Admin sets up a single station and invites its first Station admin. */
+  async adminCreateStandalone(adminId: string, input: { name?: string; city?: string; email?: string }, now = new Date()) {
+    const name = clean(input?.name);
+    const city = clean(input?.city);
+    const email = clean(input?.email)?.toLowerCase();
+    if (!name) throw new BadRequestException('Enter the station name.');
+    if (name.length > 150) throw new BadRequestException('Station name is too long.');
+    if (!email || !EMAIL.test(email)) throw new BadRequestException("Enter the station admin's email.");
+    return this.dataSource.transaction(async (m) => {
+      const base = slugify(name, 'station');
+      let slug = base;
+      for (let n = 2; await m.exists(Station, { where: { slug } }); n++) slug = `${base}-${n}`;
+      const station = await m.save(
+        m.create(Station, { name, slug, city, isActive: true, verificationStatus: 'verified', createdByListenerId: adminId, contactEmail: email }),
+      );
+      const org = await ensureStationOrganisation(m, station, adminId);
+      const designation = await m.findOneByOrFail(Designation, { organisationId: org.id, name: STATION_ADMIN });
+      const invite = await m.save(
+        m.create(OrgInvite, {
+          organisationId: org.id,
+          unitId: null,
+          designationId: designation.id,
+          email,
+          token: randomBytes(24).toString('hex'),
+          status: 'sent',
+          invitedByListenerId: adminId,
+          expiresAt: new Date(now.getTime() + INVITE_DAYS * DAY),
+        }),
+      );
+      await writeAudit(m, adminId, 'station.created_by_admin', 'station', station.id, { name, city, organisationId: org.id, invitedEmail: email });
+      return { stationId: station.id, organisationId: org.id, token: invite.token };
+    });
+  }
 
   /** Stations networks have asked for, waiting for the NowRJ team. */
   async adminStationRequests() {
@@ -728,9 +860,11 @@ export class OrgsService {
             .where('d."organisationId" = :org AND lower(d.name) = lower(:name)', { org: target.id, name: old.name })
             .getOne();
           if (!d) {
+            const [{ max }] = await m.query(`SELECT coalesce(max(rank), 0)::int AS max FROM designations WHERE "organisationId" = $1`, [target.id]);
             d = await m.save(
               m.create(Designation, {
                 organisationId: target.id,
+                rank: max + 1,
                 name: old.name,
                 ...Object.fromEntries(AREAS.map((a) => [a, old[a]])),
                 manageStaff: old.manageStaff,
@@ -817,6 +951,11 @@ export class OrgsController {
     return this.orgs.createDesignation(listenerId(req), id, body ?? {});
   }
 
+  @Post(':id/designations/order')
+  reorderDesignations(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { ids?: unknown }) {
+    return this.orgs.reorderDesignations(listenerId(req), id, body?.ids);
+  }
+
   @Patch(':id/designations/:designationId')
   updateDesignation(
     @Req() req: Request,
@@ -883,6 +1022,26 @@ export class AdminOrgsController {
   @Get()
   list() {
     return this.orgs.adminList();
+  }
+
+  @Get('invite-approvals')
+  inviteApprovals() {
+    return this.orgs.adminInviteApprovals();
+  }
+
+  @Post('invite-approvals/:inviteId/approve')
+  approveInvite(@Req() req: Request, @Param('inviteId', ParseUUIDPipe) inviteId: string) {
+    return this.orgs.adminDecideInvite(listenerId(req), inviteId, true);
+  }
+
+  @Post('invite-approvals/:inviteId/reject')
+  rejectInvite(@Req() req: Request, @Param('inviteId', ParseUUIDPipe) inviteId: string) {
+    return this.orgs.adminDecideInvite(listenerId(req), inviteId, false);
+  }
+
+  @Post('standalone')
+  createStandalone(@Req() req: Request, @Body() body: { name?: string; city?: string; email?: string }) {
+    return this.orgs.adminCreateStandalone(listenerId(req), body ?? {});
   }
 
   @Get('station-requests')

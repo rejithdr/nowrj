@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Copy, LoaderCircle, MessageCircle, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Copy, LoaderCircle, MessageCircle, Plus, Trash2, X } from "lucide-react";
 import { api, Card, dangerButton, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "./ui";
 
 export type Level = "none" | "view" | "edit" | "authorise";
@@ -20,12 +20,12 @@ const LEVEL_LABEL: Record<Level, string> = { none: "None", view: "View", edit: "
 const levelsFor = (area: Area): Level[] => (area === "stats" ? ["none", "view"] : ["none", "view", "edit", "authorise"]);
 
 type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; stationStatus: string | null; inScope: boolean };
-type Designation = Record<Area, Level> & { id: string; name: string; manageStaff: boolean; memberCount: number };
+type Designation = Record<Area, Level> & { id: string; name: string; rank: number; manageStaff: boolean; memberCount: number };
 type Member = { id: string; listenerId: string; name: string | null; email: string | null; unitId: string | null; designationId: string; inScope: boolean; isMe: boolean };
-type Invite = { id: string; email: string; unitId: string | null; designationId: string; token: string; expiresAt: string; expired: boolean };
+type Invite = { id: string; email: string; unitId: string | null; designationId: string; token: string | null; status: "sent" | "awaiting_approval"; expiresAt: string; expired: boolean };
 type Overview = {
   organisation: { id: string; name: string; kind: "network" | "standalone" };
-  me: { superadmin: boolean; memberId: string | null; wholeOrg: boolean; scopeUnitId: string | null };
+  me: { superadmin: boolean; memberId: string | null; wholeOrg: boolean; scopeUnitId: string | null; rank: number };
   units: Unit[];
   designations: Designation[];
   members: Member[];
@@ -285,7 +285,15 @@ function Designations({ data, busy, run }: SectionProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<DesignationForm>(emptyForm());
   const [adding, setAdding] = useState(false);
-  const myDesignationId = data.members.find((m) => m.isMe)?.designationId;
+  /** Only posts below your own can be edited, removed or reordered. */
+  const below = (d: Designation) => data.me.superadmin || d.rank > data.me.rank;
+  const order = data.designations.map((d) => d.id);
+
+  function move(index: number, by: -1 | 1) {
+    const next = [...order];
+    [next[index], next[index + by]] = [next[index + by], next[index]];
+    void run("order", () => api(`${base}/designations/order`, { method: "POST", body: JSON.stringify({ ids: next }) }), "Order of posts saved.");
+  }
 
   function startEdit(d: Designation) {
     setAdding(false);
@@ -324,23 +332,34 @@ function Designations({ data, busy, run }: SectionProps) {
 
   return (
     <Card title="Designations">
-      <p className="text-sm text-zinc-600">Name your own designations and choose what each can do. Everyone with a designation gets the same access wherever they are placed.</p>
+      <p className="text-sm text-zinc-600">
+        Posts are listed highest first. Staff can change or remove only people in a lower post than their own, and an invite to a higher post waits for the NowRJ team&apos;s approval.
+      </p>
       <ul className="mt-3 space-y-3">
-        {data.designations.map((d) => (
+        {data.designations.map((d, i) => (
           <li key={d.id} className="rounded-xl border border-zinc-200 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-semibold text-zinc-900">
+                <span className="mr-2 text-xs font-normal text-zinc-500">{i + 1}.</span>
                 {d.name}
                 <span className="ml-2 text-xs font-normal text-zinc-500">{d.memberCount} staff</span>
               </p>
               {canEdit && editing !== d.id ? (
-                <div className="flex gap-3">
-                  {d.id !== myDesignationId || data.me.superadmin ? (
-                    <button type="button" className="text-sm font-semibold text-orange-700 hover:underline" onClick={() => startEdit(d)}>Edit</button>
+                <div className="flex items-center gap-3">
+                  {below(d) ? (
+                    <>
+                      <button type="button" aria-label={`Move ${d.name} up`} disabled={busy !== null || i === 0 || !below(data.designations[i - 1])} onClick={() => move(i, -1)} className="rounded p-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-30">
+                        <ArrowUp size={16} aria-hidden="true" />
+                      </button>
+                      <button type="button" aria-label={`Move ${d.name} down`} disabled={busy !== null || i === data.designations.length - 1} onClick={() => move(i, 1)} className="rounded p-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-30">
+                        <ArrowDown size={16} aria-hidden="true" />
+                      </button>
+                      <button type="button" className="text-sm font-semibold text-orange-700 hover:underline" onClick={() => startEdit(d)}>Edit</button>
+                    </>
                   ) : (
-                    <span className="text-xs text-zinc-500">Your own designation</span>
+                    <span className="text-xs text-zinc-500">Your post or above</span>
                   )}
-                  {d.memberCount === 0 ? (
+                  {d.memberCount === 0 && below(d) ? (
                     <button type="button" className="text-sm font-semibold text-red-700 hover:underline" disabled={busy !== null} onClick={() => window.confirm(`Remove the designation ${d.name}?`) && void run(`d-del-${d.id}`, () => api(`${base}/designations/${d.id}`, { method: "DELETE" }), "Designation removed.")}>
                       Remove
                     </button>
@@ -385,7 +404,18 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
     ];
   }, [data, network]);
   const designationName = (id: string) => data.designations.find((d) => d.id === id)?.name ?? "—";
-  const option = (d: Designation) => <option key={d.id} value={d.id}>{d.name}</option>;
+  const higher = (d: Designation) => !data.me.superadmin && d.rank < data.me.rank;
+  /** Ordinary staff only at your own place; for places under you, only their admins. */
+  const ownPlace = data.me.scopeUnitId ?? "";
+  const allowedAt = (placeId: string, d: Designation) => data.me.superadmin || placeId === ownPlace || d.manageStaff;
+  const inviteOption = (d: Designation) => (
+    <option key={d.id} value={d.id}>{d.name}{higher(d) ? " (needs NowRJ approval)" : ""}</option>
+  );
+  // Giving someone a post at or above your own is for the NowRJ team.
+  const changeOption = (d: Designation, current: string, placeId: string) => (
+    <option key={d.id} value={d.id} disabled={d.id !== current && ((!data.me.superadmin && d.rank <= data.me.rank) || !allowedAt(placeId, d))}>{d.name}</option>
+  );
+  const rankOf = (id: string) => data.designations.find((d) => d.id === id)?.rank ?? Number.MAX_SAFE_INTEGER;
   const [invite, setInvite] = useState({ email: "", unitId: places[0]?.id ?? "", designationId: "" });
   const [changes, setChanges] = useState<Record<string, { unitId: string; designationId: string }>>({});
   const [copied, setCopied] = useState<string | null>(null);
@@ -395,7 +425,9 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
     const ok = await run(
       "invite",
       () => api(`${base}/invites`, { method: "POST", body: JSON.stringify({ email: invite.email, unitId: invite.unitId || null, designationId: invite.designationId }) }),
-      `Invite created for ${invite.email.trim()}. Copy the link below and send it to them.`,
+      higher(data.designations.find((d) => d.id === invite.designationId)!)
+        ? `Invite for ${invite.email.trim()} is waiting for approval by the NowRJ team, because the post is above your own. The link appears below once approved.`
+        : `Invite created for ${invite.email.trim()}. Copy the link below and send it to them.`,
     );
     if (ok) setInvite({ ...invite, email: "" });
   }
@@ -416,7 +448,11 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
         {data.members.map((m) => {
           const change = changes[m.id] ?? { unitId: m.unitId ?? "", designationId: m.designationId };
           const changed = change.unitId !== (m.unitId ?? "") || change.designationId !== m.designationId;
-          const editable = m.inScope && (!m.isMe || data.me.superadmin);
+          // Only people in a lower post than yours, inside your part of the organisation.
+          const post = data.designations.find((d) => d.id === m.designationId);
+          const editable =
+            m.inScope &&
+            (data.me.superadmin || (!m.isMe && rankOf(m.designationId) > data.me.rank && Boolean(post) && allowedAt(m.unitId ?? "", post!)));
           return (
             <li key={m.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
               <div className="min-w-0">
@@ -432,7 +468,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
                     </select>
                   ) : null}
                   <select aria-label={`Designation for ${m.name}`} value={change.designationId} onChange={(e) => setChanges({ ...changes, [m.id]: { ...change, designationId: e.target.value } })} className="min-h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm">
-                    {data.designations.map(option)}
+                    {data.designations.map((d) => changeOption(d, m.designationId, change.unitId))}
                   </select>
                   {changed ? (
                     <button
@@ -466,6 +502,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
       <h3 className="mt-6 font-bold text-zinc-900">Invite staff</h3>
       <p className="mt-1 text-sm text-zinc-600">
         The invite works only for the Google account with this email, and expires in 14 days.
+        {data.me.superadmin ? "" : " For places under yours you can appoint only their admins; they add their own staff."}
       </p>
       <form onSubmit={sendInvite} className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -475,7 +512,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
         {network ? (
           <div>
             <label htmlFor="inv-place" className={labelClass}>Place</label>
-            <select id="inv-place" value={invite.unitId} onChange={(e) => setInvite({ ...invite, unitId: e.target.value })} className={inputClass}>
+            <select id="inv-place" value={invite.unitId} onChange={(e) => setInvite({ ...invite, unitId: e.target.value, designationId: "" })} className={inputClass}>
               {places.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
             </select>
           </div>
@@ -484,7 +521,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
           <label htmlFor="inv-designation" className={labelClass}>Designation</label>
           <select id="inv-designation" required value={invite.designationId} onChange={(e) => setInvite({ ...invite, designationId: e.target.value })} className={inputClass}>
             <option value="" disabled>Choose…</option>
-            {data.designations.map(option)}
+            {data.designations.filter((d) => allowedAt(invite.unitId, d)).map(inviteOption)}
           </select>
         </div>
         <div className="sm:col-span-2">
@@ -504,20 +541,22 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
                   <p className="truncate font-medium text-zinc-900">{i.email}</p>
                   <p className="text-sm text-zinc-600">
                     {designationName(i.designationId)} · {placeName(i.unitId)} ·{" "}
-                    {i.expired ? <span className="text-red-700">Expired</span> : `Expires ${new Date(i.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
+                    {i.status === "awaiting_approval" ? (
+                      <span className="text-amber-700">Waiting for NowRJ approval</span>
+                    ) : i.expired ? <span className="text-red-700">Expired</span> : `Expires ${new Date(i.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {!i.expired ? (
+                  {!i.expired && i.token ? (
                     <>
-                      <button type="button" className={quietButton} onClick={() => void copy(i.token)}>
+                      <button type="button" className={quietButton} onClick={() => void copy(i.token!)}>
                         {copied === i.token ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} {copied === i.token ? "Copied" : "Copy link"}
                       </button>
                       <a
                         className={quietButton}
                         target="_blank"
                         rel="noreferrer"
-                        href={`https://wa.me/?text=${encodeURIComponent(`You're invited to join ${data.organisation.name} on NowRJ as ${designationName(i.designationId)}. Sign in with ${i.email}: ${inviteLink(i.token)}`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(`You're invited to join ${data.organisation.name} on NowRJ as ${designationName(i.designationId)}. Sign in with ${i.email}: ${inviteLink(i.token!)}`)}`}
                       >
                         <MessageCircle size={14} aria-hidden="true" /> WhatsApp
                       </a>

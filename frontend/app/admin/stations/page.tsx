@@ -63,6 +63,11 @@ const actionText: Record<string, string> = {
   "org_member.updated": "Staff member's place or designation changed",
   "org_member.removed": "Staff member removed",
   "station.requested": "Network added a station",
+  "station.created_by_admin": "Super Admin set up a single station",
+  "designation.reordered": "Order of posts changed",
+  "org_invite.awaiting_approval": "Invite to a higher post sent for approval",
+  "org_invite.approved": "Super Admin approved an invite",
+  "org_invite.rejected": "Super Admin rejected an invite",
   "station.request_approved": "Super Admin approved a network's station",
   "station.request_rejected": "Super Admin rejected a network's station",
 };

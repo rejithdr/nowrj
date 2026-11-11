@@ -14,6 +14,7 @@ export const FULL_LEVELS = {
   adsAired: 'authorise',
   stats: 'view',
   manageStaff: true,
+  rank: 1,
 } as const;
 
 /**

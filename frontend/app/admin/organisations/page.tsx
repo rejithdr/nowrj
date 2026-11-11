@@ -9,6 +9,7 @@ import { api, Card, inputClass, labelClass, Notice, primaryButton, quietButton, 
 type Org = { id: string; name: string; kind: "network" | "standalone"; stationCount: number; staffCount: number; openInvites: number };
 type StationRow = { id: string; name: string; city: string | null; organisationId: string | null; organisationKind: string | null };
 type Unit = { id: string; kind: string; name: string };
+type InviteApproval = { id: string; email: string; organisationName: string; designationName: string; place: string; invitedBy: string | null; inviterDesignation: string | null };
 type StationRequest = { id: string; name: string; city: string | null; contactPhone: string | null; contactEmail: string | null; organisationName: string; regionName: string | null; requestedBy: string | null };
 
 /** Super Admin: networks, and moving stations into them. */
@@ -19,6 +20,9 @@ export default function AdminOrganisationsPage() {
   const [move, setMove] = useState({ organisationId: "", stationId: "", parentUnitId: "" });
   const [regions, setRegions] = useState<Unit[]>([]);
   const [requests, setRequests] = useState<StationRequest[]>([]);
+  const [approvals, setApprovals] = useState<InviteApproval[]>([]);
+  const [single, setSingle] = useState({ name: "", city: "", email: "" });
+  const [singleLink, setSingleLink] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,6 +32,7 @@ export default function AdminOrganisationsPage() {
     setOrgs(data.organisations);
     setStations(data.stations);
     setRequests(await api<StationRequest[]>("/admin/orgs/station-requests"));
+    setApprovals(await api<InviteApproval[]>("/admin/orgs/invite-approvals"));
   }, []);
 
   useEffect(() => {
@@ -94,6 +99,27 @@ export default function AdminOrganisationsPage() {
         {message ? <Notice kind="ok" text={message} /> : null}
         {error ? <Notice kind="error" text={error} /> : null}
 
+        {approvals.length ? (
+          <Card title="Invites to a higher post">
+            <p className="text-sm text-zinc-600">Someone invited a person to a post above their own. The invite link works only after you approve it.</p>
+            <ul className="mt-2 divide-y divide-zinc-100">
+              {approvals.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-zinc-900">{a.email}</p>
+                    <p className="text-sm text-zinc-600">{a.designationName} · {a.place} · {a.organisationName}</p>
+                    <p className="text-xs text-zinc-500">Invited by {a.invitedBy ?? "—"}{a.inviterDesignation ? ` (${a.inviterDesignation})` : ""}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" disabled={busy} className={primaryButton} onClick={() => void act(() => api(`/admin/orgs/invite-approvals/${a.id}/approve`, { method: "POST" }), `Invite for ${a.email} approved.`)}>Approve</button>
+                    <button type="button" disabled={busy} className={quietButton} onClick={() => void act(() => api(`/admin/orgs/invite-approvals/${a.id}/reject`, { method: "POST" }), `Invite for ${a.email} rejected.`)}>Reject</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
+
         {requests.length ? (
           <Card title="New stations from networks">
             <ul className="mt-2 divide-y divide-zinc-100">
@@ -123,6 +149,46 @@ export default function AdminOrganisationsPage() {
             </ul>
           </Card>
         ) : null}
+
+        <Card title="Set up a single station">
+          <p className="text-sm text-zinc-600">Creates the station and an invite for its Station admin. Send them the link.</p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setSingleLink("");
+              let token = "";
+              const ok = await act(async () => {
+                token = (await api<{ token: string }>("/admin/orgs/standalone", { method: "POST", body: JSON.stringify(single) })).token;
+              }, `${single.name.trim()} created.`);
+              if (ok) {
+                setSingleLink(`${window.location.origin}/org-invite/${token}`);
+                setSingle({ name: "", city: "", email: "" });
+              }
+            }}
+            className="mt-2 grid gap-3 sm:grid-cols-3"
+          >
+            <div>
+              <label htmlFor="ss-name" className={labelClass}>Station name</label>
+              <input id="ss-name" required maxLength={150} value={single.name} onChange={(e) => setSingle({ ...single, name: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="ss-city" className={labelClass}>City</label>
+              <input id="ss-city" maxLength={100} value={single.city} onChange={(e) => setSingle({ ...single, city: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="ss-email" className={labelClass}>Station admin&apos;s email</label>
+              <input id="ss-email" type="email" required maxLength={255} value={single.email} onChange={(e) => setSingle({ ...single, email: e.target.value })} className={inputClass} />
+            </div>
+            <div className="sm:col-span-3">
+              <button type="submit" disabled={busy} className={primaryButton}><Plus size={16} aria-hidden="true" /> Create station and invite</button>
+            </div>
+          </form>
+          {singleLink ? (
+            <p className="mt-3 break-all rounded-lg bg-zinc-50 p-3 text-sm text-zinc-700">
+              Invite link (only works for that email): <span className="font-mono">{singleLink}</span>
+            </p>
+          ) : null}
+        </Card>
 
         <Card title="Create a network">
           <form onSubmit={create} className="mt-2 flex flex-wrap items-end gap-3">

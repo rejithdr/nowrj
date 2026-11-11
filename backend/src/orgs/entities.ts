@@ -43,6 +43,8 @@ export class Designation {
   @Column({ type: 'varchar', length: 10, default: 'none' }) adsShoutout: Level;
   @Column({ type: 'varchar', length: 10, default: 'none' }) adsAired: Level;
   @Column({ type: 'varchar', length: 10, default: 'none' }) stats: StatsLevel;
+  /** Order of posts in the organisation: 1 is the highest. */
+  @Column({ type: 'integer', default: 1000 }) rank: number;
   /** May invite, move and remove staff within their part of the organisation. */
   @Column({ type: 'boolean', default: false }) manageStaff: boolean;
   @CreateDateColumn() createdAt: Date;
@@ -73,7 +75,8 @@ export class OrgInvite {
   @Column({ type: 'uuid' }) designationId: string;
   @Column({ type: 'varchar', length: 255 }) email: string;
   @Column({ type: 'varchar', length: 64 }) token: string;
-  @Column({ type: 'varchar', length: 20, default: 'sent' }) status: 'sent' | 'accepted' | 'cancelled';
+  /** awaiting_approval: a post above the inviter's own, waiting for Super Admin. */
+  @Column({ type: 'varchar', length: 20, default: 'sent' }) status: 'awaiting_approval' | 'sent' | 'accepted' | 'cancelled';
   @Column({ type: 'uuid', nullable: true }) invitedByListenerId: string | null;
   @Column({ type: 'uuid', nullable: true }) acceptedByListenerId: string | null;
   @Column({ type: 'timestamptz', nullable: true }) acceptedAt: Date | null;
