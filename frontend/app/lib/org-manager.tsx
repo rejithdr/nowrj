@@ -18,7 +18,6 @@ export const AREA_LABEL: Record<Area, string> = {
 };
 const LEVEL_LABEL: Record<Level, string> = { none: "None", view: "View", edit: "Edit", authorise: "Authorise" };
 const levelsFor = (area: Area): Level[] => (area === "stats" ? ["none", "view"] : ["none", "view", "edit", "authorise"]);
-const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, authorise: 3 };
 
 type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; stationStatus: string | null; inScope: boolean };
 type Designation = Record<Area, Level> & { id: string; name: string; manageStaff: boolean; memberCount: number };
@@ -126,8 +125,11 @@ function Structure({ data, busy, run }: SectionProps) {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
-  const [station, setStation] = useState({ name: "", city: "", parentId: "", contactPhone: "" });
+  const [station, setStation] = useState({ name: "", city: "", parentId: data.me.wholeOrg ? "" : data.me.scopeUnitId ?? "", contactPhone: "" });
   const canEdit = data.me.wholeOrg;
+  const myRegion = data.units.find((u) => u.id === data.me.scopeUnitId && u.kind === "region");
+  const canAddStation = canEdit || Boolean(myRegion);
+  const stationParents = canEdit ? regions : regions.filter((r) => r.inScope);
 
   async function addStation(e: FormEvent) {
     e.preventDefault();
@@ -136,7 +138,7 @@ function Structure({ data, busy, run }: SectionProps) {
       () => api(`${base}/stations`, { method: "POST", body: JSON.stringify({ ...station, parentId: station.parentId || null, contactPhone: station.contactPhone || undefined }) }),
       `${station.name.trim()} added. It shows to listeners once the NowRJ team approves it; you can invite its staff now.`,
     );
-    if (ok) setStation({ name: "", city: "", parentId: "", contactPhone: "" });
+    if (ok) setStation({ name: "", city: "", parentId: canEdit ? "" : myRegion?.id ?? "", contactPhone: "" });
   }
 
   async function addRegion(e: FormEvent) {
@@ -221,7 +223,7 @@ function Structure({ data, busy, run }: SectionProps) {
           <button type="submit" disabled={busy === "region"} className={primaryButton}><Plus size={16} aria-hidden="true" /> Add region</button>
         </form>
       ) : null}
-      {canEdit ? (
+      {canAddStation ? (
         <form onSubmit={addStation} className="mt-6 grid gap-3 border-t border-zinc-100 pt-4 sm:grid-cols-2">
           <h3 className="font-bold text-zinc-900 sm:col-span-2">Add a station</h3>
           <div>
@@ -235,8 +237,8 @@ function Structure({ data, busy, run }: SectionProps) {
           <div>
             <label htmlFor="st-parent" className={labelClass}>Sits under</label>
             <select id="st-parent" value={station.parentId} onChange={(e) => setStation({ ...station, parentId: e.target.value })} className={inputClass}>
-              <option value="">Head office</option>
-              {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {canEdit ? <option value="">Head office</option> : null}
+              {stationParents.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
           <div>
@@ -383,13 +385,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
     ];
   }, [data, network]);
   const designationName = (id: string) => data.designations.find((d) => d.id === id)?.name ?? "—";
-  // Nobody can hand out more access than their own designation gives them.
-  const mine = data.designations.find((d) => d.id === data.members.find((m) => m.isMe)?.designationId);
-  const aboveMine = (d: Designation) =>
-    !data.me.superadmin && Boolean(mine) && (AREAS.some((a) => RANK[d[a]] > RANK[mine![a]]) || (d.manageStaff && !mine!.manageStaff));
-  const option = (d: Designation) => (
-    <option key={d.id} value={d.id} disabled={aboveMine(d)}>{d.name}{aboveMine(d) ? " (more access than yours)" : ""}</option>
-  );
+  const option = (d: Designation) => <option key={d.id} value={d.id}>{d.name}</option>;
   const [invite, setInvite] = useState({ email: "", unitId: places[0]?.id ?? "", designationId: "" });
   const [changes, setChanges] = useState<Record<string, { unitId: string; designationId: string }>>({});
   const [copied, setCopied] = useState<string | null>(null);
@@ -436,7 +432,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
                     </select>
                   ) : null}
                   <select aria-label={`Designation for ${m.name}`} value={change.designationId} onChange={(e) => setChanges({ ...changes, [m.id]: { ...change, designationId: e.target.value } })} className="min-h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm">
-                    {data.designations.map((d) => (d.id === m.designationId ? <option key={d.id} value={d.id}>{d.name}</option> : option(d)))}
+                    {data.designations.map(option)}
                   </select>
                   {changed ? (
                     <button
@@ -470,7 +466,6 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
       <h3 className="mt-6 font-bold text-zinc-900">Invite staff</h3>
       <p className="mt-1 text-sm text-zinc-600">
         The invite works only for the Google account with this email, and expires in 14 days.
-        {data.designations.some(aboveMine) ? " You can give only designations with no more access than your own; head office can raise yours." : ""}
       </p>
       <form onSubmit={sendInvite} className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">

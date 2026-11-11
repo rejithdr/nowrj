@@ -392,8 +392,8 @@ export class OrgsService {
       if (!withinScope(units, actor.scopeUnitId, unit?.id ?? null)) {
         throw new ForbiddenException('You can only invite staff to your own part of the organisation.');
       }
+      // Any designation may be given; where it applies is limited to the manager's own part of the organisation.
       const designation = await this.designationInOrg(m, organisationId, input.designationId);
-      this.assertNotAboveOwn(actor, designation);
 
       const [already] = await m.query(
         `SELECT 1 FROM org_members om JOIN listeners l ON l.id = om."listenerId"
@@ -472,7 +472,6 @@ export class OrgsService {
       }
       if (input.designationId !== undefined) {
         const designation = await this.designationInOrg(m, organisationId, input.designationId);
-        this.assertNotAboveOwn(actor, designation);
         member.designationId = designation.id;
       }
       await m.save(member);
@@ -582,10 +581,13 @@ export class OrgsService {
     return this.dataSource.transaction(async (m) => {
       const org = await this.org(m, organisationId);
       const actor = await this.actor(m, listenerId, organisationId);
-      this.assertWholeOrg(actor);
       if (org.kind !== 'network') throw new BadRequestException('Only a network can add stations.');
       const parent = await this.unitInOrg(m, organisationId, input?.parentId);
       if (parent && parent.kind !== 'region') throw new BadRequestException('Choose a region, or leave it under the head office.');
+      // Head office can add anywhere; a regional admin only inside their own region.
+      if (!withinScope(await this.units(m, organisationId), actor.scopeUnitId, parent?.id ?? null)) {
+        throw new ForbiddenException('You can add stations only inside your own region.');
+      }
       const requester = await m.findOneBy(Listener, { id: listenerId });
 
       const base = slugify(name, 'station');
