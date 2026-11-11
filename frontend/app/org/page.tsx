@@ -5,9 +5,10 @@ import Link from "next/link";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import AuthControls from "../AuthControls";
 import OrgManager from "../lib/org-manager";
+import OrgRjs from "../lib/org-rjs";
 import { api, Card, isSignedIn, Notice, primaryButton, signInAndReturn } from "../lib/ui";
 
-type MyOrg = { id: string; name: string; kind: string; designationName: string; manageStaff: boolean; unitName: string | null };
+type MyOrg = { id: string; name: string; kind: string; designationName: string; manageStaff: boolean; rjs: string; unitName: string | null };
 
 /** Staff and designations for the organisations this person manages. */
 export default function OrgPage() {
@@ -24,7 +25,7 @@ export default function OrgPage() {
           return;
         }
         const requested = new URLSearchParams(window.location.search).get("id");
-        const mine = (await api<MyOrg[]>("/orgs/mine")).filter((o) => o.manageStaff);
+        const mine = (await api<MyOrg[]>("/orgs/mine")).filter((o) => o.manageStaff || o.rjs !== "none");
         setOrgs(mine);
         setSelected(requested ?? mine[0]?.id ?? null);
         setState("ready");
@@ -65,7 +66,7 @@ export default function OrgPage() {
         ) : !selected ? (
           <Card>
             <h1 className="text-xl font-bold text-zinc-900">Nothing to manage here</h1>
-            <p className="mt-2 text-zinc-600">Only staff whose designation lets them manage staff can open this page.</p>
+            <p className="mt-2 text-zinc-600">Only staff whose designation lets them manage staff or RJs can open this page.</p>
           </Card>
         ) : (
           <>
@@ -85,7 +86,8 @@ export default function OrgPage() {
                 ))}
               </div>
             ) : null}
-            <OrgManager key={selected} organisationId={selected} />
+            {orgs.find((o) => o.id === selected)?.manageStaff !== false ? <OrgManager key={selected} organisationId={selected} /> : null}
+            <OrgRjs key={`rjs-${selected}`} organisationId={selected} />
           </>
         )}
       </div>

@@ -205,6 +205,11 @@ function StationPanel({ entry }: { entry: MyStation }) {
                   ? "RJs list your station in their history. Confirm the dates you recognise, or dispute them with a note."
                   : "RJs who list your station in their history."}
               </p>
+              {access && can("rjs", "edit") ? (
+                <Link href={`/org?id=${access.organisationId}#rjs`} className="mt-2 inline-flex text-sm font-semibold text-orange-700 hover:underline">
+                  Invite or remove RJs
+                </Link>
+              ) : null}
               <StationRjs stationId={station.id} readOnly={!can("rjs", "edit")} />
             </>
           ) : null}

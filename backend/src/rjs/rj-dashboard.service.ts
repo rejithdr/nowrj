@@ -1,3 +1,4 @@
+import { assertNotNetworkStation } from '../orgs/invite-rules';
 import {
   BadRequestException,
   ConflictException,
@@ -89,10 +90,8 @@ export function programmeSettings(input: { interactionType?: string; noticeText?
   return out;
 }
 
-/** Today's date in India, as YYYY-MM-DD. */
-export function todayInIndia(now = new Date()): string {
-  return new Date(now.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
-}
+export { todayInIndia } from './dates';
+import { todayInIndia } from './dates';
 
 function dayBefore(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -174,6 +173,7 @@ export class RjDashboardService {
       if (!station) {
         throw new NotFoundException('Station not found.');
       }
+      await assertNotNetworkStation(manager, station.id);
 
       const current = await manager.findOne(RjStationAffiliation, {
         where: { rjId: rj.id, leftOn: IsNull() },

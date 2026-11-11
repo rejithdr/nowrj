@@ -88,4 +88,46 @@ export class OrgInvite {
   @CreateDateColumn() createdAt: Date;
 }
 
-export const ORG_ENTITIES = [Organisation, OrgUnit, Designation, OrgMember, OrgInvite];
+
+/** An RJ working at a place in an organisation. No unit: head office. */
+@Entity('org_rjs')
+export class OrgRj {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ type: 'uuid' }) organisationId: string;
+  @Column({ type: 'uuid' }) rjId: string;
+  @Column({ type: 'uuid', nullable: true }) unitId: string | null;
+  @Column({ type: 'varchar', length: 20, default: 'active' }) status: 'active' | 'removed';
+  @Column({ type: 'date' }) joinedOn: string;
+  @Column({ type: 'date', nullable: true }) leftOn: string | null;
+  @Column({ type: 'uuid', nullable: true }) addedByListenerId: string | null;
+  @Column({ type: 'uuid', nullable: true }) removedByListenerId: string | null;
+  @CreateDateColumn() createdAt: Date;
+}
+
+/** An invite for an RJ (by email) to join a place. */
+@Entity('rj_invites')
+export class RjInvite {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ type: 'uuid' }) organisationId: string;
+  @Column({ type: 'uuid', nullable: true }) unitId: string | null;
+  @Column({ type: 'varchar', length: 255 }) email: string;
+  @Column({ type: 'varchar', length: 64 }) token: string;
+  @Column({ type: 'varchar', length: 20, default: 'sent' }) status: 'sent' | 'accepted' | 'declined' | 'cancelled';
+  @Column({ type: 'uuid', nullable: true }) invitedByListenerId: string | null;
+  @Column({ type: 'uuid', nullable: true }) rjId: string | null;
+  @Column({ type: 'timestamptz', nullable: true }) decidedAt: Date | null;
+  @Column({ type: 'timestamptz' }) expiresAt: Date;
+  @CreateDateColumn() createdAt: Date;
+}
+
+/** A simple message on someone's dashboard. */
+@Entity('notices')
+export class Notice {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ type: 'uuid' }) listenerId: string;
+  @Column({ type: 'varchar', length: 500 }) text: string;
+  @Column({ type: 'timestamptz', nullable: true }) readAt: Date | null;
+  @CreateDateColumn() createdAt: Date;
+}
+
+export const ORG_ENTITIES = [Organisation, OrgUnit, Designation, OrgMember, OrgInvite, OrgRj, RjInvite, Notice];

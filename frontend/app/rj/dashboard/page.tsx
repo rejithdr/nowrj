@@ -1,5 +1,6 @@
 "use client";
 import { API_URL } from "../../lib/config";
+import RjWorkplaces from "../../lib/rj-workplaces";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -270,6 +271,8 @@ export default function RjDashboardPage() {
         </header>
 
         {pageError ? <Notice kind="error" text={pageError} /> : null}
+
+        <RjWorkplaces onChanged={refresh} />
 
         <Section title="Your profile">
           <RjProfileEditor profile={profile} onChange={(change) => setProfile((p) => (p ? { ...p, ...change } : p))} />

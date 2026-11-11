@@ -1,3 +1,6 @@
+import { Rj } from '../rj.entity';
+import { RjStationAffiliation } from '../rj-station-affiliation.entity';
+import { OrgRjsController, OrgRjsService } from './org-rjs';
 import {
   BadRequestException,
   Body,
@@ -34,7 +37,8 @@ import { ensureStationOrganisation, FULL_LEVELS, HEAD_OFFICE_ADMIN, STATION_ADMI
 
 const DAY = 24 * 3600 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const INVITE_DAYS = 14;
+export { INVITE_DAYS, emailHint } from './invite-rules';
+import { INVITE_DAYS, emailHint } from './invite-rules';
 
 /** Who is acting: a staff manager in the organisation, or the NowRJ Super Admin. */
 type Actor = {
@@ -53,11 +57,6 @@ function listenerId(req: Request): string {
   return (req.user as { id: string }).id;
 }
 
-/** Hides most of an email address: rejith@gmail.com → re****@gmail.com */
-export function emailHint(email: string) {
-  const [name, domain] = email.split('@');
-  return `${name.slice(0, 2)}${'*'.repeat(Math.max(name.length - 2, 2))}@${domain}`;
-}
 
 @Injectable()
 export class OrgsService {
@@ -167,7 +166,7 @@ export class OrgsService {
   /** The organisations this person works in, with what they can do there. */
   async mine(listenerId: string) {
     const rows: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT o.id, o.name, o.kind, d.name AS "designationName", d."manageStaff",
+      `SELECT o.id, o.name, o.kind, d.name AS "designationName", d."manageStaff", d.rjs,
               om."unitId", u.name AS "unitName"
          FROM org_members om
          JOIN organisations o ON o.id = om."organisationId" AND o."isActive"
@@ -1110,8 +1109,8 @@ export class AdminOrgsController {
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([...ORG_ENTITIES, Listener, Station, UserRole])],
-  controllers: [OrgsController, OrgInvitesController, AdminOrgsController],
-  providers: [OrgsService],
+  imports: [TypeOrmModule.forFeature([...ORG_ENTITIES, Listener, Station, UserRole, Rj, RjStationAffiliation])],
+  controllers: [OrgsController, OrgInvitesController, AdminOrgsController, OrgRjsController],
+  providers: [OrgsService, OrgRjsService],
 })
 export class OrgsModule {}
