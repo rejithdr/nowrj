@@ -148,7 +148,13 @@ function StationPanel({ entry }: { entry: MyStation }) {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-zinc-900">{station.name}</h1>
-        {roleStatus === "pending" ? <StatusPill text="Awaiting verification" tone="amber" /> : <StatusPill text="Verified" tone="green" />}
+        {roleStatus === "pending" ? (
+          <StatusPill text="Awaiting verification" tone="amber" />
+        ) : station.verificationStatus === "pending" ? (
+          <StatusPill text="Awaiting NowRJ approval" tone="amber" />
+        ) : (
+          <StatusPill text="Verified" tone="green" />
+        )}
       </div>
       {station.city ? <p className="text-sm text-zinc-600">{station.city}</p> : null}
       {access ? (

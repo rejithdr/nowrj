@@ -9,6 +9,7 @@ import { api, Card, inputClass, labelClass, Notice, primaryButton, quietButton, 
 type Org = { id: string; name: string; kind: "network" | "standalone"; stationCount: number; staffCount: number; openInvites: number };
 type StationRow = { id: string; name: string; city: string | null; organisationId: string | null; organisationKind: string | null };
 type Unit = { id: string; kind: string; name: string };
+type StationRequest = { id: string; name: string; city: string | null; contactPhone: string | null; contactEmail: string | null; organisationName: string; regionName: string | null; requestedBy: string | null };
 
 /** Super Admin: networks, and moving stations into them. */
 export default function AdminOrganisationsPage() {
@@ -17,6 +18,7 @@ export default function AdminOrganisationsPage() {
   const [name, setName] = useState("");
   const [move, setMove] = useState({ organisationId: "", stationId: "", parentUnitId: "" });
   const [regions, setRegions] = useState<Unit[]>([]);
+  const [requests, setRequests] = useState<StationRequest[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,6 +27,7 @@ export default function AdminOrganisationsPage() {
     const data = await api<{ organisations: Org[]; stations: StationRow[] }>("/admin/orgs");
     setOrgs(data.organisations);
     setStations(data.stations);
+    setRequests(await api<StationRequest[]>("/admin/orgs/station-requests"));
   }, []);
 
   useEffect(() => {
@@ -90,6 +93,36 @@ export default function AdminOrganisationsPage() {
         <p className="mt-1 text-sm text-zinc-600">Each station starts as its own organisation. A network (head office, regions and stations) is created here.</p>
         {message ? <Notice kind="ok" text={message} /> : null}
         {error ? <Notice kind="error" text={error} /> : null}
+
+        {requests.length ? (
+          <Card title="New stations from networks">
+            <ul className="mt-2 divide-y divide-zinc-100">
+              {requests.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-zinc-900">{r.name}{r.city ? ` · ${r.city}` : ""}</p>
+                    <p className="text-sm text-zinc-600">{r.organisationName}{r.regionName ? ` · ${r.regionName}` : " · Head office"} · asked by {r.requestedBy ?? "—"}</p>
+                    <p className="text-xs text-zinc-500">{[r.contactPhone, r.contactEmail].filter(Boolean).join(" · ")}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" disabled={busy} className={primaryButton} onClick={() => void act(() => api(`/admin/orgs/station-requests/${r.id}/approve`, { method: "POST" }), `${r.name} approved.`)}>Approve</button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={quietButton}
+                      onClick={() => {
+                        const reason = window.prompt(`Why is ${r.name} not approved?`);
+                        if (reason) void act(() => api(`/admin/orgs/station-requests/${r.id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }), `${r.name} not approved.`);
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
 
         <Card title="Create a network">
           <form onSubmit={create} className="mt-2 flex flex-wrap items-end gap-3">

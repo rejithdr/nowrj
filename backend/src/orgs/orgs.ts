@@ -27,7 +27,7 @@ import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { Listener } from '../listener.entity';
 import { Station } from '../station.entity';
 import { UserRole } from '../user-role.entity';
-import { clean, EMAIL, writeAudit } from '../onboarding/helpers';
+import { clean, EMAIL, PHONE, slugify, writeAudit } from '../onboarding/helpers';
 import { AREAS, Area, isLevel, meets, withinScope, wouldCreateCycle } from './access';
 import { Designation, Level, Organisation, OrgInvite, OrgMember, OrgUnit, ORG_ENTITIES } from './entities';
 import { FULL_LEVELS, HEAD_OFFICE_ADMIN } from './org-setup';
@@ -196,6 +196,7 @@ export class OrgsService {
         name: u.name,
         stationId: u.stationId,
         stationSlug: stations.find((s) => s.id === u.stationId)?.slug ?? null,
+        stationStatus: stations.find((s) => s.id === u.stationId)?.verificationStatus ?? null,
         inScope: inScope(u.id),
       })),
       designations: designations.map((d) => ({
@@ -561,7 +562,98 @@ export class OrgsService {
     });
   }
 
+  /**
+   * A head-office admin of a network asks for a new station under a region.
+   * It stays hidden from the public until the NowRJ team approves it, but the
+   * network can already place and invite staff there.
+   */
+  async requestStation(
+    listenerId: string,
+    organisationId: string,
+    input: { name?: string; city?: string; parentId?: string | null; contactPhone?: string },
+  ) {
+    const name = clean(input?.name);
+    const city = clean(input?.city);
+    const contactPhone = clean(input?.contactPhone);
+    if (!name) throw new BadRequestException('Enter the station name.');
+    if (name.length > 150) throw new BadRequestException('Station name is too long.');
+    if (city && city.length > 100) throw new BadRequestException('City is too long.');
+    if (contactPhone && !PHONE.test(contactPhone)) throw new BadRequestException('Phone number is not valid.');
+    return this.dataSource.transaction(async (m) => {
+      const org = await this.org(m, organisationId);
+      const actor = await this.actor(m, listenerId, organisationId);
+      this.assertWholeOrg(actor);
+      if (org.kind !== 'network') throw new BadRequestException('Only a network can add stations.');
+      const parent = await this.unitInOrg(m, organisationId, input?.parentId);
+      if (parent && parent.kind !== 'region') throw new BadRequestException('Choose a region, or leave it under the head office.');
+      const requester = await m.findOneBy(Listener, { id: listenerId });
+
+      const base = slugify(name, 'station');
+      let slug = base;
+      for (let n = 2; await m.exists(Station, { where: { slug } }); n++) slug = `${base}-${n}`;
+      const station = await m.save(
+        m.create(Station, {
+          name,
+          slug,
+          city,
+          isActive: false,
+          verificationStatus: 'pending',
+          organisationId,
+          createdByListenerId: listenerId,
+          contactPhone,
+          contactEmail: requester?.email?.toLowerCase() ?? null,
+        }),
+      );
+      const unit = await m.save(
+        m.create(OrgUnit, { organisationId, kind: 'station', name, stationId: station.id, parentId: parent?.id ?? null }),
+      );
+      await writeAudit(m, listenerId, 'station.requested', 'station', station.id, { organisationId, name, city, parentId: unit.parentId });
+      return { stationId: station.id, unitId: unit.id };
+    });
+  }
+
   // ------------------------------------------------------------- Super Admin
+
+  /** Stations networks have asked for, waiting for the NowRJ team. */
+  async adminStationRequests() {
+    return this.dataSource.query(`
+      SELECT s.id, s.name, s.city, s."contactPhone", s."contactEmail", s."createdAt",
+             o.id AS "organisationId", o.name AS "organisationName",
+             p.name AS "regionName", l."displayName" AS "requestedBy"
+        FROM stations s
+        JOIN organisations o ON o.id = s."organisationId" AND o.kind = 'network'
+        JOIN org_units u ON u."stationId" = s.id
+        LEFT JOIN org_units p ON p.id = u."parentId"
+        LEFT JOIN listeners l ON l.id = s."createdByListenerId"
+       WHERE s."verificationStatus" = 'pending'
+       ORDER BY s."createdAt"`);
+  }
+
+  async adminDecideStation(adminId: string, stationId: string, approve: boolean, reasonInput?: unknown) {
+    const reason = clean(reasonInput);
+    if (!approve && !reason) throw new BadRequestException('Give a reason so the network knows why.');
+    return this.dataSource.transaction(async (m) => {
+      const station = await m.findOne(Station, { where: { id: stationId }, lock: { mode: 'pessimistic_write' } });
+      if (!station || station.verificationStatus !== 'pending') throw new NotFoundException('Pending station not found.');
+      const unit = await m.findOneBy(OrgUnit, { stationId: station.id });
+      if (approve) {
+        await m.update(Station, { id: station.id }, { verificationStatus: 'verified', isActive: true });
+      } else {
+        // Staff placed at the refused station move up to its region (or the head office).
+        if (unit) {
+          await m.query(`UPDATE org_members SET "unitId" = $2 WHERE "unitId" = $1`, [unit.id, unit.parentId]);
+          await m.delete(OrgInvite, { unitId: unit.id });
+          await m.delete(OrgUnit, { id: unit.id });
+        }
+        await m.update(Station, { id: station.id }, { verificationStatus: 'rejected', isActive: false, organisationId: null });
+      }
+      await writeAudit(m, adminId, approve ? 'station.request_approved' : 'station.request_rejected', 'station', station.id, {
+        organisationId: station.organisationId,
+        reason,
+      });
+      return { stationId: station.id, status: approve ? 'verified' : 'rejected' };
+    });
+  }
 
   async adminList() {
     const organisations: Record<string, unknown>[] = await this.dataSource.query(`
@@ -689,6 +781,15 @@ export class OrgsController {
     return this.orgs.overview(listenerId(req), id);
   }
 
+  @Post(':id/stations')
+  requestStation(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { name?: string; city?: string; parentId?: string | null; contactPhone?: string },
+  ) {
+    return this.orgs.requestStation(listenerId(req), id, body ?? {});
+  }
+
   @Post(':id/regions')
   createRegion(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { name?: string; parentId?: string | null }) {
     return this.orgs.createRegion(listenerId(req), id, body ?? {});
@@ -780,6 +881,21 @@ export class AdminOrgsController {
   @Get()
   list() {
     return this.orgs.adminList();
+  }
+
+  @Get('station-requests')
+  stationRequests() {
+    return this.orgs.adminStationRequests();
+  }
+
+  @Post('station-requests/:stationId/approve')
+  approveStation(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string) {
+    return this.orgs.adminDecideStation(listenerId(req), stationId, true);
+  }
+
+  @Post('station-requests/:stationId/reject')
+  rejectStation(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string, @Body() body: { reason?: string }) {
+    return this.orgs.adminDecideStation(listenerId(req), stationId, false, body?.reason);
   }
 
   @Post()

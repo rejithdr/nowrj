@@ -18,8 +18,9 @@ export const AREA_LABEL: Record<Area, string> = {
 };
 const LEVEL_LABEL: Record<Level, string> = { none: "None", view: "View", edit: "Edit", authorise: "Authorise" };
 const levelsFor = (area: Area): Level[] => (area === "stats" ? ["none", "view"] : ["none", "view", "edit", "authorise"]);
+const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, authorise: 3 };
 
-type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; inScope: boolean };
+type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; stationStatus: string | null; inScope: boolean };
 type Designation = Record<Area, Level> & { id: string; name: string; manageStaff: boolean; memberCount: number };
 type Member = { id: string; listenerId: string; name: string | null; email: string | null; unitId: string | null; designationId: string; inScope: boolean; isMe: boolean };
 type Invite = { id: string; email: string; unitId: string | null; designationId: string; token: string; expiresAt: string; expired: boolean };
@@ -125,7 +126,18 @@ function Structure({ data, busy, run }: SectionProps) {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [station, setStation] = useState({ name: "", city: "", parentId: "", contactPhone: "" });
   const canEdit = data.me.wholeOrg;
+
+  async function addStation(e: FormEvent) {
+    e.preventDefault();
+    const ok = await run(
+      "station",
+      () => api(`${base}/stations`, { method: "POST", body: JSON.stringify({ ...station, parentId: station.parentId || null, contactPhone: station.contactPhone || undefined }) }),
+      `${station.name.trim()} added. It shows to listeners once the NowRJ team approves it; you can invite its staff now.`,
+    );
+    if (ok) setStation({ name: "", city: "", parentId: "", contactPhone: "" });
+  }
 
   async function addRegion(e: FormEvent) {
     e.preventDefault();
@@ -156,6 +168,7 @@ function Structure({ data, busy, run }: SectionProps) {
                 <p className="font-medium text-zinc-900">
                   {u.kind === "station" && u.stationSlug ? <Link href={`/station/${u.stationSlug}`} className="hover:text-orange-700">{u.name}</Link> : u.name}
                   <span className="ml-2 text-xs font-normal uppercase tracking-wide text-zinc-500">{u.kind}</span>
+                  {u.stationStatus === "pending" ? <span className="ml-2 text-xs font-semibold text-amber-700">Awaiting NowRJ approval</span> : null}
                 </p>
               )}
             </div>
@@ -208,7 +221,34 @@ function Structure({ data, busy, run }: SectionProps) {
           <button type="submit" disabled={busy === "region"} className={primaryButton}><Plus size={16} aria-hidden="true" /> Add region</button>
         </form>
       ) : null}
-      <p className="mt-3 text-xs text-zinc-500">New stations join a network through the NowRJ team.</p>
+      {canEdit ? (
+        <form onSubmit={addStation} className="mt-6 grid gap-3 border-t border-zinc-100 pt-4 sm:grid-cols-2">
+          <h3 className="font-bold text-zinc-900 sm:col-span-2">Add a station</h3>
+          <div>
+            <label htmlFor="st-name" className={labelClass}>Station name</label>
+            <input id="st-name" required maxLength={150} placeholder="Midas FM Kochi" value={station.name} onChange={(e) => setStation({ ...station, name: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="st-city" className={labelClass}>City</label>
+            <input id="st-city" maxLength={100} value={station.city} onChange={(e) => setStation({ ...station, city: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="st-parent" className={labelClass}>Sits under</label>
+            <select id="st-parent" value={station.parentId} onChange={(e) => setStation({ ...station, parentId: e.target.value })} className={inputClass}>
+              <option value="">Head office</option>
+              {regions.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="st-phone" className={labelClass}>Phone for the NowRJ team (optional)</label>
+            <input id="st-phone" type="tel" maxLength={20} value={station.contactPhone} onChange={(e) => setStation({ ...station, contactPhone: e.target.value })} className={inputClass} />
+          </div>
+          <div className="sm:col-span-2">
+            <button type="submit" disabled={busy === "station"} className={primaryButton}><Plus size={16} aria-hidden="true" /> Add station</button>
+            <p className="mt-2 text-xs text-zinc-500">The NowRJ team checks each new station before listeners can see it.</p>
+          </div>
+        </form>
+      ) : null}
     </Card>
   );
 }
@@ -343,6 +383,13 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
     ];
   }, [data, network]);
   const designationName = (id: string) => data.designations.find((d) => d.id === id)?.name ?? "—";
+  // Nobody can hand out more access than their own designation gives them.
+  const mine = data.designations.find((d) => d.id === data.members.find((m) => m.isMe)?.designationId);
+  const aboveMine = (d: Designation) =>
+    !data.me.superadmin && Boolean(mine) && (AREAS.some((a) => RANK[d[a]] > RANK[mine![a]]) || (d.manageStaff && !mine!.manageStaff));
+  const option = (d: Designation) => (
+    <option key={d.id} value={d.id} disabled={aboveMine(d)}>{d.name}{aboveMine(d) ? " (more access than yours)" : ""}</option>
+  );
   const [invite, setInvite] = useState({ email: "", unitId: places[0]?.id ?? "", designationId: "" });
   const [changes, setChanges] = useState<Record<string, { unitId: string; designationId: string }>>({});
   const [copied, setCopied] = useState<string | null>(null);
@@ -389,7 +436,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
                     </select>
                   ) : null}
                   <select aria-label={`Designation for ${m.name}`} value={change.designationId} onChange={(e) => setChanges({ ...changes, [m.id]: { ...change, designationId: e.target.value } })} className="min-h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm">
-                    {data.designations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    {data.designations.map((d) => (d.id === m.designationId ? <option key={d.id} value={d.id}>{d.name}</option> : option(d)))}
                   </select>
                   {changed ? (
                     <button
@@ -421,7 +468,10 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
       </ul>
 
       <h3 className="mt-6 font-bold text-zinc-900">Invite staff</h3>
-      <p className="mt-1 text-sm text-zinc-600">The invite works only for the Google account with this email, and expires in 14 days.</p>
+      <p className="mt-1 text-sm text-zinc-600">
+        The invite works only for the Google account with this email, and expires in 14 days.
+        {data.designations.some(aboveMine) ? " You can give only designations with no more access than your own; head office can raise yours." : ""}
+      </p>
       <form onSubmit={sendInvite} className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label htmlFor="inv-email" className={labelClass}>Email (their Google account)</label>
@@ -439,7 +489,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
           <label htmlFor="inv-designation" className={labelClass}>Designation</label>
           <select id="inv-designation" required value={invite.designationId} onChange={(e) => setInvite({ ...invite, designationId: e.target.value })} className={inputClass}>
             <option value="" disabled>Choose…</option>
-            {data.designations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {data.designations.map(option)}
           </select>
         </div>
         <div className="sm:col-span-2">

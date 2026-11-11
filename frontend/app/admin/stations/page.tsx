@@ -62,6 +62,9 @@ const actionText: Record<string, string> = {
   "org_member.joined": "Staff member joined",
   "org_member.updated": "Staff member's place or designation changed",
   "org_member.removed": "Staff member removed",
+  "station.requested": "Network added a station",
+  "station.request_approved": "Super Admin approved a network's station",
+  "station.request_rejected": "Super Admin rejected a network's station",
 };
 
 export default function AdminStationsPage() {
