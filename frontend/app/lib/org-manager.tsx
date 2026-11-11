@@ -336,10 +336,10 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
   const places = useMemo(() => {
     const ordered = treeOrder(data.units).filter((u) => u.inScope);
     // Indent below the top of this person's part of the organisation.
-    const top = data.me.wholeOrg ? -1 : Math.min(...ordered.map((u) => u.depth));
+    const top = data.me.wholeOrg || !ordered.length ? 0 : Math.min(...ordered.map((u) => u.depth));
     return [
       ...(data.me.wholeOrg ? [{ id: "", label: network ? "Head office (whole network)" : data.organisation.name }] : []),
-      ...(network ? ordered.map((u) => ({ id: u.id, label: `${"— ".repeat(u.depth - top - 1)}${u.name}` })) : []),
+      ...(network ? ordered.map((u) => ({ id: u.id, label: `${"— ".repeat(Math.max(0, u.depth - top))}${u.name}` })) : []),
     ];
   }, [data, network]);
   const designationName = (id: string) => data.designations.find((d) => d.id === id)?.name ?? "—";
