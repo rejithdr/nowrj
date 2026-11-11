@@ -1,3 +1,4 @@
+import { VISIBLE_PROGRAMME } from '../orgs/visibility';
 import {
   BadRequestException,
   ForbiddenException,
@@ -152,7 +153,7 @@ export class ShowsService {
         (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'like') AS likes,
         (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'fire') AS fires
       FROM show_occurrences o
-      JOIN programmes p ON p.id = o."programmeId" AND p."isActive" = true
+      JOIN programmes p ON p.id = o."programmeId" AND p."isActive" = true AND ${VISIBLE_PROGRAMME()}
       LEFT JOIN stations s ON s.id = o."stationId"
       LEFT JOIN station_invites i ON i.id = p."stationInviteId"
       WHERE o.status = 'scheduled'

@@ -1,3 +1,4 @@
+import { VISIBLE_PROGRAMME } from '../orgs/visibility';
 import { Controller, Get, Injectable, Module, NotFoundException, Param } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { slotLabel, sortSlots } from '../programmes/schedule-rules';
@@ -38,7 +39,7 @@ export class PagesService {
           FROM programmes p
           LEFT JOIN stations s ON s.id = p."stationId" AND s."isActive" = true
           LEFT JOIN station_invites i ON i.id = p."stationInviteId"
-         WHERE p."isActive" = true AND ${whereSql}
+         WHERE p."isActive" = true AND ${VISIBLE_PROGRAMME()} AND ${whereSql}
          ORDER BY p.name
         `,
         params,
@@ -109,7 +110,8 @@ export class PagesService {
 
   async station(slug: string) {
     const [station] = await this.dataSource.query(
-      `SELECT id, name, slug, city, state FROM stations WHERE slug = $1 AND "isActive" = true`,
+      `SELECT id, name, slug, city, state FROM stations s
+        WHERE slug = $1 AND "isActive" = true AND NOT EXISTS (SELECT 1 FROM hidden_stations hs WHERE hs.id = s.id)`,
       [slug],
     );
     if (!station) throw new NotFoundException('Station not found.');

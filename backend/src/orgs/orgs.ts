@@ -200,7 +200,7 @@ export class OrgsService {
     const inScope = (unitId: string | null) => withinScope(units, actor.scopeUnitId, unitId);
 
     return {
-      organisation: { id: org.id, name: org.name, kind: org.kind },
+      organisation: { id: org.id, name: org.name, kind: org.kind, hidden: Boolean(org.hiddenAt) },
       me: {
         superadmin: actor.superadmin,
         memberId: actor.member?.id ?? null,
@@ -216,6 +216,7 @@ export class OrgsService {
         stationId: u.stationId,
         stationSlug: stations.find((s) => s.id === u.stationId)?.slug ?? null,
         stationStatus: stations.find((s) => s.id === u.stationId)?.verificationStatus ?? null,
+        hidden: Boolean(u.hiddenAt),
         inScope: inScope(u.id),
       })),
       designations: designations.map((d) => ({
@@ -682,6 +683,29 @@ export class OrgsService {
 
   // ------------------------------------------------------------- Super Admin
 
+  /** Hide a whole organisation from listeners, or show it again. Staff keep their access. */
+  async adminSetOrgHidden(adminId: string, organisationId: string, hidden: unknown) {
+    if (typeof hidden !== 'boolean') throw new BadRequestException('Say whether to hide or show.');
+    return this.dataSource.transaction(async (m) => {
+      const org = await this.org(m, organisationId);
+      await m.update(Organisation, { id: org.id }, { hiddenAt: hidden ? new Date() : null });
+      await writeAudit(m, adminId, hidden ? 'organisation.hidden' : 'organisation.shown', 'organisation', org.id, { name: org.name });
+      return { id: org.id, hidden };
+    });
+  }
+
+  /** Hide a region (and every station under it) or a single station from listeners. */
+  async adminSetUnitHidden(adminId: string, organisationId: string, unitId: string, hidden: unknown) {
+    if (typeof hidden !== 'boolean') throw new BadRequestException('Say whether to hide or show.');
+    return this.dataSource.transaction(async (m) => {
+      const unit = await m.findOneBy(OrgUnit, { id: unitId, organisationId });
+      if (!unit) throw new NotFoundException('Not found in this organisation.');
+      await m.update(OrgUnit, { id: unit.id }, { hiddenAt: hidden ? new Date() : null });
+      await writeAudit(m, adminId, hidden ? 'org_unit.hidden' : 'org_unit.shown', 'org_unit', unit.id, { organisationId, name: unit.name, kind: unit.kind });
+      return { id: unit.id, hidden };
+    });
+  }
+
   /** Invites to a post above the inviter's own, waiting for the NowRJ team. */
   async adminInviteApprovals() {
     return this.dataSource.query(`
@@ -791,7 +815,7 @@ export class OrgsService {
 
   async adminList() {
     const organisations: Record<string, unknown>[] = await this.dataSource.query(`
-      SELECT o.id, o.name, o.kind, o."isActive", o."createdAt",
+      SELECT o.id, o.name, o.kind, o."isActive", o."createdAt", o."hiddenAt" IS NOT NULL AS hidden,
              (SELECT count(*)::int FROM stations s WHERE s."organisationId" = o.id) AS "stationCount",
              (SELECT count(*)::int FROM org_members m WHERE m."organisationId" = o.id AND m.status = 'active') AS "staffCount",
              (SELECT count(*)::int FROM org_invites i WHERE i."organisationId" = o.id AND i.status = 'sent') AS "openInvites"
@@ -1022,6 +1046,21 @@ export class AdminOrgsController {
   @Get()
   list() {
     return this.orgs.adminList();
+  }
+
+  @Post(':id/visibility')
+  setOrgHidden(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { hidden?: unknown }) {
+    return this.orgs.adminSetOrgHidden(listenerId(req), id, body?.hidden);
+  }
+
+  @Post(':id/units/:unitId/visibility')
+  setUnitHidden(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Body() body: { hidden?: unknown },
+  ) {
+    return this.orgs.adminSetUnitHidden(listenerId(req), id, unitId, body?.hidden);
   }
 
   @Get('invite-approvals')

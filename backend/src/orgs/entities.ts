@@ -14,6 +14,8 @@ export class Organisation {
   /** Release 2b: a change of designation waits for a second admin. */
   @Column({ type: 'boolean', default: false }) designationChangesNeedApproval: boolean;
   @Column({ type: 'boolean', default: true }) isActive: boolean;
+  /** Set by Super Admin: the whole network is hidden from listeners. */
+  @Column({ type: 'timestamptz', nullable: true }) hiddenAt: Date | null;
   @Column({ type: 'uuid', nullable: true }) createdByListenerId: string | null;
   @CreateDateColumn() createdAt: Date;
   @UpdateDateColumn() updatedAt: Date;
@@ -28,6 +30,8 @@ export class OrgUnit {
   @Column({ type: 'varchar', length: 20 }) kind: UnitKind;
   @Column({ type: 'varchar', length: 150 }) name: string;
   @Column({ type: 'uuid', nullable: true }) stationId: string | null;
+  /** Set by Super Admin: this region (and everything under it) or station is hidden from listeners. */
+  @Column({ type: 'timestamptz', nullable: true }) hiddenAt: Date | null;
   @CreateDateColumn() createdAt: Date;
 }
 

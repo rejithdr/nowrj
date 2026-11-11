@@ -1,3 +1,4 @@
+import { VISIBLE_PROGRAMME } from '../orgs/visibility';
 import {
   BadRequestException,
   Body,
@@ -129,7 +130,7 @@ export class GuestsService {
   /** Guest sessions taking questions right now (24 h to 2 h before recording). */
   async open(now = new Date()) {
     const rows = await this.sessions(
-      `g.status = 'scheduled' AND p."isActive"
+      `g.status = 'scheduled' AND p."isActive" AND ${VISIBLE_PROGRAMME()}
        AND g."recordingAt" - interval '24 hours' <= $1 AND g."recordingAt" - interval '2 hours' > $1`,
       [now],
     );

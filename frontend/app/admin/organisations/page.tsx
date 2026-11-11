@@ -6,7 +6,7 @@ import { ArrowLeft, Plus } from "lucide-react";
 import AuthControls from "../../AuthControls";
 import { api, Card, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "../../lib/ui";
 
-type Org = { id: string; name: string; kind: "network" | "standalone"; stationCount: number; staffCount: number; openInvites: number };
+type Org = { id: string; name: string; kind: "network" | "standalone"; hidden: boolean; stationCount: number; staffCount: number; openInvites: number };
 type StationRow = { id: string; name: string; city: string | null; organisationId: string | null; organisationKind: string | null };
 type Unit = { id: string; kind: string; name: string };
 type InviteApproval = { id: string; email: string; organisationName: string; designationName: string; place: string; invitedBy: string | null; inviterDesignation: string | null };
@@ -241,8 +241,20 @@ export default function AdminOrganisationsPage() {
                     {o.stationCount} station{o.stationCount === 1 ? "" : "s"} · {o.staffCount} staff{o.openInvites ? ` · ${o.openInvites} open invite${o.openInvites === 1 ? "" : "s"}` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {o.hidden ? <StatusPill text="Hidden from listeners" tone="red" /> : null}
                   <StatusPill text={o.kind === "network" ? "Network" : "Single station"} tone={o.kind === "network" ? "green" : "zinc"} />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={quietButton}
+                    onClick={() => {
+                      if (!o.hidden && !window.confirm(`Hide every programme of ${o.name} from listeners? Its staff keep their access.`)) return;
+                      void act(() => api(`/admin/orgs/${o.id}/visibility`, { method: "POST", body: JSON.stringify({ hidden: !o.hidden }) }), o.hidden ? `${o.name} is visible again.` : `${o.name} is hidden from listeners.`);
+                    }}
+                  >
+                    {o.hidden ? "Show" : "Hide"}
+                  </button>
                   <Link href={`/org?id=${o.id}`} className={quietButton}>Open</Link>
                 </div>
               </li>

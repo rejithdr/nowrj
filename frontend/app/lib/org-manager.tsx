@@ -19,12 +19,12 @@ export const AREA_LABEL: Record<Area, string> = {
 const LEVEL_LABEL: Record<Level, string> = { none: "None", view: "View", edit: "Edit", authorise: "Authorise" };
 const levelsFor = (area: Area): Level[] => (area === "stats" ? ["none", "view"] : ["none", "view", "edit", "authorise"]);
 
-type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; stationStatus: string | null; inScope: boolean };
+type Unit = { id: string; parentId: string | null; kind: "region" | "station"; name: string; stationId: string | null; stationSlug: string | null; stationStatus: string | null; hidden: boolean; inScope: boolean };
 type Designation = Record<Area, Level> & { id: string; name: string; rank: number; manageStaff: boolean; memberCount: number };
 type Member = { id: string; listenerId: string; name: string | null; email: string | null; unitId: string | null; designationId: string; inScope: boolean; isMe: boolean };
 type Invite = { id: string; email: string; unitId: string | null; designationId: string; token: string | null; status: "sent" | "awaiting_approval"; expiresAt: string; expired: boolean };
 type Overview = {
-  organisation: { id: string; name: string; kind: "network" | "standalone" };
+  organisation: { id: string; name: string; kind: "network" | "standalone"; hidden: boolean };
   me: { superadmin: boolean; memberId: string | null; wholeOrg: boolean; scopeUnitId: string | null; rank: number };
   units: Unit[];
   designations: Designation[];
@@ -97,7 +97,10 @@ export default function OrgManager({ organisationId }: { organisationId: string 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold text-zinc-900">{organisation.name}</h1>
-          <StatusPill text={network ? "Network" : "Single station"} tone="zinc" />
+          <div className="flex gap-2">
+            {organisation.hidden ? <StatusPill text="Hidden from listeners" tone="red" /> : null}
+            <StatusPill text={network ? "Network" : "Single station"} tone="zinc" />
+          </div>
         </div>
         <p className="mt-1 text-sm text-zinc-600">
           {me.superadmin && !me.memberId ? "You are viewing this as Super Admin." : `You manage staff for ${scopeText}.`}
@@ -171,11 +174,28 @@ function Structure({ data, busy, run }: SectionProps) {
                   {u.kind === "station" && u.stationSlug ? <Link href={`/station/${u.stationSlug}`} className="hover:text-orange-700">{u.name}</Link> : u.name}
                   <span className="ml-2 text-xs font-normal uppercase tracking-wide text-zinc-500">{u.kind}</span>
                   {u.stationStatus === "pending" ? <span className="ml-2 text-xs font-semibold text-amber-700">Awaiting NowRJ approval</span> : null}
+                  {u.hidden ? <span className="ml-2 text-xs font-semibold text-red-700">Hidden from listeners</span> : null}
                 </p>
               )}
             </div>
             {canEdit && renaming?.id !== u.id ? (
               <div className="flex flex-wrap items-center gap-2">
+                {data.me.superadmin ? (
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    className={`text-sm font-semibold hover:underline ${u.hidden ? "text-green-700" : "text-red-700"}`}
+                    onClick={() =>
+                      void run(
+                        `vis-${u.id}`,
+                        () => api(`/admin/orgs/${data.organisation.id}/units/${u.id}/visibility`, { method: "POST", body: JSON.stringify({ hidden: !u.hidden }) }),
+                        u.hidden ? `${u.name} is visible to listeners again.` : `${u.name} is hidden from listeners${u.kind === "region" ? ", with every station under it" : ""}.`,
+                      )
+                    }
+                  >
+                    {u.hidden ? "Show to listeners" : "Hide"}
+                  </button>
+                ) : null}
                 <label className="sr-only" htmlFor={`parent-${u.id}`}>Move {u.name} under</label>
                 <select
                   id={`parent-${u.id}`}
