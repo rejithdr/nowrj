@@ -120,6 +120,7 @@ const actionText: Record<string, string> = {
   "rj_invite.declined": "RJ declined an invite",
   "org_rj.joined": "RJ joined a station, region or head office",
   "org_rj.removed": "RJ removed from a station, region or head office",
+  "rj.verified_by_network": "RJ verified by joining a network",
   "organisation.hidden": "Super Admin hid an organisation from listeners",
   "organisation.shown": "Super Admin showed an organisation again",
   "org_unit.hidden": "Super Admin hid a region or station from listeners",

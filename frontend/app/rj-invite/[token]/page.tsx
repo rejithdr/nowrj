@@ -22,6 +22,7 @@ export default function RjInvitePage({ params }: { params: Promise<{ token: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<"accepted" | "declined" | null>(null);
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -38,7 +39,8 @@ export default function RjInvitePage({ params }: { params: Promise<{ token: stri
     setBusy(true);
     setError("");
     try {
-      await api(`/rj-invites/${token}/${accept ? "accept" : "decline"}`, { method: "POST" });
+      const result = await api<{ verified?: boolean }>(`/rj-invites/${token}/${accept ? "accept" : "decline"}`, { method: "POST" });
+      setVerified(Boolean(result.verified));
       setDone(accept ? "accepted" : "declined");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not answer the invite.");
@@ -71,7 +73,7 @@ export default function RjInvitePage({ params }: { params: Promise<{ token: stri
             </div>
             {done === "accepted" ? (
               <>
-                <Notice kind="ok" text={`You joined ${invite.place}.`} />
+                <Notice kind="ok" text={`You joined ${invite.place}.${verified ? " Your RJ profile is now verified, so your programmes are visible to listeners." : ""}`} />
                 <Link href="/rj/dashboard" className={`${primaryButton} mt-4`}>Open your RJ dashboard</Link>
               </>
             ) : done === "declined" ? (

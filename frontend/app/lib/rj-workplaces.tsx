@@ -37,8 +37,12 @@ export default function RjWorkplaces({ onChanged }: { onChanged?: () => Promise<
     setError("");
     setMessage("");
     try {
-      await api(`/rj-invites/${invite.token}/${accept ? "accept" : "decline"}`, { method: "POST" });
-      setMessage(accept ? `You joined ${invite.place} (${invite.organisationName}).` : "Invite declined.");
+      const result = await api<{ verified?: boolean }>(`/rj-invites/${invite.token}/${accept ? "accept" : "decline"}`, { method: "POST" });
+      setMessage(
+        accept
+          ? `You joined ${invite.place} (${invite.organisationName}).${result.verified ? " Your RJ profile is now verified, so your programmes are visible to listeners." : ""}`
+          : "Invite declined.",
+      );
       await load();
       await onChanged?.();
     } catch (err) {

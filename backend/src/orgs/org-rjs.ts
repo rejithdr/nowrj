@@ -23,6 +23,8 @@ import { Listener } from '../listener.entity';
 import { Rj } from '../rj.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { clean, EMAIL, writeAudit } from '../onboarding/helpers';
+import { Programme } from '../programme.entity';
+import { activateRjReferral } from '../referrals/referral-rules';
 import { todayInIndia } from '../rjs/dates';
 import { meets, withinScope } from './access-rules';
 import { Designation, Level, Notice, Organisation, OrgMember, OrgRj, OrgUnit, RjInvite } from './entities';
@@ -321,10 +323,13 @@ export class OrgRjsService {
             ? (await m.findOneBy(OrgUnit, { organisationId: org.id, kind: 'station' }))?.stationId ?? null
             : null;
       if (stationId) {
-        const open = await m.findOneBy(RjStationAffiliation, { rjId: rj.id, stationId, leftOn: IsNull() });
-        if (open) {
+        // The station history keeps one current station per RJ. If they already
+        // have a different current station, that stays; the invite link still
+        // gives them this place.
+        const open = await m.findOneBy(RjStationAffiliation, { rjId: rj.id, leftOn: IsNull() });
+        if (open?.stationId === stationId) {
           await m.update(RjStationAffiliation, { id: open.id }, { verificationStatus: 'verified', verifiedByListenerId: invite.invitedByListenerId, verifiedAt: now });
-        } else {
+        } else if (!open) {
           await m.save(
             m.create(RjStationAffiliation, {
               rjId: rj.id,
@@ -340,9 +345,20 @@ export class OrgRjsService {
         if (!rj.stationId) await m.update(Rj, { id: rj.id }, { stationId });
       }
 
+      // A network vouches for the RJs it invites: no separate NowRJ verification.
+      // A single station's invite still leaves verification to the NowRJ team.
+      let verified = false;
+      if (org.kind === 'network' && rj.verificationStatus === 'pending') {
+        await m.update(Rj, { id: rj.id }, { verificationStatus: 'verified', isActive: true });
+        await m.update(Programme, { ownerRjId: rj.id }, { isActive: true });
+        await activateRjReferral(m, rj.id, now);
+        await writeAudit(m, invite.invitedByListenerId, 'rj.verified_by_network', 'rj', rj.id, { organisationId: org.id, inviteId: invite.id });
+        verified = true;
+      }
+
       await m.update(RjInvite, { id: invite.id }, { status: 'accepted', rjId: rj.id, decidedAt: now });
       await writeAudit(m, listenerId, 'org_rj.joined', 'org_rj', link.id, { organisationId: org.id, unitId: link.unitId, inviteId: invite.id });
-      return { status: 'accepted', organisationName: org.name };
+      return { status: 'accepted', organisationName: org.name, verified };
     });
   }
 
