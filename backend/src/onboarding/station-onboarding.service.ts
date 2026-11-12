@@ -189,6 +189,7 @@ export class StationOnboardingService {
       city: station.city,
       verificationStatus: station.verificationStatus,
       isActive: station.isActive,
+      adsEnabled: station.adsEnabled,
     });
     const active = access
       .map((a) => {

@@ -12,6 +12,7 @@ type Me = {
   rj: { name: string; slug: string; verificationStatus: string } | null;
   stations: { id: string; name: string; status: string }[];
   orgs?: { id: string; name: string }[];
+  isAdvertiser?: boolean;
   isSuperadmin: boolean;
 };
 
@@ -127,6 +128,7 @@ export default function AuthControls() {
             </span>
           </a>
         ) : null}
+        {me.isAdvertiser ? <a href="/advertiser/dashboard" className={itemClass}>Advertiser dashboard</a> : null}
         {me.orgs?.length ? (
           <a href="/org" className={itemClass}>
             Staff &amp; designations
@@ -140,6 +142,7 @@ export default function AuthControls() {
             <a href="/admin/rjs" className={itemClass}>RJs</a>
             <a href="/admin/stations" className={itemClass}>Stations &amp; claims</a>
             <a href="/admin/organisations" className={itemClass}>Organisations</a>
+            <a href="/admin/ads" className={itemClass}>Ads</a>
             <a href="/admin/activity" className={itemClass}>Activity &amp; enquiries</a>
           </>
         ) : null}

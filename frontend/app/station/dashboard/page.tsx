@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Building2, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
+import StationAds from "../../lib/station-ads";
 import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
 import StationRjs from "../../lib/station-rjs";
@@ -18,7 +19,7 @@ type Area = "programmes" | "rjs" | "adsSponsored" | "adsShoutout" | "adsAired" |
 
 type MyStation = {
   roleStatus: "pending" | "active";
-  station: { id: string; name: string; slug: string; city: string | null; verificationStatus: string; isActive: boolean };
+  station: { id: string; name: string; slug: string; city: string | null; verificationStatus: string; isActive: boolean; adsEnabled?: boolean };
   access: {
     organisationId: string;
     organisationName: string;
@@ -211,6 +212,13 @@ function StationPanel({ entry }: { entry: MyStation }) {
                 </Link>
               ) : null}
               <StationRjs stationId={station.id} readOnly={!can("rjs", "edit")} />
+            </>
+          ) : null}
+
+          {station.adsEnabled && (can("adsSponsored", "view") || can("adsShoutout", "view") || can("adsAired", "view")) ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Advertisers</h2>
+              <StationAds stationId={station.id} />
             </>
           ) : null}
 

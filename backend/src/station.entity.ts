@@ -34,6 +34,10 @@ export class Station {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** The ads switch: only NowRJ Super Admin turns it on (decision 7). */
+  @Column({ type: 'boolean', default: false })
+  adsEnabled: boolean;
+
   /** The organisation (network or standalone) this station belongs to. */
   @Column({ type: 'uuid', nullable: true })
   organisationId: string | null;

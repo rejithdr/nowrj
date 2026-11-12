@@ -167,6 +167,7 @@ export class AuthController {
         ORDER BY o.name`,
       [listener.id],
     );
+    const [advertiser] = await this.dataSource.query(`SELECT 1 FROM advertiser_members WHERE "listenerId" = $1 LIMIT 1`, [listener.id]);
     const admins = (this.config.get<string>('SUPERADMIN_EMAILS') ?? '')
       .split(',')
       .map((value) => value.trim().toLowerCase())
@@ -180,6 +181,7 @@ export class AuthController {
       rj: rj ? { name: rj.name, slug: rj.slug, verificationStatus: rj.verificationStatus } : null,
       stations,
       orgs,
+      isAdvertiser: Boolean(advertiser),
       isSuperadmin: Boolean(email && admins.includes(email)),
     };
   }
