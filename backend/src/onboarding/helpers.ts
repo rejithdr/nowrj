@@ -57,6 +57,7 @@ export async function transferProgrammeToStation(
   await m.update(
     Programme,
     { id: programmeId },
-    { ownerRjId: null, ownerStationId: stationId, stationId },
+    // A station's programme is public whatever the RJ's verification status.
+    { ownerRjId: null, ownerStationId: stationId, stationId, isActive: true },
   );
 }
