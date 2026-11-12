@@ -7,7 +7,9 @@ import AuthControls from "../../AuthControls";
 import { API_URL } from "../../lib/config";
 import { api, Card, Notice, primaryButton, quietButton, StatusPill } from "../../lib/ui";
 
-type StationRow = { id: string; name: string; city: string | null; adsEnabled: boolean; organisationName: string | null; organisationKind: string | null; advertisers: number };
+type StationRow = { id: string; name: string; city: string | null; adsEnabled: boolean; hasAgreement: boolean; organisationId: string | null; organisationName: string | null; organisationKind: string | null; stationType: "commercial" | "non_commercial" | "government" | null; advertisers: number };
+
+const TYPE_LABEL = { commercial: "Commercial", non_commercial: "Non-commercial (community)", government: "Government (Akashvani)" } as const;
 type Scan = { id: string; createdAt: string; businessName: string; contactName: string; email: string; stationName: string | null; uploadedBy: string | null };
 
 /** Super Admin: the ads switch for each station, and scanned consents to check. */
@@ -94,6 +96,19 @@ export default function AdminAdsPage() {
                 <div>
                   <p className="font-semibold text-zinc-900">{s.name}{s.city ? ` · ${s.city}` : ""}</p>
                   <p className="text-sm text-zinc-600">{s.organisationKind === "network" ? `${s.organisationName} · ` : ""}{s.advertisers} advertiser{s.advertisers === 1 ? "" : "s"}</p>
+                  {s.organisationId ? (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-zinc-600">
+                      Type{s.organisationKind === "network" ? " (whole network)" : ""}:
+                      <select
+                        value={s.stationType ?? "commercial"}
+                        disabled={busy}
+                        onChange={(e) => void act(() => api(`/admin/ads/organisations/${s.organisationId}/type`, { method: "POST", body: JSON.stringify({ stationType: e.target.value }) }), "Type saved.")}
+                        className="min-h-8 rounded-lg border border-zinc-300 bg-white px-2 text-xs"
+                      >
+                        {(Object.keys(TYPE_LABEL) as (keyof typeof TYPE_LABEL)[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusPill text={s.adsEnabled ? "Ads on" : "Ads off"} tone={s.adsEnabled ? "green" : "zinc"} />
@@ -101,7 +116,14 @@ export default function AdminAdsPage() {
                     type="button"
                     disabled={busy}
                     className={s.adsEnabled ? quietButton : primaryButton}
-                    onClick={() => void act(() => api(`/admin/ads/stations/${s.id}`, { method: "POST", body: JSON.stringify({ enabled: !s.adsEnabled }) }), `Ads ${s.adsEnabled ? "off" : "on"} for ${s.name}.`)}
+                    onClick={() => {
+                      let agreement = false;
+                      if (!s.adsEnabled && s.stationType === "government" && !s.hasAgreement) {
+                        agreement = window.confirm(`${s.name} is a government station. Is the agreement with Prasar Bharati signed? Ads can only be switched on once it is.`);
+                        if (!agreement) return;
+                      }
+                      void act(() => api(`/admin/ads/stations/${s.id}`, { method: "POST", body: JSON.stringify({ enabled: !s.adsEnabled, agreement }) }), `Ads ${s.adsEnabled ? "off" : "on"} for ${s.name}.`);
+                    }}
                   >
                     {s.adsEnabled ? "Turn off" : "Turn on"}
                   </button>

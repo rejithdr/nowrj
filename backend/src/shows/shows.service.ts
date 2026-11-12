@@ -1,3 +1,4 @@
+import { adsForShows } from '../ads/placement';
 import { VISIBLE_PROGRAMME } from '../orgs/visibility';
 import {
   BadRequestException,
@@ -188,6 +189,10 @@ export class ShowsService {
         canReact: canReact({ startsAt, endsAt, status: row.status as string }, now),
       };
     });
+
+    // Ads on show cards (release 5a).
+    const ads = await adsForShows(this.dataSource.manager, shows, now);
+    for (const show of shows) (show as typeof show & { ads: unknown }).ads = ads.get(show.id) ?? [];
 
     return {
       now,

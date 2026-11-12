@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Archive, Check, ChevronDown, ChevronUp, Copy, FileUp, ImagePlus, LoaderCircle, MessageCircle, Pencil, Plus, Printer } from "lucide-react";
 import { API_URL } from "./config";
+import StationCampaigns from "./station-campaigns";
 import { api, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "./ui";
 
 type Consent = { status: "valid" | "pending_check" | "withdrawn" | "rejected" | "none"; kind: string | null; since: string | null; note?: string | null };
@@ -153,6 +154,9 @@ export default function StationAds({ stationId }: { stationId: string }) {
           </button>
         )
       ) : null}
+
+      <h3 className="mt-6 font-bold text-zinc-900">Ads</h3>
+      <StationCampaigns stationId={stationId} advertisers={data.advertisers.map((a) => ({ id: a.id, businessName: a.businessName }))} />
     </div>
   );
 }
@@ -421,7 +425,7 @@ function CreativeForm({ base, advertiserId, creative, onDone }: { base: string; 
       {field("timings", "Timings (optional)", 150)}
       {field("offerText", "Offer", 300, { required: true, long: true })}
       {field("address", "Address (optional)", 300)}
-      {field("phone", "Phone (optional)", 20, { type: "tel" })}
+      {field("phone", "Phone for the Call button", 20, { type: "tel" })}
       {field("website", "Website (optional)", 255)}
       <div>
         <label htmlFor="cr-image" className={labelClass}>Image {creative?.hasImage ? "(replace)" : "(optional)"}</label>

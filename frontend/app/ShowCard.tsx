@@ -2,6 +2,7 @@ import Link from "next/link";
 import ShowReactions from "./ShowReactions";
 import CallButton from "./CallButton";
 import SongRequestButton from "./SongRequestButton";
+import { API_URL } from "./lib/config";
 
 export type ApiShow = {
   id: string;
@@ -20,7 +21,10 @@ export type ApiShow = {
   likes: number;
   fires: number;
   canReact: boolean;
+  ads?: { id: string; creativeId: string; kind: "sponsored" | "shoutout" | "aired"; title: string; offerText: string; businessName: string; imageVersion: string | null }[];
 };
+
+const AD_LABEL = { sponsored: "Sponsored", shoutout: "RJ shout-out · on air", aired: "Heard on this show" } as const;
 
 const TZ = "Asia/Kolkata";
 
@@ -126,6 +130,29 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             notice={show.programme.noticeText ?? null}
           /> : null}
       </div>
+
+      {show.ads?.length ? (
+        <ul className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
+          {show.ads.map((ad) => (
+            <li key={ad.id}>
+              <Link
+                href={`/ad/${ad.id}?show=${show.id}`}
+                className={`flex items-center gap-3 rounded-xl p-2 hover:ring-1 hover:ring-orange-300 ${ad.kind === "shoutout" ? "bg-green-50" : ad.kind === "aired" ? "bg-amber-50" : "bg-orange-50"}`}
+              >
+                {ad.imageVersion ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={`${API_URL}/ad-creatives/${ad.creativeId}/image?v=${ad.imageVersion}`} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                ) : null}
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{AD_LABEL[ad.kind]}</span>
+                  <span className="block truncate text-sm font-semibold text-zinc-900">{ad.businessName}: {ad.title}</span>
+                  <span className="block truncate text-xs text-zinc-600">{ad.offerText}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </article>
   );
 }

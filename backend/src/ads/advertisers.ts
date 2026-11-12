@@ -1,3 +1,5 @@
+import { ShowsModule } from '../shows/shows.module';
+import { AdsController, AdsService } from './ads';
 import {
   BadRequestException,
   Body,
@@ -537,20 +539,51 @@ export class AdvertisersService {
 
   async adminStations() {
     return this.dataSource.query(`
-      SELECT s.id, s.name, s.city, s."adsEnabled", o.name AS "organisationName", o.kind AS "organisationKind",
+      SELECT s.id, s.name, s.city, s."adsEnabled", s."adsAgreementAt" IS NOT NULL AS "hasAgreement",
+             o.id AS "organisationId", o.name AS "organisationName", o.kind AS "organisationKind", o."stationType",
              (SELECT count(*)::int FROM advertiser_stations l WHERE l."stationId" = s.id AND l.status <> 'ended') AS advertisers
         FROM stations s LEFT JOIN organisations o ON o.id = s."organisationId"
        WHERE s."verificationStatus" IN ('verified','legacy')
        ORDER BY o.name NULLS LAST, s.name`);
   }
 
-  async adminSetAds(adminId: string, stationId: string, enabled: unknown) {
+  /**
+   * Government stations (Akashvani) get ads only once an agreement with
+   * Prasar Bharati is signed: switching them on needs `agreement: true`.
+   */
+  async adminSetAds(adminId: string, stationId: string, enabled: unknown, agreement?: unknown) {
     if (typeof enabled !== 'boolean') throw new BadRequestException('Say whether ads are on or off.');
     return this.dataSource.transaction(async (m) => {
+      const [station] = await m.query(
+        `SELECT s.id, s."adsAgreementAt", o."stationType" FROM stations s LEFT JOIN organisations o ON o.id = s."organisationId" WHERE s.id = $1`,
+        [stationId],
+      );
+      if (!station) throw new NotFoundException('Station not found.');
+      if (enabled && station.stationType === 'government' && !station.adsAgreementAt) {
+        if (agreement !== true) {
+          throw new BadRequestException('This is a government station. Confirm the signed agreement with Prasar Bharati to switch ads on.');
+        }
+        await m.query(`UPDATE stations SET "adsAgreementAt" = now() WHERE id = $1`, [stationId]);
+      }
       const [row] = await m.query(`UPDATE stations SET "adsEnabled" = $2 WHERE id = $1 RETURNING id, name`, [stationId, enabled]);
-      if (!row) throw new NotFoundException('Station not found.');
       await writeAudit(m, adminId, enabled ? 'station.ads_on' : 'station.ads_off', 'station', stationId, { name: row.name });
       return { id: stationId, adsEnabled: enabled };
+    });
+  }
+
+  async adminSetType(adminId: string, organisationId: string, type: unknown) {
+    if (type !== 'commercial' && type !== 'non_commercial' && type !== 'government') {
+      throw new BadRequestException('Choose commercial, non-commercial or government.');
+    }
+    return this.dataSource.transaction(async (m) => {
+      const [org] = await m.query(`UPDATE organisations SET "stationType" = $2 WHERE id = $1 RETURNING id, name`, [organisationId, type]);
+      if (!org) throw new NotFoundException('Organisation not found.');
+      // A government station without a signed agreement cannot keep ads on.
+      if (type === 'government') {
+        await m.query(`UPDATE stations SET "adsEnabled" = false WHERE "organisationId" = $1 AND "adsAgreementAt" IS NULL`, [organisationId]);
+      }
+      await writeAudit(m, adminId, 'organisation.type_set', 'organisation', organisationId, { name: org.name, stationType: type });
+      return { id: organisationId, stationType: type };
     });
   }
 
@@ -742,8 +775,14 @@ export class AdminAdsController {
   }
 
   @Post('stations/:stationId')
-  setAds(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string, @Body() body: { enabled?: unknown }) {
-    return this.ads.adminSetAds(listenerId(req), stationId, body?.enabled);
+  setAds(@Req() req: Request, @Param('stationId', ParseUUIDPipe) stationId: string, @Body() body: { enabled?: unknown; agreement?: unknown }) {
+    return this.ads.adminSetAds(listenerId(req), stationId, body?.enabled, body?.agreement);
+  }
+
+  /** Commercial, non-commercial (community) or government. */
+  @Post('organisations/:organisationId/type')
+  setType(@Req() req: Request, @Param('organisationId', ParseUUIDPipe) organisationId: string, @Body() body: { stationType?: unknown }) {
+    return this.ads.adminSetType(listenerId(req), organisationId, body?.stationType);
   }
 
   @Get('consents')
@@ -770,7 +809,8 @@ export class AdminAdsController {
 }
 
 @Module({
-  controllers: [StationAdsController, CreativeImageController, AdvertiserController, AdminAdsController],
-  providers: [AdvertisersService],
+  imports: [ShowsModule],
+  controllers: [StationAdsController, CreativeImageController, AdvertiserController, AdminAdsController, AdsController],
+  providers: [AdvertisersService, AdsService],
 })
 export class AdsModule {}
