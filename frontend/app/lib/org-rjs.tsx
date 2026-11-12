@@ -1,5 +1,7 @@
 "use client";
 
+import { copyText } from "./copy";
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Copy, LoaderCircle, MessageCircle, Plus, UserMinus, X } from "lucide-react";
@@ -79,7 +81,7 @@ export default function OrgRjs({ organisationId }: { organisationId: string }) {
 
   async function copy(token: string) {
     try {
-      await navigator.clipboard.writeText(link(token));
+      if (!(await copyText(link(token)))) throw new Error("blocked");
       setCopied(token);
       setTimeout(() => setCopied(null), 2000);
     } catch {

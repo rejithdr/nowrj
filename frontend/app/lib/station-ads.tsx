@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Archive, Check, ChevronDown, ChevronUp, Copy, FileUp, ImagePlus, LoaderCircle, MessageCircle, Pencil, Plus, Printer } from "lucide-react";
+import { Archive, Check, ChevronDown, ChevronUp, FileUp, ImagePlus, LoaderCircle, Pencil, Plus, Printer } from "lucide-react";
 import { API_URL } from "./config";
 import StationCampaigns from "./station-campaigns";
+import InviteLinkBox from "./invite-link-box";
 import { api, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "./ui";
 
 type Consent = { status: "valid" | "pending_check" | "withdrawn" | "rejected" | "none"; kind: string | null; since: string | null; note?: string | null };
@@ -142,10 +143,12 @@ export default function StationAds({ stationId }: { stationId: string }) {
         adding ? (
           <InviteForm
             base={base}
-            onDone={async (msg) => {
+            onDone={async (msg, advertiserId) => {
               setAdding(false);
               if (msg) setMessage(msg);
               await load();
+              // Open the new advertiser so its invite link is in view.
+              if (advertiserId) setOpen(advertiserId);
             }}
           />
         ) : (
@@ -161,7 +164,7 @@ export default function StationAds({ stationId }: { stationId: string }) {
   );
 }
 
-function InviteForm({ base, onDone }: { base: string; onDone: (message?: string) => Promise<void> }) {
+function InviteForm({ base, onDone }: { base: string; onDone: (message?: string, advertiserId?: string) => Promise<void> }) {
   const [form, setForm] = useState({ businessName: "", contactName: "", contactPhone: "", email: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -171,11 +174,12 @@ function InviteForm({ base, onDone }: { base: string; onDone: (message?: string)
     setBusy(true);
     setError("");
     try {
-      const r = await api<{ businessName: string; existing: boolean }>(`${base}/advertisers`, { method: "POST", body: JSON.stringify(form) });
+      const r = await api<{ advertiserId: string; businessName: string; existing: boolean }>(`${base}/advertisers`, { method: "POST", body: JSON.stringify(form) });
       await onDone(
         r.existing
-          ? `${r.businessName} already advertises on NowRJ, so it is now linked to your station too. Send them the invite link to confirm.`
-          : `${r.businessName} added. Copy their invite link and send it to them.`,
+          ? `${r.businessName} already advertises on NowRJ, so it is now linked to your station too. Send them the invite link below to confirm.`
+          : `${r.businessName} added. Send them the invite link below.`,
+        r.advertiserId,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not invite.");
@@ -232,7 +236,6 @@ function AdvertiserPanel({
   const [creatives, setCreatives] = useState<Creative[] | null>(null);
   const [editing, setEditing] = useState<Creative | "new" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
   const scanInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -257,16 +260,6 @@ function AdvertiserPanel({
     }
   }
 
-  async function copy(token: string) {
-    try {
-      await navigator.clipboard.writeText(inviteLink(token));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      window.prompt("Copy this link:", inviteLink(token));
-    }
-  }
-
   return (
     <div className="border-t border-zinc-100 p-3">
       <p className="text-sm text-zinc-600">
@@ -278,19 +271,13 @@ function AdvertiserPanel({
       {canEdit ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {a.invite ? (
-            <>
-              <button type="button" className={quietButton} onClick={() => void copy(a.invite!.token)}>
-                {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} {copied ? "Copied" : "Copy invite link"}
-              </button>
-              <a
-                className={quietButton}
-                target="_blank"
-                rel="noreferrer"
-                href={`https://wa.me/?text=${encodeURIComponent(`${a.businessName}: you're invited to advertise on NowRJ. Sign in with ${a.email}: ${inviteLink(a.invite.token)}`)}`}
-              >
-                <MessageCircle size={14} aria-hidden="true" /> WhatsApp
-              </a>
-            </>
+            <div className="w-full">
+              <InviteLinkBox
+                link={inviteLink(a.invite.token)}
+                whatsappText={`${a.businessName}: you're invited to advertise on NowRJ. Sign in with ${a.email}:`}
+                label="Invite link for the business"
+              />
+            </div>
           ) : a.linkStatus === "invited" ? (
             <button type="button" disabled={busy} className={quietButton} onClick={() => void act(() => api(`${base}/advertisers/${a.id}/invite`, { method: "POST" }), "New invite link created.")}>
               New invite link

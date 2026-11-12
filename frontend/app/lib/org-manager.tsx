@@ -1,5 +1,7 @@
 "use client";
 
+import { copyText } from "./copy";
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Check, Copy, LoaderCircle, MessageCircle, Plus, Trash2, X } from "lucide-react";
@@ -454,7 +456,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
 
   async function copy(token: string) {
     try {
-      await navigator.clipboard.writeText(inviteLink(token));
+      if (!(await copyText(inviteLink(token)))) throw new Error("blocked");
       setCopied(token);
       setTimeout(() => setCopied(null), 2000);
     } catch {
