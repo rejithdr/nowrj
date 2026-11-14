@@ -215,10 +215,14 @@ function StationPanel({ entry }: { entry: MyStation }) {
             </>
           ) : null}
 
-          {station.adsEnabled && (can("adsSponsored", "view") || can("adsShoutout", "view") || can("adsAired", "view")) ? (
+          {can("adsSponsored", "view") || can("adsShoutout", "view") || can("adsAired", "view") ? (
             <>
               <h2 className="mt-8 text-lg font-bold text-zinc-900">Advertisers</h2>
-              <StationAds stationId={station.id} />
+              {station.adsEnabled ? (
+                <StationAds stationId={station.id} />
+              ) : (
+                <p className="mt-1 text-sm text-zinc-600">Ads are not switched on for {station.name} yet. The NowRJ team switches them on when your station is ready to take advertisers.</p>
+              )}
             </>
           ) : null}
 
