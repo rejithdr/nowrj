@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import { Check, LoaderCircle, Mic, Plus, X } from "lucide-react";
 import { api, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "./ui";
 
@@ -46,7 +46,17 @@ const when = (iso: string) =>
 const day = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 /** The station's ads: enter, approve (someone else), put shout-outs on air, withdraw. */
-export default function StationCampaigns({ stationId, advertisers }: { stationId: string; advertisers: Advertiser[] }) {
+type RenderCreativeForm = (advertiserId: string, onDone: (message?: string) => Promise<void>) => ReactNode;
+
+export default function StationCampaigns({
+  stationId,
+  advertisers,
+  renderCreativeForm,
+}: {
+  stationId: string;
+  advertisers: Advertiser[];
+  renderCreativeForm?: RenderCreativeForm;
+}) {
   const base = `/stations/${stationId}/ads`;
   const [data, setData] = useState<{ can: Can; ads: Ad[] } | null>(null);
   const [adding, setAdding] = useState(false);
@@ -140,7 +150,7 @@ export default function StationCampaigns({ stationId, advertisers }: { stationId
       </ul>
       {canEnter ? (
         adding ? (
-          <AdForm base={base} can={data.can} advertisers={advertisers} onDone={async (msg) => { setAdding(false); if (msg) setMessage(msg); await load(); }} />
+          <AdForm base={base} can={data.can} advertisers={advertisers} renderCreativeForm={renderCreativeForm} onDone={async (msg) => { setAdding(false); if (msg) setMessage(msg); await load(); }} />
         ) : (
           <button type="button" onClick={() => setAdding(true)} className={`${quietButton} mt-3`}>
             <Plus size={14} aria-hidden="true" /> Enter an ad
@@ -151,13 +161,32 @@ export default function StationCampaigns({ stationId, advertisers }: { stationId
   );
 }
 
-function AdForm({ base, can, advertisers, onDone }: { base: string; can: Can; advertisers: Advertiser[]; onDone: (msg?: string) => Promise<void> }) {
+function AdForm({
+  base,
+  can,
+  advertisers,
+  renderCreativeForm,
+  onDone,
+}: {
+  base: string;
+  can: Can;
+  advertisers: Advertiser[];
+  renderCreativeForm?: RenderCreativeForm;
+  onDone: (msg?: string) => Promise<void>;
+}) {
   const kinds = (Object.keys(can) as Kind[]).filter((k) => can[k].edit);
   const [targets, setTargets] = useState<Targets | null>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [form, setForm] = useState({ kind: kinds[0], advertiserId: "", creativeId: "", by: "dates" as "dates" | "show", programmeId: "", showOccurrenceId: "", startDate: "", endDate: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [newCreative, setNewCreative] = useState(false);
+
+  const loadCreatives = useCallback(async (advertiserId: string) => {
+    const list = advertiserId ? await api<Creative[]>(`${base}/advertisers/${advertiserId}/creatives`).catch(() => []) : [];
+    setCreatives(list);
+    return list;
+  }, [base]);
 
   useEffect(() => {
     api<Targets>(`${base}/targets`).then((t) => {
@@ -167,9 +196,8 @@ function AdForm({ base, can, advertisers, onDone }: { base: string; can: Can; ad
   }, [base]);
 
   useEffect(() => {
-    if (!form.advertiserId) return setCreatives([]);
-    api<Creative[]>(`${base}/advertisers/${form.advertiserId}/creatives`).then(setCreatives).catch(() => setCreatives([]));
-  }, [base, form.advertiserId]);
+    void loadCreatives(form.advertiserId);
+  }, [loadCreatives, form.advertiserId]);
 
   const byShow = form.kind === "shoutout" || (form.kind === "aired" && form.by === "show");
 
@@ -196,6 +224,7 @@ function AdForm({ base, can, advertisers, onDone }: { base: string; can: Can; ad
   }
 
   return (
+    <div>
     <form onSubmit={submit} className="mt-3 grid gap-3 rounded-xl bg-zinc-50 p-4 sm:grid-cols-2">
       <div>
         <label htmlFor="ad-kind" className={labelClass}>Kind of ad</label>
@@ -213,10 +242,16 @@ function AdForm({ base, can, advertisers, onDone }: { base: string; can: Can; ad
       <div className="sm:col-span-2">
         <label htmlFor="ad-creative" className={labelClass}>Creative</label>
         <select id="ad-creative" required value={form.creativeId} onChange={(e) => setForm({ ...form, creativeId: e.target.value })} className={inputClass}>
-          <option value="" disabled>{form.advertiserId ? (creatives.length ? "Choose…" : "No creatives yet: add one in the ad library") : "Choose the advertiser first"}</option>
+          <option value="" disabled>{form.advertiserId ? (creatives.length ? "Choose…" : "No creatives yet: add one below") : "Choose the advertiser first"}</option>
           {creatives.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
+        {form.advertiserId && renderCreativeForm && !newCreative ? (
+          <button type="button" onClick={() => setNewCreative(true)} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-orange-700 hover:underline">
+            <Plus size={14} aria-hidden="true" /> Add a new creative for this advertiser
+          </button>
+        ) : null}
       </div>
+
       {form.kind === "aired" ? (
         <div className="flex gap-4 text-sm sm:col-span-2">
           <label className="flex items-center gap-2"><input type="radio" checked={form.by === "dates"} onChange={() => setForm({ ...form, by: "dates" })} /> A programme over dates</label>
@@ -259,5 +294,17 @@ function AdForm({ base, can, advertisers, onDone }: { base: string; can: Can; ad
       </div>
       {error ? <p className="text-sm text-red-700 sm:col-span-2">{error}</p> : null}
     </form>
+      {form.advertiserId && renderCreativeForm && newCreative ? (
+        <div className="mt-2 rounded-xl border border-orange-200 p-1">
+          <p className="px-3 pt-2 text-sm font-semibold text-zinc-900">New creative</p>
+          {renderCreativeForm(form.advertiserId, async () => {
+            setNewCreative(false);
+            const list = await loadCreatives(form.advertiserId);
+            // Pick the creative just added (the newest comes first).
+            if (list[0]) setForm((f) => ({ ...f, creativeId: list[0].id }));
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -122,6 +122,7 @@ export default function StationAds({ stationId }: { stationId: string }) {
             <button type="button" onClick={() => setOpen(open === a.id ? null : a.id)} className="flex w-full flex-wrap items-center justify-between gap-2 p-3 text-left">
               <span className="min-w-0">
                 <span className="block font-semibold text-zinc-900">{a.businessName}</span>
+                <span className="block text-xs font-semibold text-orange-700">{open === a.id ? "Close" : "Open for invite link and ad library"}</span>
                 <span className="block text-sm text-zinc-600">
                   {a.contactName} · {a.creatives} creative{a.creatives === 1 ? "" : "s"}
                   {a.openSuggestions ? <span className="font-semibold text-orange-700"> · {a.openSuggestions} suggestion{a.openSuggestions === 1 ? "" : "s"}</span> : null}
@@ -159,7 +160,11 @@ export default function StationAds({ stationId }: { stationId: string }) {
       ) : null}
 
       <h3 className="mt-6 font-bold text-zinc-900">Ads</h3>
-      <StationCampaigns stationId={stationId} advertisers={data.advertisers.map((a) => ({ id: a.id, businessName: a.businessName }))} />
+      <StationCampaigns
+        stationId={stationId}
+        advertisers={data.advertisers.map((a) => ({ id: a.id, businessName: a.businessName }))}
+        renderCreativeForm={(advertiserId, onDone) => <CreativeForm base={base} advertiserId={advertiserId} onDone={async (msg) => { await load(); await onDone(msg); }} />}
+      />
     </div>
   );
 }
