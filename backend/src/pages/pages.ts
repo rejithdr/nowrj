@@ -1,6 +1,7 @@
 import { VISIBLE_PROGRAMME } from '../orgs/visibility';
-import { Controller, Get, Injectable, Module, NotFoundException, Param } from '@nestjs/common';
+import { Controller, Get, Injectable, Module, NotFoundException, Param, Query } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { slotLabel, sortSlots } from '../programmes/schedule-rules';
 
 const PUBLIC_RJ = `r."isActive" = true AND r."verificationStatus" IN ('verified', 'legacy')`;
@@ -67,8 +68,8 @@ export class PagesService {
   }
 
   /** Every active programme, for the homepage list. */
-  allProgrammes() {
-    return this.programmes('true', []);
+  allProgrammes(district: string | null = null) {
+    return this.programmes(IN_DISTRICT('p."stationId"', 1), [district]);
   }
 
   async rj(slug: string) {
@@ -131,8 +132,8 @@ export class PagesController {
   constructor(private readonly pages: PagesService) {}
 
   @Get('programmes')
-  allProgrammes() {
-    return this.pages.allProgrammes();
+  allProgrammes(@Query('district') district?: string) {
+    return this.pages.allProgrammes(districtParam(district));
   }
 
   @Get('rj/:slug')

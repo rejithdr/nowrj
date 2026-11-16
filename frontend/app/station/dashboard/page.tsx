@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Building2, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
+import { StationDistricts } from "../../lib/districts";
 import StationAds from "../../lib/station-ads";
 import AuthControls from "../../AuthControls";
 import UpcomingShows from "../../lib/show-changes";
@@ -188,6 +189,13 @@ function StationPanel({ entry }: { entry: MyStation }) {
                 programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
                 readOnly={!editProgrammes}
               />
+            </>
+          ) : null}
+
+          {can("programmes", "view") ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Districts {station.name} reaches</h2>
+              <StationDistricts base={`/districts/stations/${station.id}`} readOnly={!editProgrammes} />
             </>
           ) : null}
 

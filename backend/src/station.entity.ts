@@ -38,6 +38,10 @@ export class Station {
   @Column({ type: 'boolean', default: false })
   adsEnabled: boolean;
 
+  /** District ids this station reaches (see districts/district-list.ts). Null: not chosen yet, shown everywhere. */
+  @Column({ type: 'text', array: true, nullable: true })
+  districts: string[] | null;
+
   /** The organisation (network or standalone) this station belongs to. */
   @Column({ type: 'uuid', nullable: true })
   organisationId: string | null;

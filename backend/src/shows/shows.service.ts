@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
+import { IN_DISTRICT } from '../districts/district-list';
 import { randomUUID } from 'node:crypto';
 import { Programme } from '../programme.entity';
 import { ProgrammeRj } from '../programme-rj.entity';
@@ -133,7 +134,7 @@ export class ShowsService {
   }
 
   /** Live now, starting in the next 24 hours, and ended in the last 24 hours. */
-  async getNow(now = new Date()) {
+  async getNow(now = new Date(), district: string | null = null) {
     await this.refreshShows(now);
 
     const rows: Record<string, unknown>[] = await this.dataSource.query(
@@ -160,9 +161,10 @@ export class ShowsService {
       WHERE o.status = 'scheduled'
         AND o."endsAt" >= $1
         AND o."startsAt" <= $2
+        AND ${IN_DISTRICT('o."stationId"', 3)}
       ORDER BY o."startsAt"
       `,
-      [new Date(now.getTime() - 24 * HOUR), new Date(now.getTime() + 24 * HOUR)],
+      [new Date(now.getTime() - 24 * HOUR), new Date(now.getTime() + 24 * HOUR), district],
     );
 
     const shows = rows.map((row) => {

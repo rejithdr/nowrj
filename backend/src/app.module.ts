@@ -19,6 +19,7 @@ import { EnquiriesModule } from './enquiries/enquiries';
 import { GuestsModule } from './guests/guests';
 import { OrgsModule } from './orgs/orgs';
 import { AdsModule } from './ads/advertisers';
+import { DistrictsModule } from './districts/districts';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AdsModule } from './ads/advertisers';
     GuestsModule,
     OrgsModule,
     AdsModule,
+    DistrictsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

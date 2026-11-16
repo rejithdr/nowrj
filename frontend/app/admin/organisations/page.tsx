@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
+import { StationDistricts } from "../../lib/districts";
 import AuthControls from "../../AuthControls";
 import { api, Card, inputClass, labelClass, Notice, primaryButton, quietButton, StatusPill } from "../../lib/ui";
 
@@ -16,6 +17,7 @@ type StationRequest = { id: string; name: string; city: string | null; contactPh
 export default function AdminOrganisationsPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [stations, setStations] = useState<StationRow[]>([]);
+  const [districtStation, setDistrictStation] = useState("");
   const [name, setName] = useState("");
   const [move, setMove] = useState({ organisationId: "", stationId: "", parentUnitId: "" });
   const [regions, setRegions] = useState<Unit[]>([]);
@@ -198,6 +200,16 @@ export default function AdminOrganisationsPage() {
             </div>
             <button type="submit" disabled={busy} className={primaryButton}><Plus size={16} aria-hidden="true" /> Create</button>
           </form>
+        </Card>
+
+        <Card title="Districts a station reaches">
+          <p className="text-sm text-zinc-600">Listeners see a station only in the districts ticked here. Stations can set this themselves too.</p>
+          <label htmlFor="ds-station" className={`${labelClass} mt-3`}>Station</label>
+          <select id="ds-station" value={districtStation} onChange={(e) => setDistrictStation(e.target.value)} className={inputClass}>
+            <option value="">Choose…</option>
+            {stations.map((s) => <option key={s.id} value={s.id}>{s.name}{s.city ? ` · ${s.city}` : ""}</option>)}
+          </select>
+          {districtStation ? <StationDistricts key={districtStation} base={`/admin/districts/stations/${districtStation}`} /> : null}
         </Card>
 
         {networks.length ? (

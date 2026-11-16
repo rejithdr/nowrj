@@ -2,6 +2,9 @@ import { SERVER_API_URL } from "./lib/config";
 
 import Link from "next/link";
 import { connection } from "next/server";
+import { cookies } from "next/headers";
+import { DistrictPicker } from "./lib/districts";
+import { DISTRICT_COOKIE, type District } from "./lib/district-cookie";
 import AuthControls from "./AuthControls";
 import ShowCard, { type ApiShow } from "./ShowCard";
 import { ShowReactionsProvider } from "./ShowReactions";
@@ -21,13 +24,20 @@ export default async function Home() {
   };
   let showsLoaded = false;
   const now = new Date();
+  let districts: District[] = [];
+  const saved = (await cookies()).get(DISTRICT_COOKIE)?.value ?? null;
+  const area = saved ? `?district=${encodeURIComponent(saved)}` : "";
 
   try {
-    const [programmeResponse, showsResponse, guestsResponse] = await Promise.all([
-      fetch(`${SERVER_API_URL}/pages/programmes`, { cache: "no-store" }),
-      fetch(`${SERVER_API_URL}/shows/now`, { cache: "no-store" }),
-      fetch(`${SERVER_API_URL}/guest-sessions/open`, { cache: "no-store" }),
+    const [programmeResponse, showsResponse, guestsResponse, districtsResponse] = await Promise.all([
+      fetch(`${SERVER_API_URL}/pages/programmes${area}`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/shows/now${area}`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/guest-sessions/open${area}`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/districts`, { cache: "no-store" }),
     ]);
+    if (districtsResponse.ok) {
+      districts = await districtsResponse.json();
+    }
     if (guestsResponse.ok) {
       guests = await guestsResponse.json();
     }
@@ -80,6 +90,10 @@ export default async function Home() {
             beyond the broadcast.
           </p>
         </section>
+
+        {districts.length ? (
+          <DistrictPicker districts={districts} current={districts.some((d) => d.id === saved) ? saved : null} />
+        ) : null}
 
         <nav aria-label="Programme sections" className="mb-7 flex flex-wrap gap-2">
           <a href="#live" className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white">

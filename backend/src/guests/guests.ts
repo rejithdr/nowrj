@@ -10,6 +10,7 @@ import {
   Module,
   NotFoundException,
   Param,
+  Query,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -23,6 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { GuestSession } from '../guest-session.entity';
 import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
@@ -128,11 +130,12 @@ export class GuestsService {
   // ------------------------------------------------------------- listeners
 
   /** Guest sessions taking questions right now (24 h to 2 h before recording). */
-  async open(now = new Date()) {
+  async open(now = new Date(), district: string | null = null) {
     const rows = await this.sessions(
       `g.status = 'scheduled' AND p."isActive" AND ${VISIBLE_PROGRAMME()}
-       AND g."recordingAt" - interval '24 hours' <= $1 AND g."recordingAt" - interval '2 hours' > $1`,
-      [now],
+       AND g."recordingAt" - interval '24 hours' <= $1 AND g."recordingAt" - interval '2 hours' > $1
+       AND ${IN_DISTRICT('p."stationId"', 2)}`,
+      [now, district],
     );
     return rows.map((r) => this.publicShape(r));
   }
@@ -400,8 +403,8 @@ export class GuestsController {
   constructor(private readonly guests: GuestsService) {}
 
   @Get('open')
-  open() {
-    return this.guests.open();
+  open(@Query('district') district?: string) {
+    return this.guests.open(new Date(), districtParam(district));
   }
 
   @Get('rj')

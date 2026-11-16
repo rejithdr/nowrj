@@ -12,6 +12,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
+import { districtParam } from '../districts/district-list';
 import type { Request } from 'express';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
@@ -130,8 +131,8 @@ export class ShowsController {
 
   /** Live now, next 24 hours, and last 24 hours. Public. */
   @Get('now')
-  now() {
-    return this.shows.getNow();
+  now(@Query('district') district?: string) {
+    return this.shows.getNow(new Date(), districtParam(district));
   }
 
   /** ?ids=a,b,c → which of those shows the signed-in listener reacted to. */
