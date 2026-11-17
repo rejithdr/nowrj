@@ -60,6 +60,7 @@ if [ ! -f "$APP_DIR/backend/.env" ]; then
   chmod 600 "$APP_DIR/backend/.env"
   echo "Created backend/.env. You still need to add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SUPERADMIN_EMAILS."
 fi
+bash "$APP_DIR/deploy/ensure-data-key.sh" "$APP_DIR/backend/.env"
 if [ ! -f "$APP_DIR/frontend/.env.production" ]; then
   sed -e "s#__DOMAIN__#${DOMAIN}#g" "$APP_DIR/deploy/frontend.env.example" > "$APP_DIR/frontend/.env.production"
 fi

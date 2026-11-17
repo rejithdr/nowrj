@@ -28,6 +28,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
+import { decryptBytes, decryptText, encryptBytes, encryptText } from '../crypto/field-crypto';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { clean, EMAIL, PHONE, writeAudit } from '../onboarding/helpers';
 import { imageType, MAX_BYTES as IMAGE_MAX } from '../rjs/rj-photos';
@@ -173,7 +174,9 @@ export class AdvertisersService {
       [stationId, now],
     );
     const advertisers = [];
-    for (const row of rows) advertisers.push({ ...row, consent: await this.consent(m, row.id as string) });
+    for (const row of rows) {
+      advertisers.push({ ...row, contactPhone: decryptText(row.contactPhone as string | null), consent: await this.consent(m, row.id as string) });
+    }
     return {
       station,
       canEdit: AD_AREAS.some((a) => meets(access.levels[a], 'edit')),
@@ -209,7 +212,7 @@ export class AdvertisersService {
         [advertiser] = await m.query(
           `INSERT INTO advertisers ("businessName", "contactName", "contactPhone", email, "createdByListenerId")
            VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-          [businessName, contactName, contactPhone, email, listenerId],
+          [businessName, contactName, encryptText(contactPhone), email, listenerId],
         );
       }
       await m.query(
@@ -252,7 +255,7 @@ export class AdvertisersService {
       const [row] = await m.query(
         `INSERT INTO advertiser_consents ("advertiserId", kind, status, version, "uploadedByListenerId", "stationId", scan, "scanType")
          VALUES ($1, 'scan', 'pending_check', $2, $3, $4, $5, $6) RETURNING id`,
-        [advertiserId, CONSENT_VERSION, listenerId, stationId, file.buffer, type],
+        [advertiserId, CONSENT_VERSION, listenerId, stationId, encryptBytes(file.buffer), type],
       );
       await writeAudit(m, listenerId, 'advertiser.consent_scan_uploaded', 'advertiser', advertiserId, { stationId, consentId: row.id });
       return { status: 'pending_check' };
@@ -602,7 +605,7 @@ export class AdvertisersService {
   async adminScanFile(consentId: string) {
     const [row] = await this.dataSource.query(`SELECT scan, "scanType" FROM advertiser_consents WHERE id = $1 AND kind = 'scan'`, [consentId]);
     if (!row) throw new NotFoundException('Scan not found.');
-    return row as { scan: Buffer; scanType: string };
+    return { scan: decryptBytes(row.scan as Buffer)!, scanType: row.scanType as string };
   }
 
   async adminDecideScan(adminId: string, consentId: string, approve: boolean, noteInput: unknown, now = new Date()) {

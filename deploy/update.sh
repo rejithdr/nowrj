@@ -20,6 +20,9 @@ main() {
   echo "==> Latest code"
   git pull --ff-only
 
+  echo "==> Data encryption key"
+  bash "$APP_DIR/deploy/ensure-data-key.sh" "$APP_DIR/backend/.env"
+
   echo "==> Backend: install, build, migrate"
   cd "$APP_DIR/backend"
   npm ci

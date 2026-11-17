@@ -4,8 +4,11 @@ import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import { Pool } from 'pg';
 import passport from 'passport';
+import { assertDataKey } from './crypto/field-crypto';
 
 async function bootstrap() {
+  // Sensitive fields are encrypted with this key; refuse to start without it.
+  assertDataKey();
   const app = await NestFactory.create(AppModule);
   const production = process.env.NODE_ENV === 'production';
 
