@@ -12,7 +12,7 @@ export default function TermsPage() {
       </p>
 
       <h2>Who can use NowRJ</h2>
-      <p>You must be 18 or older and sign in with your own Google account. Keep your account secure; you are responsible for what happens under it.</p>
+      <p>You must be 18 or older to have an account, and you confirm this the first time you sign in. Sign in with your own Google account and keep it secure; you are responsible for what happens under it. Anyone can listen, see what&rsquo;s on and call shows without an account.</p>
 
       <h2>Listeners</h2>
       <ul>

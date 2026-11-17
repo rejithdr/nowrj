@@ -56,7 +56,7 @@ export default function PrivacyPage() {
       </ul>
 
       <h2>Age</h2>
-      <p>NowRJ is only for people aged 18 and over. If we learn that someone under 18 has an account, we will delete it.</p>
+      <p>NowRJ accounts are only for people aged 18 and over. We ask everyone to confirm their age the first time they sign in, and we record that answer and when it was given. If someone says they are under 18, or we learn that they are, we delete the account and its personal data. Listening and browsing without an account collects no personal data.</p>
 
       <h2>Security</h2>
       <p>Data is sent over HTTPS, stored on servers in India, and access is limited to the people who run NowRJ.</p>

@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AuthService, GoogleProfile } from './auth.service';
+import { writeAudit } from '../onboarding/helpers';
 import { AccountService } from './account.service';
 import {
   GoogleAuthGuard,
@@ -83,6 +84,37 @@ export class AuthController {
     return { displayName };
   }
 
+  /**
+   * The one-time age question. 18 or older: recorded, and the account works as
+   * normal. Under 18: the account and its personal data are deleted (as when
+   * someone deletes their own account) and they are signed out; they can still
+   * listen and browse without an account.
+   */
+  @Post('me/age')
+  async confirmAge(@Req() req: Request, @Res() res: Response, @Body() body: { adult?: unknown }) {
+    if (!req.isAuthenticated()) {
+      throw new UnauthorizedException('Please sign in first.');
+    }
+    if (typeof body?.adult !== 'boolean') {
+      throw new BadRequestException('Answer whether you are 18 or older.');
+    }
+    const { id } = req.user as { id: string };
+    if (body.adult) {
+      await this.dataSource.transaction(async (m) => {
+        await m.query(`UPDATE listeners SET "adultConfirmedAt" = now() WHERE id = $1 AND "adultConfirmedAt" IS NULL`, [id]);
+        await writeAudit(m, id, 'account.adult_confirmed', 'listener', id, {});
+      });
+      return res.status(200).json({ adultConfirmed: true });
+    }
+    await this.account.deleteAccount(id, 'under_18');
+    req.logout(() => {
+      req.session.destroy(() => {
+        res.clearCookie('connect.sid', { path: '/' });
+        res.status(200).json({ deleted: true });
+      });
+    });
+  }
+
   /** Deletes the signed-in person's account and personal data, then signs them out. */
   @Delete('me')
   async deleteMe(
@@ -139,6 +171,7 @@ export class AuthController {
       displayName: string | null;
       photoUrl: string | null;
       email: string | null;
+      adultConfirmedAt: Date | null;
     };
 
     const [rj] = await this.dataSource.query(
@@ -183,6 +216,7 @@ export class AuthController {
       orgs,
       isAdvertiser: Boolean(advertiser),
       isSuperadmin: Boolean(email && admins.includes(email)),
+      adultConfirmed: Boolean(listener.adultConfirmedAt),
     };
   }
 }

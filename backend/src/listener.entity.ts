@@ -29,6 +29,10 @@ googleId: string | null;
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** When the person confirmed they are 18 or older (asked once after signing in). */
+  @Column({ type: 'timestamptz', nullable: true })
+  adultConfirmedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

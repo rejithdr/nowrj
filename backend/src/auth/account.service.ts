@@ -18,7 +18,8 @@ import { writeAudit } from '../onboarding/helpers';
 export class AccountService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async deleteAccount(listenerId: string) {
+  /** `reason` is recorded in the audit log: the person's own request, or under 18. */
+  async deleteAccount(listenerId: string, reason: 'own_request' | 'under_18' = 'own_request') {
     await this.dataSource.transaction(async (m) => {
       const rjs: { id: string; name: string }[] = await m.query(
         `SELECT id, name FROM rjs WHERE "ownerListenerId" = $1`,
@@ -78,6 +79,7 @@ export class AccountService {
         [listenerId],
       );
       await writeAudit(m, listenerId, 'account.deleted', 'listener', listenerId, {
+        reason,
         rjProfilesAnonymised: rjs.length,
         rjIds: rjs.map((rj) => rj.id),
       });
