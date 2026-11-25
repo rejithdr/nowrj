@@ -286,7 +286,7 @@ export default function RjDashboardPage() {
           </Section>
         ) : null}
 
-        <Section title="Song requests & questions">
+        <Section title="Listener messages">
           <SongQueue />
         </Section>
 

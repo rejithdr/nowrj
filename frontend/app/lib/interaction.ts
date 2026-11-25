@@ -3,10 +3,12 @@ export const DEFAULT_QUESTION_NOTICE =
   "General information only, not medical advice. In an emergency, contact a doctor or call 112.";
 
 export type InteractionType = "song" | "question";
+/** What a listener sends: song-mode programmes take songs, dedications and messages; question mode takes questions. */
+export type MessageKind = "song" | "dedication" | "message" | "question";
 
 /** Words that change between song-request and question programmes. */
 export const wording = {
-  song: { button: "Request a song", queue: "Song requests", item: "request", items: "requests", done: "Played", doneLong: "Played" },
+  song: { button: "Request or dedicate", queue: "Messages", item: "message", items: "messages", done: "Played", doneLong: "Played" },
   question: { button: "Ask a question", queue: "Questions", item: "question", items: "questions", done: "Answered", doneLong: "Answered on air" },
 } as const;
 

@@ -13,6 +13,7 @@ import { Programme } from '../programme.entity';
 import { Rj } from '../rj.entity';
 import { assertStationAccess, hasStationAccess } from '../orgs/access';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from './text-rules';
+import { onAirName, readOnAirConsent } from './on-air';
 
 /** The same limit applies to song requests and to questions. */
 export const MAX_REQUESTS_PER_SHOW = 3;
@@ -21,7 +22,26 @@ const HOUR = 3600 * 1000;
 /** Requests and questions open this long before a show starts and close when it ends. */
 export const REQUESTS_OPEN_BEFORE_MS = 24 * HOUR;
 
-export type SongRequestInput = { songTitle?: string; artist?: string; message?: string; question?: string };
+export const MAX_DEDICATION = 140;
+
+export type SongRequestInput = {
+  kind?: string;
+  songTitle?: string;
+  artist?: string;
+  message?: string;
+  question?: string;
+  dedicatedTo?: string;
+  nameOnAir?: string;
+  okOnAir?: boolean;
+};
+
+/** Labels for error messages. */
+const KIND_WORDS: Record<SongRequestKind, { plural: string; one: string }> = {
+  song: { plural: 'Song requests', one: 'song' },
+  question: { plural: 'Questions', one: 'question' },
+  dedication: { plural: 'Dedications', one: 'dedication' },
+  message: { plural: 'Messages', one: 'message' },
+};
 
 function clean(value: unknown, max: number, label: string): string | null {
   if (typeof value !== 'string') return null;
@@ -46,6 +66,11 @@ type QueueRow = {
   programmeName: string;
   interactionType: SongRequestKind;
   id: string | null;
+  dedicatedTo: string | null;
+  nameOnAir: string | null;
+  okOnAir: boolean | null;
+  seenAt: string | null;
+  seenBy: string | null;
   kind: SongRequestKind | null;
   songTitle: string | null;
   artist: string | null;
@@ -54,6 +79,9 @@ type QueueRow = {
   createdAt: string | null;
   listenerName: string | null;
 };
+
+type ShowCounts = { messages: number; readOnAir: number; senders: number; likes: number; fires: number; callTaps: number; total: number };
+const emptyCounts = (): ShowCounts => ({ messages: 0, readOnAir: 0, senders: 0, likes: 0, fires: 0, callTaps: 0, total: 0 });
 
 @Injectable()
 export class SongRequestsService {
@@ -70,22 +98,44 @@ export class SongRequestsService {
       const show = await m.findOneBy(ShowOccurrence, { id: occurrenceId });
       if (!show) throw new NotFoundException('Show not found.');
       const programme = await m.findOneBy(Programme, { id: show.programmeId });
-      const kind: SongRequestKind = programme?.interactionType === 'question' ? 'question' : 'song';
-      const what = kind === 'question' ? 'Questions' : 'Song requests';
+      // Question-mode programmes take questions only; others take songs, dedications and messages.
+      let kind: SongRequestKind;
+      if (programme?.interactionType === 'question') {
+        kind = 'question';
+      } else {
+        const asked = input.kind ?? 'song';
+        if (asked !== 'song' && asked !== 'dedication' && asked !== 'message') {
+          throw new BadRequestException('Choose a song request, a dedication or a message.');
+        }
+        kind = asked;
+      }
+      const what = KIND_WORDS[kind].plural;
+      const consent = readOnAirConsent(input);
 
       let songTitle: string | null = null;
       let artist: string | null = null;
+      let dedicatedTo: string | null = null;
       let message: string | null;
       if (kind === 'question') {
         message = clean(input.question ?? input.message, MAX_TEXT, 'Question');
         if (!message) throw new BadRequestException('Type your question.');
+      } else if (kind === 'message') {
+        message = clean(input.message, MAX_TEXT, 'Message');
+        if (!message) throw new BadRequestException('Type your message.');
+      } else if (kind === 'dedication') {
+        dedicatedTo = clean(input.dedicatedTo, 60, 'Who it is for');
+        message = clean(input.message, MAX_DEDICATION, 'Dedication');
+        songTitle = clean(input.songTitle, 150, 'Song title');
+        artist = clean(input.artist, 150, 'Artist');
+        if (!dedicatedTo) throw new BadRequestException('Say who the dedication is for.');
+        if (!message) throw new BadRequestException('Type your dedication.');
       } else {
         songTitle = clean(input.songTitle, 150, 'Song title');
         artist = clean(input.artist, 150, 'Artist');
         message = clean(input.message, MAX_TEXT, 'Message');
         if (!songTitle) throw new BadRequestException('Enter the song you want to hear.');
       }
-      if ([songTitle, artist, message].some(hasContactDetails)) {
+      if ([songTitle, artist, message, dedicatedTo].some(hasContactDetails)) {
         throw new BadRequestException(CONTACT_RULE_MESSAGE);
       }
 
@@ -105,18 +155,16 @@ export class SongRequestsService {
         throw new ForbiddenException(
           kind === 'question'
             ? `You can ask up to ${MAX_REQUESTS_PER_SHOW} questions per show.`
-            : `You can request up to ${MAX_REQUESTS_PER_SHOW} songs per show.`,
+            : `You can send up to ${MAX_REQUESTS_PER_SHOW} requests, dedications or messages per show.`,
         );
       }
+      const same = (a: string | null, b: string | null) => (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
       const duplicate = mine.find((r) =>
-        kind === 'question'
-          ? r.kind === 'question' && r.message?.toLowerCase() === message!.toLowerCase()
-          : r.kind === 'song' && r.songTitle?.toLowerCase() === songTitle!.toLowerCase(),
+        r.kind === kind &&
+        (kind === 'song' ? same(r.songTitle, songTitle) : kind === 'dedication' ? same(r.dedicatedTo, dedicatedTo) && same(r.message, message) : same(r.message, message)),
       );
       if (duplicate) {
-        throw new BadRequestException(
-          kind === 'question' ? 'You have already asked that question for this show.' : 'You have already requested that song for this show.',
-        );
+        throw new BadRequestException(`You have already sent that ${KIND_WORDS[kind].one} for this show.`);
       }
 
       const saved = await m.save(
@@ -128,16 +176,14 @@ export class SongRequestsService {
           songTitle,
           artist,
           message,
+          dedicatedTo,
           status: 'new',
+          nameOnAir: consent.nameOnAir,
+          okOnAir: consent.okOnAir,
         }),
       );
       return {
-        id: saved.id,
-        kind,
-        songTitle,
-        artist,
-        message,
-        status: saved.status,
+        ...this.forListener(saved),
         remaining: MAX_REQUESTS_PER_SHOW - mine.length - 1,
       };
     });
@@ -151,14 +197,23 @@ export class SongRequestsService {
     });
     return {
       max: MAX_REQUESTS_PER_SHOW,
-      requests: rows.map((r) => ({
-        id: r.id,
-        kind: r.kind,
-        songTitle: r.songTitle,
-        artist: r.artist,
-        message: r.message,
-        status: r.status,
-      })),
+      requests: rows.map((r) => this.forListener(r)),
+    };
+  }
+
+  /** What a listener sees of their own message, including whether the RJ has seen it. */
+  private forListener(r: SongRequest) {
+    return {
+      id: r.id,
+      kind: r.kind,
+      songTitle: r.songTitle,
+      artist: r.artist,
+      message: r.message,
+      dedicatedTo: r.dedicatedTo,
+      status: r.status,
+      seenBy: r.seenAt ? r.seenBy : null,
+      nameOnAir: r.nameOnAir,
+      okOnAir: r.okOnAir,
     };
   }
 
@@ -171,10 +226,14 @@ export class SongRequestsService {
   }
 
   /** Groups queue rows by show, soonest first. */
-  private group(rows: QueueRow[], now: Date) {
+  private group(rows: QueueRow[], now: Date, counts: Map<string, ShowCounts>) {
     const shows = new Map<string, {
       showId: string; programmeName: string; interactionType: SongRequestKind; startsAt: Date; endsAt: Date; live: boolean;
-      requests: { id: string; kind: SongRequestKind; songTitle: string | null; artist: string | null; message: string | null; status: string; listenerName: string; createdAt: Date }[];
+      counts: ShowCounts;
+      requests: {
+        id: string; kind: SongRequestKind; songTitle: string | null; artist: string | null; message: string | null;
+        dedicatedTo: string | null; status: string; listenerName: string; okOnAir: boolean | null; seen: boolean; createdAt: Date;
+      }[];
     }>();
     for (const row of rows) {
       if (!shows.has(row.showId)) {
@@ -187,20 +246,23 @@ export class SongRequestsService {
           startsAt,
           endsAt,
           live: startsAt <= now && now < endsAt,
+          counts: counts.get(row.showId) ?? emptyCounts(),
           requests: [],
         });
       }
       if (row.id) {
-        // Only the first name is shown to the RJ and station.
-        const name = (row.listenerName ?? 'A listener').trim().split(/\s+/)[0];
+        // Only the name the listener agreed may be read on air.
         shows.get(row.showId)!.requests.push({
           id: row.id,
           kind: row.kind ?? 'song',
           songTitle: row.songTitle,
           artist: row.artist,
           message: row.message,
+          dedicatedTo: row.dedicatedTo,
           status: row.status!,
-          listenerName: name,
+          listenerName: onAirName(row.listenerName, row.nameOnAir),
+          okOnAir: row.okOnAir,
+          seen: Boolean(row.seenAt),
           createdAt: new Date(row.createdAt!),
         });
       }
@@ -208,11 +270,49 @@ export class SongRequestsService {
     return [...shows.values()];
   }
 
+  /** Messages, read on air, reactions and call taps for each show in the queue. */
+  private async counts(showIds: string[]) {
+    const counts = new Map<string, ShowCounts>();
+    if (!showIds.length) return counts;
+    const rows: (ShowCounts & { showId: string })[] = await this.dataSource.query(
+      `
+      SELECT o.id AS "showId",
+             (SELECT count(*)::int FROM song_requests r WHERE r."showOccurrenceId" = o.id) AS messages,
+             (SELECT count(*)::int FROM song_requests r WHERE r."showOccurrenceId" = o.id AND r.status = 'played') AS "readOnAir",
+             (SELECT count(DISTINCT r."listenerId")::int FROM song_requests r WHERE r."showOccurrenceId" = o.id) AS senders,
+             (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'like') AS likes,
+             (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'fire') AS fires,
+             (SELECT count(*)::int FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS "callTaps"
+      FROM show_occurrences o WHERE o.id = ANY($1)
+      `,
+      [showIds],
+    );
+    for (const { showId, ...c } of rows) counts.set(showId, { ...c, total: c.messages + c.likes + c.fires + c.callTaps });
+    return counts;
+  }
+
+  /** Marks messages as seen the first time they appear in the host RJ's or station's queue. */
+  private async markSeen(rows: QueueRow[], by: 'rj' | 'station') {
+    const ids = rows.filter((r) => r.id && !r.seenAt).map((r) => r.id!);
+    if (!ids.length) return;
+    await this.dataSource.query(
+      `UPDATE song_requests SET "seenAt" = now(), "seenBy" = $2 WHERE id = ANY($1) AND "seenAt" IS NULL`,
+      [ids, by],
+    );
+  }
+
+  private async build(rows: QueueRow[], now: Date, by: 'rj' | 'station') {
+    await this.markSeen(rows, by);
+    const counts = await this.counts([...new Set(rows.map((r) => r.showId))]);
+    return this.group(rows, now, counts);
+  }
+
   private queue(filterSql: string, param: string, now: Date) {
     return this.dataSource.query(
       `
       SELECT o.id AS "showId", o."startsAt", o."endsAt", p.name AS "programmeName", p."interactionType",
              r.id, r.kind, r."songTitle", r.artist, r.message, r.status, r."createdAt",
+             r."dedicatedTo", r."nameOnAir", r."okOnAir", r."seenAt", r."seenBy",
              l."displayName" AS "listenerName"
       FROM show_occurrences o
       JOIN programmes p ON p.id = o."programmeId"
@@ -239,14 +339,14 @@ export class SongRequestsService {
       rj.id,
       now,
     );
-    return this.group(rows, now);
+    return this.build(rows, now, 'rj');
   }
 
   /** The same queue for every show aired on a station, for staff with Programmes view. */
   async forStation(listenerId: string, stationId: string, now = new Date()) {
     await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'programmes', 'view');
     const rows = await this.queue(`o."stationId" = $1`, stationId, now);
-    return this.group(rows, now);
+    return this.build(rows, now, 'station');
   }
 
   /**

@@ -179,8 +179,8 @@ function StationPanel({ entry }: { entry: MyStation }) {
         <>
           {can("programmes", "view") ? (
             <>
-              <h2 className="mt-6 text-lg font-bold text-zinc-900">Song requests &amp; questions</h2>
-              <p className="mt-1 text-sm text-zinc-600">For shows live now, in the next 24 hours, or that ended in the last 2 hours.</p>
+              <h2 className="mt-6 text-lg font-bold text-zinc-900">Listener messages</h2>
+              <p className="mt-1 text-sm text-zinc-600">Song requests, dedications, messages and questions for shows live now, in the next 24 hours, or that ended in the last 2 hours. Listeners see “Seen by RJ” once a message shows here.</p>
               <SongQueue path={`/shows/song-requests/station/${station.id}`} readOnly={!editProgrammes} />
 
               <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest</h2>

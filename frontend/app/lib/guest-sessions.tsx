@@ -5,7 +5,7 @@ import { Camera, Check, LoaderCircle, MessageCircleQuestion, Plus, RotateCcw, X 
 import { API, api, inputClass, labelClass, Notice, primaryButton, quietButton } from "./ui";
 import { squareJpeg } from "./rj-profile";
 
-type Question = { id: string; message: string; status: string; listenerName: string; createdAt: string };
+type Question = { id: string; message: string; status: string; listenerName: string; okOnAir?: boolean | null; createdAt: string };
 type Session = {
   id: string;
   guestName: string;
@@ -227,7 +227,10 @@ export default function GuestSessions({ path, programmes, readOnly = false }: { 
                     <li key={q.id} className={`flex flex-wrap items-start justify-between gap-2 p-3 ${q.status === "new" ? "" : "bg-zinc-50"}`}>
                       <div className="min-w-0">
                         <p className={`font-medium ${q.status === "new" ? "text-zinc-900" : "text-zinc-500 line-through decoration-zinc-300"}`}>&ldquo;{q.message}&rdquo;</p>
-                        <p className="text-sm text-zinc-600">from {q.listenerName}</p>
+                        <p className="text-sm text-zinc-600">
+                          from {q.listenerName}
+                          {q.okOnAir === false ? <span className="ml-2 rounded-full bg-zinc-200 px-1.5 py-0.5 text-xs text-zinc-700">Don&apos;t use on air</span> : null}
+                        </p>
                       </div>
                       {readOnly ? (
                         q.status === "new" ? null : <span className="text-sm text-zinc-500">{q.status === "played" ? "Used" : "Skipped"}</span>

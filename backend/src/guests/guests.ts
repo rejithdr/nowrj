@@ -24,6 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { onAirName, readOnAirConsent } from '../shows/on-air';
 import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { GuestSession } from '../guest-session.entity';
 import { Listener } from '../listener.entity';
@@ -151,8 +152,14 @@ export class GuestsService {
     };
   }
 
-  async ask(listenerId: string, sessionId: string, input: { question?: unknown; message?: unknown }, now = new Date()) {
+  async ask(
+    listenerId: string,
+    sessionId: string,
+    input: { question?: unknown; message?: unknown; nameOnAir?: unknown; okOnAir?: unknown },
+    now = new Date(),
+  ) {
     const question = text(input.question ?? input.message, MAX_TEXT, 'Question');
+    const consent = readOnAirConsent(input);
     if (!question) throw new BadRequestException('Type your question.');
     if (hasContactDetails(question)) throw new BadRequestException(CONTACT_RULE_MESSAGE);
 
@@ -188,6 +195,8 @@ export class GuestsService {
           artist: null,
           message: question,
           status: 'new',
+          nameOnAir: consent.nameOnAir,
+          okOnAir: consent.okOnAir,
         }),
       );
       return {
@@ -221,9 +230,12 @@ export class GuestsService {
   private async withQuestions(whereSql: string, params: unknown[]) {
     const rows = await this.sessions(`${whereSql} AND g."recordingAt" > now() - interval '7 days'`, params);
     if (!rows.length) return [];
-    const questions: { id: string; guestSessionId: string; message: string; status: string; createdAt: Date; listenerName: string | null }[] =
+    const questions: {
+      id: string; guestSessionId: string; message: string; status: string; createdAt: Date;
+      nameOnAir: string | null; okOnAir: boolean | null; listenerName: string | null;
+    }[] =
       await this.dataSource.query(
-        `SELECT s.id, s."guestSessionId", s.message, s.status, s."createdAt", l."displayName" AS "listenerName"
+        `SELECT s.id, s."guestSessionId", s.message, s.status, s."createdAt", s."nameOnAir", s."okOnAir", l."displayName" AS "listenerName"
            FROM song_requests s LEFT JOIN listeners l ON l.id = s."listenerId"
           WHERE s."guestSessionId" = ANY($1)
           ORDER BY s."createdAt"`,
@@ -238,8 +250,9 @@ export class GuestsService {
           message: q.message,
           status: q.status,
           createdAt: q.createdAt,
-          // Only the first name is shown to the RJ and station.
-          listenerName: (q.listenerName ?? 'A listener').trim().split(/\s+/)[0],
+          // Only the name the listener agreed may be read on air.
+          listenerName: onAirName(q.listenerName, q.nameOnAir),
+          okOnAir: q.okOnAir,
         })),
     }));
   }
