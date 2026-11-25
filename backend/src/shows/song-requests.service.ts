@@ -13,6 +13,7 @@ import { Programme } from '../programme.entity';
 import { Rj } from '../rj.entity';
 import { assertStationAccess, hasStationAccess } from '../orgs/access';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from './text-rules';
+import { isRepeatAiring } from '../recordings/airings';
 import { pollsForShows } from '../polls/polls';
 import { onAirName, readOnAirConsent } from './on-air';
 
@@ -98,6 +99,9 @@ export class SongRequestsService {
     return this.dataSource.transaction(async (m) => {
       const show = await m.findOneBy(ShowOccurrence, { id: occurrenceId });
       if (!show) throw new NotFoundException('Show not found.');
+      if (await isRepeatAiring(m, show.id)) {
+        throw new BadRequestException('This show is a repeat of a recording, so nobody is live to take requests. Like, Fire and polls still work.');
+      }
       const programme = await m.findOneBy(Programme, { id: show.programmeId });
       // Question-mode programmes take questions only; others take songs, dedications and messages.
       let kind: SongRequestKind;

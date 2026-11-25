@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
+import { airingsForShows } from '../recordings/airings';
 import { pollsForShows } from '../polls/polls';
 import type { Actor } from '../device';
 import { IN_DISTRICT } from '../districts/district-list';
@@ -202,11 +203,32 @@ export class ShowsService {
     const polls = await pollsForShows(this.dataSource.manager, shows.map((s) => s.id), now);
     for (const show of shows) (show as typeof show & { poll: unknown }).poll = polls.get(show.id)?.[0] ?? null;
 
+    // Recordings: label repeats, and show one card when the same recording
+    // plays at the same time on several stations in the listener's area.
+    const airings = await airingsForShows(this.dataSource.manager, shows.map((s) => s.id), now);
+    type WithRecording = (typeof shows)[number] & { recording: unknown; alsoOn: { showId: string; stationName: string }[] };
+    const cards: WithRecording[] = [];
+    const sameSlot = new Map<string, WithRecording>();
+    for (const show of shows) {
+      const info = airings.get(show.id) ?? null;
+      const card = Object.assign(show, { recording: info, alsoOn: [] as { showId: string; stationName: string }[] });
+      if (info) {
+        const key = `${info.recordingId}|${show.startsAt.toISOString()}`;
+        const first = sameSlot.get(key);
+        if (first) {
+          first.alsoOn.push({ showId: show.id, stationName: show.station?.name ?? '' });
+          continue;
+        }
+        sameSlot.set(key, card);
+      }
+      cards.push(card);
+    }
+
     return {
       now,
-      live: shows.filter((s) => s.startsAt <= now && now < s.endsAt),
-      upcoming: shows.filter((s) => s.startsAt > now),
-      recent: shows.filter((s) => s.endsAt <= now).reverse(),
+      live: cards.filter((s) => s.startsAt <= now && now < s.endsAt),
+      upcoming: cards.filter((s) => s.startsAt > now),
+      recent: cards.filter((s) => s.endsAt <= now).reverse(),
     };
   }
 

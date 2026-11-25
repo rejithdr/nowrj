@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Building2, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
 import PilotNumbers from "../../lib/pilot-numbers";
+import StationRecordings from "../../lib/station-recordings";
 import { StationDistricts } from "../../lib/districts";
 import StationAds from "../../lib/station-ads";
 import AuthControls from "../../AuthControls";
@@ -190,6 +191,14 @@ function StationPanel({ entry }: { entry: MyStation }) {
                 programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
                 readOnly={!editProgrammes}
               />
+            </>
+          ) : null}
+
+          {can("programmes", "view") ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Recordings &amp; repeats</h2>
+              <p className="mt-1 text-sm text-zinc-600">One recording played in several shows, or on other stations, counted together.</p>
+              <StationRecordings stationId={station.id} canEdit={editProgrammes} />
             </>
           ) : null}
 

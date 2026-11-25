@@ -23,6 +23,18 @@ export type ApiShow = {
   likes: number;
   fires: number;
   canReact: boolean;
+  /** The recording this show plays, if any (repeats: requests are off). */
+  recording?: {
+    recordingId: string;
+    title: string;
+    guestName: string | null;
+    repeat: boolean;
+    firstAiredAt: string;
+    firstStationName: string;
+    otherAirings: { showId: string; startsAt: string; stationName: string }[];
+  } | null;
+  /** The same recording at the same time on other stations (shown as one card). */
+  alsoOn?: { showId: string; stationName: string }[];
   /** The latest poll: open to vote in, or the last result. */
   poll?: Poll | null;
   ads?: { id: string; creativeId: string; kind: "sponsored" | "shoutout" | "aired"; title: string; offerText: string; businessName: string; imageVersion: string | null }[];
@@ -113,8 +125,38 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             )}
           </p>
           <p className={`mt-1 text-xs font-semibold ${kind === "live" ? "text-red-700" : "text-orange-700"}`}>{when}</p>
+          {show.alsoOn?.length ? (
+            <p className="mt-0.5 text-xs text-zinc-600">Also on {show.alsoOn.map((a) => a.stationName).join(", ")} at the same time</p>
+          ) : null}
         </div>
       </div>
+
+      {show.recording ? (
+        <div className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-sm">
+          <p className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${show.recording.repeat ? "bg-sky-200 text-sky-900" : "bg-emerald-100 text-emerald-800"}`}>
+              {show.recording.repeat ? "Repeat" : "Premiere"}
+            </span>
+            <span className="font-semibold text-zinc-900">{show.recording.title}</span>
+          </p>
+          {show.recording.guestName ? <p className="mt-0.5 text-zinc-700">With {show.recording.guestName}</p> : null}
+          {show.recording.repeat ? (
+            <p className="mt-0.5 text-xs text-zinc-600">
+              First aired {dayWord(show.recording.firstAiredAt, now)} {clock(show.recording.firstAiredAt)} on {show.recording.firstStationName}. Recorded earlier, so requests are off; Like, Fire and polls still work.
+            </p>
+          ) : null}
+          {show.recording.otherAirings.filter((a) => new Date(a.startsAt) > now && !show.alsoOn?.some((x) => x.showId === a.showId)).length ? (
+            <p className="mt-0.5 text-xs text-zinc-600">
+              Also airs:{" "}
+              {show.recording.otherAirings
+                .filter((a) => new Date(a.startsAt) > now && !show.alsoOn?.some((x) => x.showId === a.showId))
+                .slice(0, 3)
+                .map((a) => `${a.stationName} ${dayWord(a.startsAt, now)} ${clock(a.startsAt)}`)
+                .join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
         <ShowReactions
@@ -127,7 +169,7 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
         {kind === "live" && show.programme.callInPhone ? (
           <CallButton showId={show.id} phone={show.programme.callInPhone} />
         ) : null}
-        {kind !== "recent" ? <SongRequestButton
+        {kind !== "recent" && !show.recording?.repeat ? <SongRequestButton
             showId={show.id}
             programmeName={show.programme.name}
             mode={show.programme.interactionType ?? "song"}
