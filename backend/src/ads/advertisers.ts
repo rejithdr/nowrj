@@ -489,6 +489,18 @@ export class AdvertisersService {
           [id],
         ),
         creatives: await this.creativeRows(m, `c."advertiserId" = $1`, [id]),
+        // Approved ads and how listeners responded: opens of the ad page, calls and website taps.
+        ads: await m.query(
+          `SELECT a.id, a.kind, a.status, a."startDate"::text AS "startDate", a."endDate"::text AS "endDate",
+                  s.name AS "stationName", c.title,
+                  (SELECT count(DISTINCT ps.person)::int FROM pilot_steps ps WHERE ps."adId" = a.id AND ps.step = 'ad_open') AS opens,
+                  (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'call') AS calls,
+                  (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'website') AS websites
+             FROM ads a JOIN stations s ON s.id = a."stationId" JOIN ad_creatives c ON c.id = a."creativeId"
+            WHERE a."advertiserId" = $1 AND a.status IN ('approved', 'withdrawn')
+            ORDER BY a."startDate" DESC NULLS LAST, a."createdAt" DESC LIMIT 100`,
+          [id],
+        ),
       });
     }
     return { consentVersion: CONSENT_VERSION, consentPoints: CONSENT_POINTS, businesses: out };

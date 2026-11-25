@@ -1,5 +1,6 @@
 "use client";
 import { API_URL } from "./lib/config";
+import { pulse } from "./lib/pulse";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { Flame, Heart } from "lucide-react";
@@ -164,7 +165,10 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
           Saved on this phone.{" "}
           <a
             href={`${API}/auth/google?returnTo=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`}
-            onClick={() => sessionStorage.setItem("nowrjReturnTo", window.location.pathname)}
+            onClick={() => {
+              sessionStorage.setItem("nowrjReturnTo", window.location.pathname);
+              pulse("signin_prompt", { showId });
+            }}
             className="font-semibold text-orange-700 underline"
           >
             Sign in with Google

@@ -23,6 +23,7 @@ import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device'
 import { hasStationAccess } from '../orgs/access';
 import { canReact } from '../shows/occurrence-rules';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from '../shows/text-rules';
+import { recordStep } from '../pilot/steps';
 
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 5;
@@ -196,7 +197,10 @@ function requireListener(req: Request): string {
 
 @Controller('polls')
 export class PollsController {
-  constructor(private readonly polls: PollsService) {}
+  constructor(
+    private readonly polls: PollsService,
+    private readonly dataSource: DataSource,
+  ) {}
 
   /** Host RJ or station: start a poll on a show. */
   @Post('show/:showId')
@@ -211,7 +215,7 @@ export class PollsController {
 
   /** Vote. Works signed out too: once per phone (device cookie). */
   @Post(':pollId/vote')
-  vote(
+  async vote(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Param('pollId', ParseUUIDPipe) pollId: string,
@@ -221,7 +225,10 @@ export class PollsController {
     const actor: Actor = listenerId
       ? { listenerId, deviceId: null }
       : { listenerId: null, deviceId: ensureDeviceId(req, res) };
-    return this.polls.vote(actor, pollId, body?.optionId);
+    const result = await this.polls.vote(actor, pollId, body?.optionId);
+    const [poll] = await this.dataSource.query(`SELECT "showOccurrenceId" FROM polls WHERE id = $1`, [pollId]);
+    await recordStep(this.dataSource.manager, req, 'tap', { showId: poll?.showOccurrenceId, res });
+    return result;
   }
 
   /** ?ids=a,b → { pollId: optionId } for polls this listener or phone voted in. */

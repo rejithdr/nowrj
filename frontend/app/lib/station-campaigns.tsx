@@ -23,6 +23,8 @@ type Ad = {
   checkerName: string | null;
   responses: number;
   calls: number;
+  websites?: number;
+  opens?: number;
   runnable: boolean;
   hasConsent: boolean;
   canApprove: boolean;
@@ -107,7 +109,9 @@ export default function StationCampaigns({
                 </p>
                 <p className="text-xs text-zinc-500">
                   Entered by {a.makerName ?? "—"}{a.checkerName ? ` · ${a.status === "rejected" ? "Rejected" : "Approved"} by ${a.checkerName}` : ""}
-                  {a.status === "approved" ? ` · ${a.responses} response${a.responses === 1 ? "" : "s"} (${a.calls} call${a.calls === 1 ? "" : "s"})` : ""}
+                  {a.status === "approved"
+                    ? ` · ${a.opens ?? 0} opened · ${a.calls} call${a.calls === 1 ? "" : "s"} · ${a.websites ?? 0} website`
+                    : ""}
                 </p>
                 {a.status === "rejected" && a.rejectReason ? <p className="text-sm text-red-700">Reason: {a.rejectReason}</p> : null}
                 {a.status === "approved" && !a.hasConsent ? <p className="text-sm text-amber-700">Not showing: the advertiser&apos;s consent is not in place.</p> : null}

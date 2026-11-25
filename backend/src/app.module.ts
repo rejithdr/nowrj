@@ -21,6 +21,7 @@ import { OrgsModule } from './orgs/orgs';
 import { AdsModule } from './ads/advertisers';
 import { DistrictsModule } from './districts/districts';
 import { PollsModule } from './polls/polls';
+import { PilotModule } from './pilot/pilot';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { PollsModule } from './polls/polls';
     AdsModule,
     DistrictsModule,
     PollsModule,
+    PilotModule,
   ],
   controllers: [AppController],
   providers: [AppService],

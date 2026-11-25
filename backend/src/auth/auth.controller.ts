@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AuthService, GoogleProfile } from './auth.service';
+import { recordStep } from '../pilot/steps';
 import { mergeDeviceIntoListener } from './device-merge';
 import { readDeviceId } from '../device';
 import { writeAudit } from '../onboarding/helpers';
@@ -57,6 +58,7 @@ export class AuthController {
       if (deviceId) {
         await mergeDeviceIntoListener(this.dataSource, deviceId, (listener as { id: string }).id).catch(() => undefined);
       }
+      await recordStep(this.dataSource.manager, req, 'signin', { listenerId: (listener as { id: string }).id });
 
       req.logIn(listener, (error) => {
         if (error) {

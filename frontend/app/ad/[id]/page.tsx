@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { Clock, Globe, LoaderCircle, MapPin, Phone } from "lucide-react";
 import { API_URL } from "../../lib/config";
 import { api, Notice } from "../../lib/ui";
+import { pulse } from "../../lib/pulse";
 
 type Ad = {
   id: string;
@@ -47,6 +48,7 @@ function AdPage({ id }: { id: string }) {
 
   useEffect(() => {
     api<Ad>(`/ads/${id}${showId ? `?show=${showId}` : ""}`).then(setAd).catch((e) => setError(e instanceof Error ? e.message : "This ad is not available."));
+    pulse("ad_open", { adId: id });
   }, [id, showId]);
 
   return (

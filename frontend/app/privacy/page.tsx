@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         <li><strong>If you are an RJ:</strong> your RJ name, photo, phone and email, the programmes and schedules you publish, your station, referrals and vouches.</li>
         <li><strong>If you represent a station:</strong> the station&rsquo;s details and contact phone and email, and the actions you take for the station.</li>
         <li><strong>If you contact us about advertising:</strong> your name, company, phone or email and your message, used only to reply.</li>
-        <li><strong>Technical data:</strong> a sign-in cookie that keeps you signed in, and, if you tap Like, Fire or a call button while signed out, a random ID stored on your phone so we count each phone once. That ID does not say who you are; if you later sign in on that phone, your likes move to your account. We do not use advertising or tracking cookies.</li>
+        <li><strong>Technical data:</strong> a sign-in cookie that keeps you signed in, and a random ID stored on your phone when you open NowRJ, so we count each phone once (for example when you tap Like, Fire or Call while signed out). That ID does not say who you are; if you later sign in on that phone, your likes move to your account. We also use it to count, once a day, whether that phone opened NowRJ, tapped something, was asked to sign in, signed in or sent a message, and which ads it opened. These counts help us and the stations see whether NowRJ is useful; they carry no name. We do not use advertising or tracking cookies.</li>
       </ul>
 
       <h2>Why we use it</h2>

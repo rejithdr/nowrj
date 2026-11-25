@@ -15,6 +15,7 @@ type Business = {
   consent: { status: keyof typeof CONSENT_TEXT; kind: string | null; since: string | null; signedName: string | null };
   stations: { id: string; name: string; slug: string; status: string }[];
   creatives: (Creative & { stationName: string })[];
+  ads?: { id: string; kind: string; status: string; startDate: string | null; endDate: string | null; stationName: string; title: string; opens: number; calls: number; websites: number }[];
 };
 type Data = { consentVersion: string; consentPoints: string[]; businesses: Business[] };
 
@@ -126,6 +127,43 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
             Give consent
           </button>
         </>
+      )}
+
+      <h2 className="mt-6 text-lg font-bold text-zinc-900">How your ads are doing</h2>
+      <p className="mt-1 text-sm text-zinc-600">
+        Opened: phones that opened the ad. Calls and website: signed-in listeners who tapped, each counted once a month.
+      </p>
+      {b.ads?.length ? (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
+                <th className="py-2 pr-3 font-semibold">Ad</th>
+                <th className="py-2 pr-3 text-right font-semibold">Opened</th>
+                <th className="py-2 pr-3 text-right font-semibold">Calls</th>
+                <th className="py-2 text-right font-semibold">Website</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {b.ads.map((a) => (
+                <tr key={a.id}>
+                  <td className="py-2 pr-3">
+                    <span className="font-semibold text-zinc-900">{a.title}</span>
+                    <span className="block text-xs text-zinc-500">
+                      {a.stationName}
+                      {a.status === "withdrawn" ? " · withdrawn" : ""}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{a.opens}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{a.calls}</td>
+                  <td className="py-2 text-right tabular-nums">{a.websites}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-zinc-600">No ads running yet.</p>
       )}
 
       <h2 className="mt-6 text-lg font-bold text-zinc-900">Your ad library</h2>

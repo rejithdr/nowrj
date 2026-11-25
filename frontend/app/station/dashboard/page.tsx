@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Building2, Check, LoaderCircle, Phone, X } from "lucide-react";
 import EngagementPanel from "../../lib/engagement";
+import PilotNumbers from "../../lib/pilot-numbers";
 import { StationDistricts } from "../../lib/districts";
 import StationAds from "../../lib/station-ads";
 import AuthControls from "../../AuthControls";
@@ -203,6 +204,9 @@ function StationPanel({ entry }: { entry: MyStation }) {
             <>
               <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
               <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Pilot numbers</h2>
+              <p className="mt-1 text-sm text-zinc-600">Listeners who did something on {station.name}&apos;s shows: drop-off, who came back, and interactions per listener.</p>
+              <PilotNumbers path={`/stations/${station.id}/pilot`} />
             </>
           ) : null}
 

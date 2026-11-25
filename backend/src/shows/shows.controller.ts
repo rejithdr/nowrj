@@ -16,6 +16,8 @@ import {
 import { districtParam } from '../districts/district-list';
 import type { Request, Response } from 'express';
 import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device';
+import { DataSource } from 'typeorm';
+import { recordStep } from '../pilot/steps';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
 import { SongRequestsService } from './song-requests.service';
@@ -50,6 +52,7 @@ export class ShowsController {
     private readonly engagement: EngagementService,
     private readonly songRequests: SongRequestsService,
     private readonly changes: ShowChangesService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /** The programme's next 7 days of shows, for hosts and the owning station. */
@@ -107,8 +110,10 @@ export class ShowsController {
   }
 
   @Post(':id/song-requests')
-  requestSong(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: SongRequestInput) {
-    return this.songRequests.create(listenerId(req), id, body ?? {});
+  async requestSong(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: SongRequestInput) {
+    const created = await this.songRequests.create(listenerId(req), id, body ?? {});
+    await recordStep(this.dataSource.manager, req, 'message', { showId: id });
+    return created;
   }
 
   @Get(':id/song-requests/mine')
@@ -118,13 +123,15 @@ export class ShowsController {
 
   /** A tap on the show's Call button. Works signed out (device id) or signed in. */
   @Post(':id/call-tap')
-  callTap(
+  async callTap(
     @Req() req: Request,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { deviceId?: string },
   ) {
     const signedIn = req.isAuthenticated() ? (req.user as { id: string }).id : null;
-    return this.engagement.recordCallTap(id, signedIn, body?.deviceId);
+    const result = await this.engagement.recordCallTap(id, signedIn, body?.deviceId);
+    await recordStep(this.dataSource.manager, req, 'tap', { showId: id });
+    return result;
   }
 
   @Get('engagement/rj')
@@ -158,13 +165,15 @@ export class ShowsController {
 
   /** Like / Fire. Works signed out too: counted once per phone (device cookie). */
   @Post(':id/reactions')
-  react(
+  async react(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('type') type?: string,
   ) {
-    return this.shows.setReaction(actorFor(req, res), id, reactionType(type), true);
+    const result = await this.shows.setReaction(actorFor(req, res), id, reactionType(type), true);
+    await recordStep(this.dataSource.manager, req, 'tap', { showId: id, res });
+    return result;
   }
 
   @Delete(':id/reactions')

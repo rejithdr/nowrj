@@ -8,6 +8,7 @@ import { DISTRICT_COOKIE, type District } from "./lib/district-cookie";
 import AuthControls from "./AuthControls";
 import ShowCard, { type ApiShow } from "./ShowCard";
 import { ShowReactionsProvider } from "./ShowReactions";
+import PulseOpen from "./PulseOpen";
 import { ProgrammeRow, type ProgrammeSummary } from "./lib/public-pages";
 import { GuestCard, type GuestSession } from "./lib/guest-card";
 export const instant = false;
@@ -121,6 +122,7 @@ export default async function Home() {
           </p>
         ) : null}
 
+        <PulseOpen />
         <ShowReactionsProvider
           showIds={[...shows.live, ...shows.upcoming, ...shows.recent].map((show) => show.id)}
         >

@@ -138,6 +138,7 @@ export default function AuthControls() {
         {me.isSuperadmin ? (
           <>
             <p className="mt-1 border-t border-zinc-100 px-3 pt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Super Admin</p>
+            <a href="/admin/pilot" className={itemClass}>Pilot numbers</a>
             <a href="/admin/insights" className={itemClass}>Platform insights</a>
             <a href="/admin/rjs" className={itemClass}>RJs</a>
             <a href="/admin/stations" className={itemClass}>Stations &amp; claims</a>

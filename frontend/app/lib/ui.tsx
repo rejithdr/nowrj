@@ -1,5 +1,6 @@
 "use client";
 import { API_URL } from "./config";
+import { pulse } from "./pulse";
 
 /** Small shared pieces for the signed-in dashboards. */
 export const API = API_URL;
@@ -35,6 +36,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 /** Sends a signed-out visitor to Google and brings them back to this page. */
 export function signInAndReturn() {
   const path = window.location.pathname;
+  pulse("signin_prompt");
   sessionStorage.setItem("nowrjReturnTo", path);
   window.location.href = `${API}/auth/google?returnTo=${encodeURIComponent(path)}`;
 }

@@ -97,6 +97,8 @@ export class AdsService {
               mk."displayName" AS "makerName", ck."displayName" AS "checkerName",
               (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id) AS responses,
               (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'call') AS calls,
+              (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'website') AS websites,
+              (SELECT count(DISTINCT ps.person)::int FROM pilot_steps ps WHERE ps."adId" = a.id AND ps.step = 'ad_open') AS opens,
               (${RUNNABLE_AD('a')}) AS runnable,
               EXISTS (SELECT 1 FROM advertiser_consents ac WHERE ac."advertiserId" = a."advertiserId" AND ac.status = 'valid') AS "hasConsent"
          FROM ads a
