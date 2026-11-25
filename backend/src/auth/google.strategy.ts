@@ -10,6 +10,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       callbackURL: process.env.GOOGLE_CALLBACK_URL!,
       scope: ['email', 'profile'],
+      // A random value kept in the session and checked when Google sends the
+      // listener back, so another site can't complete a sign-in for them.
+      state: true,
     });
   }
 
