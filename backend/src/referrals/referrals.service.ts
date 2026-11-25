@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, IsNull } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { Rj } from '../rj.entity';
 import { Referral } from '../referral.entity';
 import { RjVouch } from '../rj-vouch.entity';
@@ -21,7 +22,7 @@ export class ReferralsService {
   constructor(private readonly dataSource: DataSource) {}
 
   private async ownRj(listenerId: string) {
-    const rj = await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     if (!rj) throw new NotFoundException('Register your RJ profile first.');
     return rj;
   }

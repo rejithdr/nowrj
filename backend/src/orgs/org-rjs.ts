@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { randomBytes } from 'node:crypto';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { Listener } from '../listener.entity';
 import { Rj } from '../rj.entity';
 import { RjStationAffiliation } from '../rj-station-affiliation.entity';
@@ -297,7 +298,7 @@ export class OrgRjsService {
         return { status: 'declined', organisationName: org.name };
       }
 
-      const rj = await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+      const rj = assertRjCanAct(await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
       if (!rj) throw new ConflictException('Create your RJ profile first, then open this invite again.');
       if (await m.existsBy(OrgRj, { organisationId: org.id, rjId: rj.id, status: 'active' })) {
         throw new ConflictException(`You already work with ${org.name}.`);

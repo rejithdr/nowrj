@@ -33,9 +33,11 @@ export default function ReportsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<{ targetType: "programme" | "rj"; targetId: string; name: string; stationName: string | null; since: string }[]>([]);
 
   const load = useCallback(async () => {
     try {
+      setHidden(await api("/admin/reports/hidden"));
       setReports(await api<Report[]>("/admin/reports"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load reports.");
@@ -94,6 +96,41 @@ export default function ReportsPage() {
                     Dismiss
                   </button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Hidden by you">
+          <p className="text-sm text-zinc-600">Programmes you hid and RJs you suspended (their programmes and RJ tools are off). Nothing else brings them back.</p>
+          {!hidden.length ? <p className="mt-2 text-sm text-zinc-600">Nothing hidden.</p> : null}
+          <ul className="mt-2 divide-y divide-zinc-100">
+            {hidden.map((h) => (
+              <li key={`${h.targetType}-${h.targetId}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span>
+                  <span className="mr-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-700">{h.targetType === "rj" ? "RJ" : "Programme"}</span>
+                  <strong className="text-zinc-900">{h.name}</strong>
+                  {h.stationName ? <span className="text-zinc-500"> · {h.stationName}</span> : null}
+                  <span className="ml-2 text-xs text-zinc-500">since {new Date(h.since).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={busy === h.targetId}
+                  onClick={async () => {
+                    setBusy(h.targetId);
+                    try {
+                      await api(`/admin/reports/hidden/${h.targetType}/${h.targetId}`, { method: "PATCH" });
+                      setMessage(`${h.name} is visible again.`);
+                      await load();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Could not update.");
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                  className="min-h-9 rounded-full border border-zinc-300 bg-white px-4 font-semibold text-zinc-700"
+                >
+                  {h.targetType === "rj" ? "Restore RJ" : "Show again"}
+                </button>
               </li>
             ))}
           </ul>

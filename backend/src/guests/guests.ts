@@ -26,6 +26,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { RJ_CAN_ACT } from '../rjs/rj-status';
 import { onAirName, readOnAirConsent } from '../shows/on-air';
 import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { GuestSession } from '../guest-session.entity';
@@ -263,7 +264,7 @@ export class GuestsService {
   forRj(listenerId: string) {
     return this.withQuestions(
       `EXISTS (SELECT 1 FROM programme_rjs pr JOIN rjs r ON r.id = pr."rjId"
-                WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1)`,
+                WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1 AND ${RJ_CAN_ACT('r')})`,
       [listenerId],
     );
   }

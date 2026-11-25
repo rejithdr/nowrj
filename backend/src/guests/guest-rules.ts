@@ -1,4 +1,5 @@
 import { EntityManager } from 'typeorm';
+import { RJ_CAN_ACT } from '../rjs/rj-can-act';
 import { accessSql } from '../orgs/access-rules';
 
 const HOUR = 3600 * 1000;
@@ -31,7 +32,7 @@ export async function canManageProgramme(m: EntityManager, listenerId: string, p
     `
     SELECT EXISTS (
              SELECT 1 FROM programme_rjs pr JOIN rjs r ON r.id = pr."rjId"
-              WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1
+              WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1 AND ${RJ_CAN_ACT('r')}
            )
         OR ${accessSql('p."stationId"', 'programmes', 'edit')}
         OR ${accessSql('p."ownerStationId"', 'programmes', 'edit')} AS allowed

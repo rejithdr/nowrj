@@ -20,7 +20,7 @@ import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { ensureDeviceId, signedInId } from '../device';
-import { writeAudit } from '../onboarding/helpers';
+import { writeAudit, changed } from '../onboarding/helpers';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from '../shows/text-rules';
 
 const TARGETS = ['programme', 'rj', 'ad'] as const;
@@ -92,6 +92,38 @@ export class ReportsService {
     return result;
   }
 
+  /** Programmes the NowRJ team hid and RJs it suspended, so they can be brought back. */
+  async hidden() {
+    const programmes = await this.dataSource.query(
+      `SELECT 'programme' AS "targetType", p.id AS "targetId", p.name, s.name AS "stationName", p."hiddenAt" AS since
+         FROM programmes p LEFT JOIN stations s ON s.id = p."stationId"
+        WHERE p."hiddenAt" IS NOT NULL ORDER BY p."hiddenAt" DESC LIMIT 200`,
+    );
+    const rjs = await this.dataSource.query(
+      `SELECT 'rj' AS "targetType", r.id AS "targetId", r.name, s.name AS "stationName", r."suspendedAt" AS since
+         FROM rjs r LEFT JOIN stations s ON s.id = r."stationId"
+        WHERE r."suspendedAt" IS NOT NULL ORDER BY r."suspendedAt" DESC LIMIT 200`,
+    );
+    return [...programmes, ...rjs];
+  }
+
+  async unhide(adminId: string, type: string, id: string) {
+    if (type !== 'programme' && type !== 'rj') throw new BadRequestException('Unknown item.');
+    return this.dataSource.transaction(async (m) => {
+      const rows =
+        type === 'programme'
+          ? changed(await m.query(`UPDATE programmes SET "hiddenAt" = NULL WHERE id = $1 AND "hiddenAt" IS NOT NULL RETURNING id`, [id]))
+          : changed(await m.query(
+              `UPDATE rjs SET "suspendedAt" = NULL, "isActive" = ("verificationStatus" IN ('verified', 'legacy'))
+                WHERE id = $1 AND "suspendedAt" IS NOT NULL RETURNING id`,
+              [id],
+            ));
+      if (!rows.length) throw new NotFoundException('That item is not hidden.');
+      await writeAudit(m, adminId, 'report.unhidden', type, id, {});
+      return { ok: true };
+    });
+  }
+
   /** Dismiss all open reports about a thing, or hide the thing and close them. */
   async handle(adminId: string, type: string, id: string, action: unknown) {
     if (!TARGETS.includes(type as Target)) throw new BadRequestException('Unknown item.');
@@ -99,17 +131,17 @@ export class ReportsService {
     return this.dataSource.transaction(async (m) => {
       if (action === 'hide') {
         const sql = {
-          programme: `UPDATE programmes SET "isActive" = false WHERE id = $1`,
-          rj: `UPDATE rjs SET "isActive" = false WHERE id = $1`,
+          programme: `UPDATE programmes SET "hiddenAt" = COALESCE("hiddenAt", now()) WHERE id = $1`,
+          rj: `UPDATE rjs SET "isActive" = false, "suspendedAt" = COALESCE("suspendedAt", now()) WHERE id = $1`,
           ad: `UPDATE ads SET status = 'withdrawn', "updatedAt" = now() WHERE id = $1 AND status <> 'withdrawn'`,
         }[type as Target];
         await m.query(sql, [id]);
       }
-      const closed = await m.query(
+      const closed = changed(await m.query(
         `UPDATE reports SET status = $3, "handledByListenerId" = $4, "handledAt" = now()
           WHERE "targetType" = $1 AND "targetId" = $2 AND status = 'open' RETURNING id`,
         [type, id, action === 'hide' ? 'hidden' : 'dismissed', adminId],
-      );
+      ));
       await writeAudit(m, adminId, action === 'hide' ? 'report.hidden' : 'report.dismissed', type, id, { reports: closed.length });
       return { ok: true, closed: closed.length };
     });
@@ -130,6 +162,18 @@ export class ReportsController {
   @UseGuards(SuperadminGuard)
   open() {
     return this.reports.open();
+  }
+
+  @Get('admin/reports/hidden')
+  @UseGuards(SuperadminGuard)
+  hidden() {
+    return this.reports.hidden();
+  }
+
+  @Patch('admin/reports/hidden/:type/:id')
+  @UseGuards(SuperadminGuard)
+  unhide(@Req() req: Request, @Param('type') type: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.reports.unhide(signedInId(req)!, type, id);
   }
 
   @Patch('admin/reports/:type/:id')

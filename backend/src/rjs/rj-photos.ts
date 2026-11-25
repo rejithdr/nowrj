@@ -19,6 +19,7 @@ import { SignedInGuard, UPLOAD_LIMITS } from '../auth/guards/signed-in.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { assertRjCanAct } from './rj-status';
 
 export const MAX_BYTES = 1024 * 1024;
 
@@ -47,7 +48,8 @@ export class RjPhotosService {
   constructor(private readonly dataSource: DataSource) {}
 
   private async ownRjId(listenerId: string): Promise<string> {
-    const [rj] = await this.dataSource.query(`SELECT id FROM rjs WHERE "ownerListenerId" = $1`, [listenerId]);
+    const [rj] = await this.dataSource.query(`SELECT id, "suspendedAt", "verificationStatus" FROM rjs WHERE "ownerListenerId" = $1`, [listenerId]);
+    assertRjCanAct(rj ?? null);
     if (!rj) throw new NotFoundException('RJ profile not found.');
     return rj.id;
   }

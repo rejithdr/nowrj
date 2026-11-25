@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { ShowOccurrence } from '../show-occurrence.entity';
 import { EngagementEvent } from '../engagement-event.entity';
 import { Rj } from '../rj.entity';
@@ -176,7 +177,7 @@ export class EngagementService {
 
   /** The signed-in RJ: followers plus every show they hosted in the last 14 days. */
   async forRj(listenerId: string, now = new Date()) {
-    const rj = await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     if (!rj) throw new NotFoundException('Register your RJ profile first.');
 
     const [followers] = await this.dataSource.query(

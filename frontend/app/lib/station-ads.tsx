@@ -11,7 +11,8 @@ type Consent = { status: "valid" | "pending_check" | "withdrawn" | "rejected" | 
 type Advertiser = {
   id: string;
   businessName: string;
-  contactName: string;
+  /** Null when another station brought this business in and it has not accepted your invite yet. */
+  contactName: string | null;
   contactPhone: string | null;
   email: string;
   linkStatus: "invited" | "active";
@@ -124,7 +125,7 @@ export default function StationAds({ stationId }: { stationId: string }) {
                 <span className="block font-semibold text-zinc-900">{a.businessName}</span>
                 <span className="block text-xs font-semibold text-orange-700">{open === a.id ? "Close" : "Open for invite link and ad library"}</span>
                 <span className="block text-sm text-zinc-600">
-                  {a.contactName} · {a.creatives} creative{a.creatives === 1 ? "" : "s"}
+                  {a.contactName ?? "Contact shown once they accept your invite"} · {a.creatives} creative{a.creatives === 1 ? "" : "s"}
                   {a.openSuggestions ? <span className="font-semibold text-orange-700"> · {a.openSuggestions} suggestion{a.openSuggestions === 1 ? "" : "s"}</span> : null}
                 </span>
               </span>
@@ -387,11 +388,23 @@ function CreativeForm({ base, advertiserId, creative, onDone }: { base: string; 
     setBusy(true);
     setError("");
     try {
-      const id = creative
-        ? (await api<{ id: string }>(`${base}/creatives/${creative.id}`, { method: "PATCH", body: JSON.stringify(form) })).id
-        : (await api<{ id: string }>(`${base}/advertisers/${advertiserId}/creatives`, { method: "POST", body: JSON.stringify(form) })).id;
-      if (image) await upload(`${base}/creatives/${id}/image`, "image", await shrink(image), "image.jpg");
-      await onDone(creative ? "Creative saved." : "Creative added to the library.");
+      let reapproval = 0;
+      let id: string;
+      if (creative) {
+        const saved = await api<{ id: string; reapproval?: number }>(`${base}/creatives/${creative.id}`, { method: "PATCH", body: JSON.stringify(form) });
+        id = saved.id;
+        reapproval = saved.reapproval ?? 0;
+      } else {
+        id = (await api<{ id: string }>(`${base}/advertisers/${advertiserId}/creatives`, { method: "POST", body: JSON.stringify(form) })).id;
+      }
+      if (image) {
+        const res = await upload(`${base}/creatives/${id}/image`, "image", await shrink(image), "image.jpg");
+        reapproval = Math.max(reapproval, Number((res as { reapproval?: number } | undefined)?.reapproval ?? 0));
+      }
+      const again = reapproval
+        ? ` ${reapproval} running ad${reapproval === 1 ? "" : "s"} using it went back for approval: someone else must approve ${reapproval === 1 ? "it" : "them"} again.`
+        : "";
+      await onDone((creative ? "Creative saved." : "Creative added to the library.") + again);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save.");
     } finally {

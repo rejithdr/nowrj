@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { Programme } from '../programme.entity';
 import { ProgrammeRj } from '../programme-rj.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
@@ -30,7 +31,7 @@ export class ShowChangesService {
   private async assertCanChange(listenerId: string, programmeId: string) {
     const programme = await this.dataSource.manager.findOneBy(Programme, { id: programmeId });
     if (!programme) throw new NotFoundException('Programme not found.');
-    const rj = await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     const hosts = rj
       ? await this.dataSource.manager.existsBy(ProgrammeRj, { programmeId, rjId: rj.id })
       : false;

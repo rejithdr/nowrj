@@ -796,8 +796,13 @@ export class OrgsService {
       if (approve) {
         await m.update(Station, { id: station.id }, { verificationStatus: 'verified', isActive: true });
       } else {
-        // Staff placed at the refused station move up to its region (or the head office).
+        // Staff placed only at the refused station lose that post. They are
+        // never moved up, which would give them the whole region or network.
         if (unit) {
+          await m.query(
+            `UPDATE org_members SET status = 'removed', "removedAt" = now(), "unitId" = $2 WHERE "unitId" = $1 AND status = 'active'`,
+            [unit.id, unit.parentId],
+          );
           await m.query(`UPDATE org_members SET "unitId" = $2 WHERE "unitId" = $1`, [unit.id, unit.parentId]);
           await m.delete(OrgInvite, { unitId: unit.id });
           await m.delete(OrgUnit, { id: unit.id });

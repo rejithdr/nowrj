@@ -19,7 +19,7 @@ import type { Request } from 'express';
 import { DataSource, type EntityManager } from 'typeorm';
 import { signedInId } from '../device';
 import { assertStationAccess } from '../orgs/access';
-import { writeAudit } from '../onboarding/helpers';
+import { writeAudit, changed } from '../onboarding/helpers';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -151,10 +151,10 @@ export class RecordingsService {
   async removeAiring(listenerId: string, stationId: string, showId: string) {
     return this.dataSource.transaction(async (m) => {
       await this.allow(m, listenerId, stationId, 'edit');
-      const [row] = await m.query(
+      const [row] = changed(await m.query(
         `DELETE FROM recording_airings WHERE "showOccurrenceId" = $1 AND "stationId" = $2 RETURNING "recordingId"`,
         [showId, stationId],
-      );
+      ));
       if (!row) throw new NotFoundException('That show does not play a recording.');
       await writeAudit(m, listenerId, 'recording.airing_removed', 'recording', row.recordingId, { stationId, showId });
       return { ok: true };

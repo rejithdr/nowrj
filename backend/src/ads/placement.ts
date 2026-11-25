@@ -4,15 +4,30 @@ export type AdKind = 'sponsored' | 'shoutout' | 'aired';
 export const MAX_SPONSORED_PER_SHOW = 2;
 
 /**
+ * SQL: the business has accepted THIS station, either by accepting the
+ * station's invite (link active) or through a signed form the station
+ * uploaded and the NowRJ team approved. Being invited is not enough.
+ */
+export const ACCEPTED_AT_STATION = (advertiserIdSql: string, stationIdSql: string) => `
+  EXISTS (SELECT 1 FROM advertiser_stations l
+           WHERE l."advertiserId" = ${advertiserIdSql} AND l."stationId" = ${stationIdSql}
+             AND (l.status = 'active'
+                  OR EXISTS (SELECT 1 FROM advertiser_consents sc
+                              WHERE sc."advertiserId" = ${advertiserIdSql} AND sc."stationId" = ${stationIdSql}
+                                AND sc.kind = 'scan' AND sc.status = 'valid')))`;
+
+/**
  * SQL that is true when ad `a` may be shown to listeners: approved, its
- * station has ads switched on and is not hidden, and the advertiser's
- * consent is in place. (Release 5b adds the trial hold here.)
+ * station has ads switched on and is not hidden, the advertiser's consent
+ * is in place and the advertiser accepted this station. (Release 5b adds the
+ * trial hold here.)
  */
 export const RUNNABLE_AD = (a = 'a') => `
   ${a}.status = 'approved'
   AND EXISTS (SELECT 1 FROM stations st WHERE st.id = ${a}."stationId" AND st."adsEnabled")
   AND NOT EXISTS (SELECT 1 FROM hidden_stations hs WHERE hs.id = ${a}."stationId")
   AND EXISTS (SELECT 1 FROM advertiser_consents ac WHERE ac."advertiserId" = ${a}."advertiserId" AND ac.status = 'valid')
+  AND ${ACCEPTED_AT_STATION(`${a}."advertiserId"`, `${a}."stationId"`)}
   AND EXISTS (SELECT 1 FROM ad_creatives cr WHERE cr.id = ${a}."creativeId" AND cr.status = 'active')`;
 
 export type ShowAd = {

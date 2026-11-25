@@ -249,6 +249,9 @@ export class RjsService {
       throw new BadRequestException('This RJ deleted their account; the profile cannot be changed.');
     }
     rj.isActive = isActive;
+    // Deactivating is moderation: it also hides the RJ's own programmes and
+    // turns off RJ tools, and only the Super Admin can undo it.
+    rj.suspendedAt = isActive ? null : (rj.suspendedAt ?? new Date());
     return this.rjRepository.save(rj);
   }
     async setVerificationForAdmin(

@@ -10,7 +10,7 @@ import { api, Card, Notice, primaryButton, quietButton, StatusPill } from "../..
 type StationRow = { id: string; name: string; city: string | null; adsEnabled: boolean; hasAgreement: boolean; organisationId: string | null; organisationName: string | null; organisationKind: string | null; stationType: "commercial" | "non_commercial" | "government" | null; advertisers: number };
 
 const TYPE_LABEL = { commercial: "Commercial", non_commercial: "Non-commercial (community)", government: "Government (Akashvani)" } as const;
-type Scan = { id: string; createdAt: string; businessName: string; contactName: string; email: string; stationName: string | null; uploadedBy: string | null };
+type Scan = { id: string; createdAt: string; businessName: string; contactName: string; email: string; stationName: string | null; uploadedBy: string | null; withdrawnAt?: string | null };
 
 /** Super Admin: the ads switch for each station, and scanned consents to check. */
 export default function AdminAdsPage() {
@@ -66,10 +66,21 @@ export default function AdminAdsPage() {
                     <p className="font-semibold text-zinc-900">{s.businessName}</p>
                     <p className="text-sm text-zinc-600">{s.contactName} · {s.email}</p>
                     <p className="text-xs text-zinc-500">Uploaded by {s.uploadedBy ?? "—"}{s.stationName ? ` at ${s.stationName}` : ""}</p>
+                    {s.withdrawnAt ? (
+                      <p className="mt-1 rounded-lg bg-red-50 px-2 py-1 text-sm font-semibold text-red-800">
+                        This business withdrew consent on {new Date(s.withdrawnAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}. Accept only if the form is dated after that.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <a href={`${API_URL}/admin/ads/consents/${s.id}/scan`} target="_blank" rel="noreferrer" className={quietButton}><ExternalLink size={14} aria-hidden="true" /> Open scan</a>
-                    <button type="button" disabled={busy} className={primaryButton} onClick={() => void act(() => api(`/admin/ads/consents/${s.id}/approve`, { method: "POST" }), `Consent for ${s.businessName} accepted.`)}>Accept</button>
+                    <button type="button" disabled={busy} className={primaryButton} onClick={() => {
+                        if (s.withdrawnAt && !window.confirm(`${s.businessName} withdrew consent earlier. Is this form signed after that date?`)) return;
+                        void act(
+                          () => api(`/admin/ads/consents/${s.id}/approve`, { method: "POST", body: JSON.stringify({ confirmAfterWithdrawal: Boolean(s.withdrawnAt) }) }),
+                          `Consent for ${s.businessName} accepted.`,
+                        );
+                      }}>Accept</button>
                     <button
                       type="button"
                       disabled={busy}

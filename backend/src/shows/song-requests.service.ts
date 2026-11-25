@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { ShowOccurrence } from '../show-occurrence.entity';
 import { ShowOccurrenceHost } from '../show-occurrence-host.entity';
 import { SongRequest, SongRequestKind, SongRequestStatus } from '../song-request.entity';
@@ -225,7 +226,7 @@ export class SongRequestsService {
   // ------------------------------------------------------------ RJ / station
 
   private async ownRj(listenerId: string) {
-    const rj = await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     if (!rj) throw new NotFoundException('Register your RJ profile first.');
     return rj;
   }
@@ -372,7 +373,7 @@ export class SongRequestsService {
     const show = await m.findOneBy(ShowOccurrence, { id: request.showOccurrenceId });
     if (!show) throw new NotFoundException('Show not found.');
 
-    const rj = await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     const isHost = rj ? await m.existsBy(ShowOccurrenceHost, { occurrenceId: show.id, rjId: rj.id }) : false;
     const isStation = await hasStationAccess(m, listenerId, show.stationId, 'programmes', 'edit');
     if (!isHost && !isStation) {

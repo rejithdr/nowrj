@@ -62,3 +62,15 @@ export async function transferProgrammeToStation(
     { ownerRjId: null, ownerStationId: stationId, stationId, isActive: true },
   );
 }
+
+/**
+ * Rows from an UPDATE/DELETE ... RETURNING run through query(): the
+ * PostgreSQL driver returns [rows, affectedCount] for those, not just rows.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function changed<T = Record<string, any>>(result: unknown): T[] {
+  if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0]) && typeof result[1] === 'number') {
+    return result[0] as T[];
+  }
+  return (result ?? []) as T[];
+}

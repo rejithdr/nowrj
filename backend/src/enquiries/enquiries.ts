@@ -17,7 +17,7 @@ import {
 import { DataSource } from 'typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
-import { clean, EMAIL, PHONE } from '../onboarding/helpers';
+import { clean, EMAIL, PHONE, changed } from '../onboarding/helpers';
 
 export type EnquiryInput = {
   name?: string;
@@ -72,7 +72,7 @@ export class EnquiriesService {
 
   async setStatus(id: string, status: unknown) {
     if (status !== 'new' && status !== 'done') throw new BadRequestException('Status must be new or done.');
-    const rows = await this.dataSource.query(`UPDATE enquiries SET status = $2 WHERE id = $1 RETURNING id`, [id, status]);
+    const rows = changed(await this.dataSource.query(`UPDATE enquiries SET status = $2 WHERE id = $1 RETURNING id`, [id, status]));
     if (!rows.length) throw new NotFoundException('Enquiry not found.');
     return { id, status };
   }

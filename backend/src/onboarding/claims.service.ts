@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, In, IsNull } from 'typeorm';
+import { assertRjCanAct } from '../rjs/rj-status';
 import { Programme } from '../programme.entity';
 import { ProgrammeClaim } from '../programme-claim.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
@@ -179,7 +180,7 @@ export class ClaimsService {
   // ----------------------------------------------------------------- RJ side
 
   private async ownRj(listenerId: string) {
-    const rj = await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+    const rj = assertRjCanAct(await this.dataSource.manager.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
     if (!rj) throw new NotFoundException('Register your RJ profile first.');
     return rj;
   }
@@ -211,7 +212,7 @@ export class ClaimsService {
     if (reason && reason.length > 500) throw new BadRequestException('Reason is too long.');
 
     return this.dataSource.transaction(async (m) => {
-      const rj = await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } });
+      const rj = assertRjCanAct(await m.findOne(Rj, { where: { ownerListener: { id: listenerId } } }));
       if (!rj) throw new NotFoundException('Register your RJ profile first.');
       const claim = await m.findOne(ProgrammeClaim, { where: { id: claimId }, lock: { mode: 'pessimistic_write' } });
       if (!claim) throw new NotFoundException('Claim not found.');

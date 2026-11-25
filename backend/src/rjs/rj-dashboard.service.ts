@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, In, IsNull } from 'typeorm';
+import { assertRjCanAct } from './rj-status';
 import { randomBytes } from 'node:crypto';
 import { Rj } from '../rj.entity';
 import { Station } from '../station.entity';
@@ -125,7 +126,7 @@ export class RjDashboardService {
     if (!rj) {
       throw new NotFoundException('Register your RJ profile first.');
     }
-    return rj;
+    return assertRjCanAct(rj);
   }
 
   // ---------------------------------------------------------------- station

@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DataSource, type EntityManager } from 'typeorm';
+import { RJ_CAN_ACT } from '../rjs/rj-status';
 import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device';
 import { hasStationAccess } from '../orgs/access';
 import { canReact } from '../shows/occurrence-rules';
@@ -106,7 +107,7 @@ export class PollsService {
   private async role(m: EntityManager, listenerId: string, show: ShowRow): Promise<'rj' | 'station'> {
     const [host] = await m.query(
       `SELECT 1 FROM show_occurrence_hosts h JOIN rjs r ON r.id = h."rjId"
-        WHERE h."occurrenceId" = $1 AND r."ownerListenerId" = $2 AND r."isActive"`,
+        WHERE h."occurrenceId" = $1 AND r."ownerListenerId" = $2 AND r."isActive" AND ${RJ_CAN_ACT('r')}`,
       [show.id, listenerId],
     );
     if (host) return 'rj';

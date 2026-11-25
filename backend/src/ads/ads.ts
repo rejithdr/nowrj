@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { DataSource, EntityManager } from 'typeorm';
+import { RJ_CAN_ACT } from '../rjs/rj-status';
 import { clean, writeAudit } from '../onboarding/helpers';
 import { stationAccess } from '../orgs/access';
 import { meets } from '../orgs/access-rules';
@@ -265,7 +266,7 @@ export class AdsService {
       if (ad.status !== 'approved') throw new ConflictException('This shout-out has not been approved.');
       if (!(new Date(ad.startsAt) <= now && now < new Date(ad.endsAt))) throw new ConflictException('A shout-out can go on air only while its show is live.');
       const [host] = await m.query(
-        `SELECT 1 FROM show_occurrence_hosts h JOIN rjs r ON r.id = h."rjId" WHERE h."occurrenceId" = $1 AND r."ownerListenerId" = $2`,
+        `SELECT 1 FROM show_occurrence_hosts h JOIN rjs r ON r.id = h."rjId" WHERE h."occurrenceId" = $1 AND r."ownerListenerId" = $2 AND ${RJ_CAN_ACT('r')}`,
         [ad.showOccurrenceId, listenerId],
       );
       if (!host) {
@@ -289,7 +290,7 @@ export class AdsService {
          JOIN show_occurrences o ON o.id = a."showOccurrenceId"
          JOIN programmes p ON p.id = o."programmeId"
          JOIN show_occurrence_hosts h ON h."occurrenceId" = o.id
-         JOIN rjs r ON r.id = h."rjId" AND r."ownerListenerId" = $1
+         JOIN rjs r ON r.id = h."rjId" AND r."ownerListenerId" = $1 AND ${RJ_CAN_ACT('r')}
          JOIN ad_creatives c ON c.id = a."creativeId"
          JOIN advertisers adv ON adv.id = a."advertiserId"
         WHERE a.kind = 'shoutout' AND ${RUNNABLE_AD('a')} AND o."endsAt" > $2 AND o."startsAt" < $3

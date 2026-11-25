@@ -51,6 +51,10 @@ export class Rj {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Set when the NowRJ team hides or deactivates the RJ (moderation). See rjs/rj-status.ts. */
+  @Column({ type: 'timestamptz', nullable: true })
+  suspendedAt: Date | null;
+
   @ManyToOne(() => Station, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'stationId' })
   station: Station | null;

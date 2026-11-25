@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { slotLabel, sortSlots } from '../programmes/schedule-rules';
 
-const PUBLIC_RJ = `r."isActive" = true AND r."verificationStatus" IN ('verified', 'legacy')`;
+const PUBLIC_RJ = `r."isActive" = true AND r."verificationStatus" IN ('verified', 'legacy') AND r."suspendedAt" IS NULL`;
 
 type Host = { id: string; name: string; slug: string; photoUrl: string | null };
 type ProgrammeSummary = {
@@ -76,6 +76,7 @@ export class PagesService {
     const [rj] = await this.dataSource.query(
       `SELECT r.id, r.name, r.slug, r."photoUrl", s.name AS "stationName", s.slug AS "stationSlug"
          FROM rjs r LEFT JOIN stations s ON s.id = r."stationId" AND s."isActive" = true
+                    AND NOT EXISTS (SELECT 1 FROM hidden_stations hs WHERE hs.id = s.id)
         WHERE r.slug = $1 AND ${PUBLIC_RJ}`,
       [slug],
     );

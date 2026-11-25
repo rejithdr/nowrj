@@ -45,6 +45,10 @@ export class Programme {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Set when the NowRJ team hides the programme (moderation); nothing else clears it. */
+  @Column({ type: 'timestamptz', nullable: true })
+  hiddenAt: Date | null;
+
   /** The station it airs on; empty while it waits on a station invite. */
   @ManyToOne(() => Station, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'stationId' })

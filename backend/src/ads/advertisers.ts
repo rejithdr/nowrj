@@ -30,8 +30,9 @@ import type { Request, Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { decryptBytes, decryptText, encryptBytes, encryptText } from '../crypto/field-crypto';
+import { ACCEPTED_AT_STATION } from './placement';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
-import { clean, EMAIL, PHONE, writeAudit } from '../onboarding/helpers';
+import { clean, EMAIL, PHONE, writeAudit, changed } from '../onboarding/helpers';
 import { imageType, MAX_BYTES as IMAGE_MAX } from '../rjs/rj-photos';
 import { stationAccess } from '../orgs/access';
 import { meets } from '../orgs/access-rules';
@@ -162,6 +163,9 @@ export class AdvertisersService {
     const access = (await stationAccess(m, listenerId, stationId))!;
     const rows: Record<string, unknown>[] = await m.query(
       `SELECT a.id, a."businessName", a."contactName", a."contactPhone", a.email, s.status AS "linkStatus",
+              (${ACCEPTED_AT_STATION('a.id', '$1')}
+               OR NOT EXISTS (SELECT 1 FROM advertiser_stations o
+                               WHERE o."advertiserId" = a.id AND o."stationId" <> $1 AND o."createdAt" < s."createdAt")) AS "contactVisible",
               (SELECT count(*)::int FROM advertiser_members am WHERE am."advertiserId" = a.id) AS accounts,
               (SELECT count(*)::int FROM ad_creatives c WHERE c."advertiserId" = a.id AND c."stationId" = $1 AND c.status = 'active') AS creatives,
               (SELECT count(*)::int FROM ad_creative_suggestions g JOIN ad_creatives c ON c.id = g."creativeId"
@@ -176,7 +180,15 @@ export class AdvertisersService {
     );
     const advertisers = [];
     for (const row of rows) {
-      advertisers.push({ ...row, contactPhone: decryptText(row.contactPhone as string | null), consent: await this.consent(m, row.id as string) });
+      // A business another station brought in keeps its contact details
+      // private until it accepts this station's invite.
+      const visible = Boolean(row.contactVisible);
+      advertisers.push({
+        ...row,
+        contactName: visible ? row.contactName : null,
+        contactPhone: visible ? decryptText(row.contactPhone as string | null) : null,
+        consent: await this.consent(m, row.id as string),
+      });
     }
     return {
       station,
@@ -330,13 +342,30 @@ export class AdvertisersService {
         listenerId,
         ...keys.map((k) => fields[k]),
       ]);
+      const reapproval = await this.needReapproval(m, creativeId, listenerId);
       await writeAudit(m, listenerId, 'ad_creative.updated', 'ad_creative', creativeId, {
         stationId,
         from: Object.fromEntries(keys.map((k) => [k, before[k]])),
         to: fields,
+        adsBackToApproval: reapproval,
       });
-      return { id: creativeId };
+      return { id: creativeId, reapproval };
     });
+  }
+
+  /**
+   * Approved ads using a creative that was just changed go back to "waiting
+   * for approval", with the editor as maker, so someone else must approve
+   * what listeners will now see. Returns how many.
+   */
+  private async needReapproval(m: EntityManager, creativeId: string, editorId: string) {
+    const rows = changed(await m.query(
+      `UPDATE ads SET status = 'pending', "checkerListenerId" = NULL, "checkedAt" = NULL,
+              "makerListenerId" = $2, "updatedAt" = now()
+        WHERE "creativeId" = $1 AND status = 'approved' RETURNING id`,
+      [creativeId, editorId],
+    ));
+    return rows.length as number;
   }
 
   async archiveCreative(listenerId: string, stationId: string, creativeId: string) {
@@ -363,7 +392,9 @@ export class AdvertisersService {
         [creativeId, file.buffer, type],
       );
       await m.query(`UPDATE ad_creatives SET "hasImage" = true, "updatedAt" = now(), "updatedByListenerId" = $2 WHERE id = $1`, [creativeId, listenerId]);
-      return { hasImage: true };
+      const reapproval = await this.needReapproval(m, creativeId, listenerId);
+      await writeAudit(m, listenerId, 'ad_creative.image_set', 'ad_creative', creativeId, { stationId, adsBackToApproval: reapproval });
+      return { hasImage: true, reapproval };
     });
   }
 
@@ -372,8 +403,10 @@ export class AdvertisersService {
       await this.staff(m, listenerId, stationId, 'edit');
       await this.creativeAt(m, creativeId, stationId);
       await m.query(`DELETE FROM ad_creative_images WHERE "creativeId" = $1`, [creativeId]);
-      await m.query(`UPDATE ad_creatives SET "hasImage" = false, "updatedAt" = now() WHERE id = $1`, [creativeId]);
-      return { hasImage: false };
+      await m.query(`UPDATE ad_creatives SET "hasImage" = false, "updatedAt" = now(), "updatedByListenerId" = $2 WHERE id = $1`, [creativeId, listenerId]);
+      const reapproval = await this.needReapproval(m, creativeId, listenerId);
+      await writeAudit(m, listenerId, 'ad_creative.image_removed', 'ad_creative', creativeId, { stationId, adsBackToApproval: reapproval });
+      return { hasImage: false, reapproval };
     });
   }
 
@@ -385,12 +418,12 @@ export class AdvertisersService {
   async suggestionDone(listenerId: string, stationId: string, suggestionId: string) {
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
-      const [row] = await m.query(
+      const [row] = changed(await m.query(
         `UPDATE ad_creative_suggestions g SET status = 'done', "doneByListenerId" = $3
            FROM ad_creatives c
           WHERE g.id = $1 AND c.id = g."creativeId" AND c."stationId" = $2 RETURNING g.id`,
         [suggestionId, stationId, listenerId],
-      );
+      ));
       if (!row) throw new NotFoundException('Suggestion not found.');
       return { id: row.id, status: 'done' };
     });
@@ -540,11 +573,11 @@ export class AdvertisersService {
   async withdrawConsent(listenerId: string, advertiserId: string, now = new Date()) {
     return this.dataSource.transaction(async (m) => {
       await this.member(m, listenerId, advertiserId);
-      const rows = await m.query(
+      const rows = changed(await m.query(
         `UPDATE advertiser_consents SET status = 'withdrawn', "withdrawnAt" = $2
           WHERE "advertiserId" = $1 AND status IN ('valid','pending_check') RETURNING id`,
         [advertiserId, now],
-      );
+      ));
       if (!rows.length) throw new ConflictException('There is no consent to withdraw.');
       await writeAudit(m, listenerId, 'advertiser.consent_withdrawn', 'advertiser', advertiserId, {});
       return { status: 'withdrawn' };
@@ -581,7 +614,7 @@ export class AdvertisersService {
         }
         await m.query(`UPDATE stations SET "adsAgreementAt" = now() WHERE id = $1`, [stationId]);
       }
-      const [row] = await m.query(`UPDATE stations SET "adsEnabled" = $2 WHERE id = $1 RETURNING id, name`, [stationId, enabled]);
+      const [row] = changed(await m.query(`UPDATE stations SET "adsEnabled" = $2 WHERE id = $1 RETURNING id, name`, [stationId, enabled]));
       await writeAudit(m, adminId, enabled ? 'station.ads_on' : 'station.ads_off', 'station', stationId, { name: row.name });
       return { id: stationId, adsEnabled: enabled };
     });
@@ -592,7 +625,7 @@ export class AdvertisersService {
       throw new BadRequestException('Choose commercial, non-commercial or government.');
     }
     return this.dataSource.transaction(async (m) => {
-      const [org] = await m.query(`UPDATE organisations SET "stationType" = $2 WHERE id = $1 RETURNING id, name`, [organisationId, type]);
+      const [org] = changed(await m.query(`UPDATE organisations SET "stationType" = $2 WHERE id = $1 RETURNING id, name`, [organisationId, type]));
       if (!org) throw new NotFoundException('Organisation not found.');
       // A government station without a signed agreement cannot keep ads on.
       if (type === 'government') {
@@ -606,7 +639,9 @@ export class AdvertisersService {
   async adminScans() {
     return this.dataSource.query(`
       SELECT c.id, c."createdAt", c."scanType", a."businessName", a."contactName", a.email, s.name AS "stationName",
-             l."displayName" AS "uploadedBy"
+             l."displayName" AS "uploadedBy",
+             (SELECT max(w."withdrawnAt") FROM advertiser_consents w
+               WHERE w."advertiserId" = c."advertiserId" AND w.status = 'withdrawn') AS "withdrawnAt"
         FROM advertiser_consents c
         JOIN advertisers a ON a.id = c."advertiserId"
         LEFT JOIN stations s ON s.id = c."stationId"
@@ -621,15 +656,36 @@ export class AdvertisersService {
     return { scan: decryptBytes(row.scan as Buffer)!, scanType: row.scanType as string };
   }
 
-  async adminDecideScan(adminId: string, consentId: string, approve: boolean, noteInput: unknown, now = new Date()) {
+  async adminDecideScan(
+    adminId: string,
+    consentId: string,
+    approve: boolean,
+    noteInput: unknown,
+    now = new Date(),
+    confirmAfterWithdrawal = false,
+  ) {
     const note = text(noteInput, 300, 'reason');
     if (!approve && !note) throw new BadRequestException('Give a reason so the station knows what to fix.');
     return this.dataSource.transaction(async (m) => {
-      const [row] = await m.query(
+      if (approve) {
+        // A business that withdrew consent must not be put back by an old form.
+        const [w] = await m.query(
+          `SELECT max(w."withdrawnAt") AS at FROM advertiser_consents w
+            JOIN advertiser_consents c ON c."advertiserId" = w."advertiserId"
+           WHERE c.id = $1 AND w.status = 'withdrawn'`,
+          [consentId],
+        );
+        if (w?.at && !confirmAfterWithdrawal) {
+          throw new ConflictException(
+            `This business withdrew its consent on ${new Date(w.at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}. Approve only if this form was signed after that date.`,
+          );
+        }
+      }
+      const [row] = changed(await m.query(
         `UPDATE advertiser_consents SET status = $2, "checkedByListenerId" = $3, "checkedAt" = $4, note = $5
           WHERE id = $1 AND status = 'pending_check' RETURNING "advertiserId"`,
         [consentId, approve ? 'valid' : 'rejected', adminId, now, note],
-      );
+      ));
       if (!row) throw new NotFoundException('Scan waiting for a check not found.');
       await writeAudit(m, adminId, approve ? 'advertiser.consent_scan_approved' : 'advertiser.consent_scan_rejected', 'advertiser', row.advertiserId, {
         consentId,
@@ -816,8 +872,8 @@ export class AdminAdsController {
   }
 
   @Post('consents/:id/approve')
-  approve(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
-    return this.ads.adminDecideScan(listenerId(req), id, true, null);
+  approve(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { confirmAfterWithdrawal?: unknown }) {
+    return this.ads.adminDecideScan(listenerId(req), id, true, null, new Date(), body?.confirmAfterWithdrawal === true);
   }
 
   @Post('consents/:id/reject')
