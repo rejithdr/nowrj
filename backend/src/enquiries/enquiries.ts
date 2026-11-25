@@ -43,8 +43,9 @@ export class EnquiriesService {
     if (!name || name.length > 100) throw new BadRequestException('Enter your name (up to 100 characters).');
     if (organisation && organisation.length > 150) throw new BadRequestException('Company name is too long.');
     if (!phone && !email) throw new BadRequestException('Give a phone number or an email so we can reply.');
-    if (phone && !PHONE.test(phone)) throw new BadRequestException('Phone number must be 6 to 19 digits, optionally starting with +.');
-    if (email && (!EMAIL.test(email) || email.length > 255)) throw new BadRequestException('Enter a valid email address.');
+    // Lengths first, so the patterns only ever see short text.
+    if (phone && (phone.length > 25 || !PHONE.test(phone))) throw new BadRequestException('Phone number must be 6 to 19 digits, optionally starting with +.');
+    if (email && (email.length > 255 || !EMAIL.test(email))) throw new BadRequestException('Enter a valid email address.');
     if (!message || message.length > 1000) throw new BadRequestException('Write a short message (up to 1000 characters).');
 
     // A light brake on floods: at most 30 enquiries an hour across the site.

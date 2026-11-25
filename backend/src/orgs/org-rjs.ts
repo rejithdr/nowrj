@@ -133,7 +133,7 @@ export class OrgRjsService {
 
   async invite(listenerId: string, organisationId: string, input: { email?: string; unitId?: string | null }, now = new Date()) {
     const email = clean(input?.email)?.toLowerCase();
-    if (!email || !EMAIL.test(email) || email.length > 255) throw new BadRequestException("Enter the RJ's email address.");
+    if (!email || email.length > 255 || !EMAIL.test(email)) throw new BadRequestException("Enter the RJ's email address.");
     return this.dataSource.transaction(async (m) => {
       const org = await this.org(m, organisationId);
       const actor = await this.actor(m, listenerId, organisationId, 'edit');

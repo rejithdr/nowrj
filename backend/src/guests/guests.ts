@@ -18,8 +18,10 @@ import {
   Res,
   UnauthorizedException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { SignedInGuard, UPLOAD_LIMITS } from '../auth/guards/signed-in.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
@@ -456,7 +458,8 @@ export class GuestsController {
   }
 
   @Post(':id/photo')
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: MAX_BYTES, files: 1 } }))
+  @UseGuards(SignedInGuard)
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: MAX_BYTES, ...UPLOAD_LIMITS } }))
   uploadPhoto(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @UploadedFile() file: { buffer: Buffer; size: number } | undefined) {
     return this.guests.uploadPhoto(listenerId(req), id, file);
   }

@@ -4,7 +4,8 @@ import { Programme } from '../programme.entity';
 import { ProgrammeOwnership } from '../programme-ownership.entity';
 
 export const PHONE = /^\+?[0-9][0-9 -]{5,18}$/;
-export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Linear-time: each domain label has no dots, so the pattern cannot backtrack. Check length (≤ 255) first anyway. */
+export const EMAIL = /^[^\s@]{1,64}@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 export function clean(value: unknown): string | null {
   if (typeof value !== 'string') return null;

@@ -10,5 +10,7 @@ export const CONTACT_RULE_MESSAGE = 'Please remove phone numbers, email addresse
 
 export function hasContactDetails(text: string | null | undefined): boolean {
   if (!text) return false;
-  return PHONE.test(text) || EMAIL.test(text) || LINK.test(text);
+  // Callers limit length first; this cap keeps the patterns cheap even if one forgets.
+  const t = text.length > 2000 ? text.slice(0, 2000) : text;
+  return PHONE.test(t) || EMAIL.test(t) || LINK.test(t);
 }

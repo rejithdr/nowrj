@@ -23,6 +23,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { SignedInGuard, UPLOAD_LIMITS } from '../auth/guards/signed-in.guard';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
@@ -196,7 +197,7 @@ export class AdvertisersService {
     const contactPhone = text(input?.contactPhone, 20, 'phone');
     if (contactPhone && !PHONE.test(contactPhone)) throw new BadRequestException('Phone number is not valid.');
     const email = clean(input?.email)?.toLowerCase();
-    if (!email || !EMAIL.test(email) || email.length > 255) throw new BadRequestException("Enter the advertiser's email (their Google account).");
+    if (!email || email.length > 255 || !EMAIL.test(email)) throw new BadRequestException("Enter the advertiser's email (their Google account).");
 
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
@@ -660,7 +661,8 @@ export class StationAdsController {
   }
 
   @Post('advertisers/:advertiserId/consent-scan')
-  @UseInterceptors(FileInterceptor('scan', { limits: { fileSize: SCAN_MAX, files: 1 } }))
+  @UseGuards(SignedInGuard)
+  @UseInterceptors(FileInterceptor('scan', { limits: { fileSize: SCAN_MAX, ...UPLOAD_LIMITS } }))
   scan(
     @Req() req: Request,
     @Param('stationId', ParseUUIDPipe) stationId: string,
@@ -701,7 +703,8 @@ export class StationAdsController {
   }
 
   @Post('creatives/:creativeId/image')
-  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: IMAGE_MAX, files: 1 } }))
+  @UseGuards(SignedInGuard)
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: IMAGE_MAX, ...UPLOAD_LIMITS } }))
   image(
     @Req() req: Request,
     @Param('stationId', ParseUUIDPipe) stationId: string,
