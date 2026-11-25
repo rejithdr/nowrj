@@ -20,6 +20,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { assertRjCanAct } from './rj-status';
+import { PUBLIC_RJ } from '../orgs/visibility';
+import { hasStationAccess } from '../orgs/access';
+import { isSuperadminEmail } from '../auth/guards/superadmin.guard';
 
 export const MAX_BYTES = 1024 * 1024;
 
@@ -82,13 +85,25 @@ export class RjPhotosService {
     return { photoUrl: null };
   }
 
-  async find(rjId: string): Promise<{ data: Buffer; contentType: string } | null> {
+  /**
+   * An RJ's photo. Public while listeners may see the RJ; otherwise (waiting
+   * for verification, suspended, rejected) only the RJ, staff of their
+   * station who handle RJs, and the Super Admin.
+   */
+  async find(rjId: string, viewer: { listenerId: string | null; superadmin: boolean } = { listenerId: null, superadmin: false }) {
     const [row] = await this.dataSource.query(
-      `SELECT p.data, p."contentType" FROM rj_photos p JOIN rjs r ON r.id = p."rjId"
+      `SELECT p.data, p."contentType", r."ownerListenerId", r."stationId", ${PUBLIC_RJ('r')} AS public
+         FROM rj_photos p JOIN rjs r ON r.id = p."rjId"
         WHERE p."rjId" = $1 AND r."verificationStatus" <> 'deleted'`,
       [rjId],
     );
-    return row ?? null;
+    if (!row) return null;
+    const photo = { data: row.data as Buffer, contentType: row.contentType as string, public: Boolean(row.public) };
+    if (photo.public || viewer.superadmin) return photo;
+    if (!viewer.listenerId) return null;
+    if (row.ownerListenerId === viewer.listenerId) return photo;
+    if (row.stationId && (await hasStationAccess(this.dataSource.manager, viewer.listenerId, row.stationId, 'rjs', 'view'))) return photo;
+    return null;
   }
 }
 
@@ -121,12 +136,14 @@ export class RjPhotoController {
   constructor(private readonly photos: RjPhotosService) {}
 
   @Get(':id/photo')
-  async show(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const photo = await this.photos.find(id);
+  async show(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const user = req.isAuthenticated?.() ? (req.user as { id: string; email?: string | null }) : null;
+    const photo = await this.photos.find(id, { listenerId: user?.id ?? null, superadmin: isSuperadminEmail(user?.email) });
     if (!photo) throw new NotFoundException('No photo.');
     res.set({
       'Content-Type': photo.contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      // Public photos are cached for a day (not forever), so a hidden RJ's photo stops being served soon.
+      'Cache-Control': photo.public ? 'public, max-age=86400' : 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     });
     res.send(photo.data);

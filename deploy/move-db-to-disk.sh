@@ -97,7 +97,10 @@ fi
 say "Moving local backups onto the disk"
 if [ -d "$HOME/backups" ] && [ ! -L "$HOME/backups" ]; then
   sudo mkdir -p "$MNT/backups"; sudo chown "$USER:$USER" "$MNT/backups"
+  # Dumps hold the whole database: only this user may open the folder or files.
+  chmod 700 "$MNT/backups"
   cp -a "$HOME/backups/." "$MNT/backups/"
+  chmod 600 "$MNT/backups/"*.dump 2>/dev/null || true
   mv "$HOME/backups" "$HOME/backups.before-move"
   ln -s "$MNT/backups" "$HOME/backups"
 fi

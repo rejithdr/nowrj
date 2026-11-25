@@ -108,7 +108,9 @@ export class OrgRjsService {
           ORDER BY r.name`,
         [organisationId],
       );
-    const invites = await m.find(RjInvite, { where: { organisationId, status: 'sent' }, order: { createdAt: 'DESC' } });
+    const invites = (await m.find(RjInvite, { where: { organisationId, status: 'sent' }, order: { createdAt: 'DESC' } })).filter(
+      (i) => !i.expiresAt || new Date(i.expiresAt).getTime() > Date.now(),
+    );
     return {
       organisation: { id: org.id, name: org.name, kind: org.kind },
       canEdit,

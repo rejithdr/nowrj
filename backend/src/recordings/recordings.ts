@@ -67,9 +67,10 @@ export class RecordingsService {
                 JOIN stations s ON s.id = ra."stationId"
                 JOIN programmes p ON p.id = o."programmeId"
                WHERE ra."recordingId" = r.id), '[]') AS airings,
+             -- Only the owning station sees which stations it offered the recording to.
              COALESCE((SELECT json_agg(json_build_object('stationId', s.id, 'stationName', s.name) ORDER BY s.name)
                 FROM recording_shares sh JOIN stations s ON s.id = sh."stationId"
-               WHERE sh."recordingId" = r.id), '[]') AS "sharedWith"
+               WHERE sh."recordingId" = r.id AND r."ownerStationId" = $1), '[]') AS "sharedWith"
         FROM recordings r JOIN stations os ON os.id = r."ownerStationId"
        WHERE r."ownerStationId" = $1
           OR EXISTS (SELECT 1 FROM recording_shares sh WHERE sh."recordingId" = r.id AND sh."stationId" = $1)

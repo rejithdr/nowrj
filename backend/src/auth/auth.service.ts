@@ -18,6 +18,11 @@ export class AuthService {
     );
 
     if (existing) {
+      // Keep the stored email in step with Google's current, verified one, so
+      // access tied to an email follows the address the person really holds.
+      if (existing.email !== profile.email) {
+        return this.listenersService.updateEmail(existing.id, profile.email);
+      }
       return existing;
     }
 

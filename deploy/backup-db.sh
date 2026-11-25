@@ -12,7 +12,9 @@ chmod 700 "$DIR"
 STAMP=$(date +%Y-%m-%d_%H%M)
 FILE="${DIR}nowrj-$STAMP.dump"
 set -a; . /srv/nowrj/backend/.env; set +a
-PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_NAME" -F c -f "$FILE"
+# Sign-in sessions are not backed up: a restore must not sign anyone back in.
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_NAME" -F c --exclude-table-data=user_sessions -f "$FILE"
+chmod 600 "$FILE"
 find "$DIR" -name 'nowrj-*.dump' -mtime +14 -delete
 echo "$(date) backup ok: $(basename "$FILE")"
 
@@ -25,6 +27,12 @@ if [ -f "$CONF" ]; then
   if "$AWS" s3 cp "$FILE" "s3://${BACKUP_S3_BUCKET}/daily/$(basename "$FILE")" \
       --sse AES256 --profile nowrj-backup --region ap-south-1 --only-show-errors; then
     echo "$(date) copied to S3: s3://${BACKUP_S3_BUCKET}/daily/$(basename "$FILE")"
+    # The list of deleted accounts (ids only) must outlive the server too, so a
+    # restore can delete them again (deploy/BACKUPS.md, "Restoring for real").
+    if [ -f /srv/nowrj/erasures.log ]; then
+      "$AWS" s3 cp /srv/nowrj/erasures.log "s3://${BACKUP_S3_BUCKET}/erasures.log" \
+        --sse AES256 --profile nowrj-backup --region ap-south-1 --only-show-errors || true
+    fi
   else
     echo "$(date) S3 COPY FAILED for $(basename "$FILE"); the local copy is in $DIR" >&2
     exit 2

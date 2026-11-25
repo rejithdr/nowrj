@@ -101,9 +101,19 @@ pm2 stop nowrj-backend
 . ~/.nowrj-backup
 aws s3 cp "s3://$BACKUP_S3_BUCKET/daily/<file>.dump" ~/restore.dump --profile nowrj-backup
 set -a; . /srv/nowrj/backend/.env; set +a
-PGPASSWORD="$DB_PASSWORD" pg_restore --clean --if-exists -h localhost -U nowrj_app -d nowrj ~/restore.dump
+PGPASSWORD="$DB_PASSWORD" pg_restore --clean --if-exists --no-comments -h localhost -U nowrj_app -d nowrj ~/restore.dump
+# Nobody stays signed in across a restore (backups leave sessions out; this clears any left over).
+PGPASSWORD="$DB_PASSWORD" psql -h localhost -U nowrj_app -d nowrj -c 'TRUNCATE user_sessions'
+# Accounts deleted after this backup was taken would come back: delete them again.
+# If the server itself was lost, first fetch the list:
+#   aws s3 cp "s3://$BACKUP_S3_BUCKET/erasures.log" /srv/nowrj/erasures.log --profile nowrj-backup
+cd /srv/nowrj/backend && node dist/scripts/reapply-erasures.js
 pm2 start nowrj-backend
 ```
+
+`/srv/nowrj/erasures.log` lists every deleted account (id, date, reason; no
+names or contact details). It is copied to S3 with each daily backup. Never
+delete it: without it, a restore would bring deleted people back.
 
 ## If the key is ever exposed
 

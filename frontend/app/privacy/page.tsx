@@ -43,7 +43,9 @@ export default function PrivacyPage() {
       <h2>How long we keep it</h2>
       <p>
         We keep your data while your account is open. When you delete your account, your personal data is erased straight
-        away (see below). Copies in our encrypted backups are overwritten within 30 days.
+        away (see below). Copies in our encrypted backups are overwritten within 30 days. Two records are kept after
+        deletion because the law or other people rely on them: our security activity log (who did what, kept for
+        accountability), and business records an advertiser or station gave us themselves, such as a signed ad consent.
       </p>
 
       <h2>Your rights</h2>

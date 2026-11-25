@@ -21,9 +21,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     refreshToken: string,
     profile: Profile,
   ) {
+    // Use the email only when Google says it is verified: Super Admin access
+    // and invitations are matched on it.
+    const first = profile.emails?.[0] as { value?: string; verified?: boolean | string } | undefined;
+    const verified = first?.verified === true || first?.verified === 'true';
     return {
       googleId: profile.id,
-      email: profile.emails?.[0]?.value ?? null,
+      email: verified && first?.value ? first.value.trim().toLowerCase() : null,
       displayName: profile.displayName || null,
       photoUrl: profile.photos?.[0]?.value ?? null,
     };

@@ -27,6 +27,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { RJ_CAN_ACT } from '../rjs/rj-status';
+import { isSuperadminEmail } from '../auth/guards/superadmin.guard';
 import { onAirName, readOnAirConsent } from '../shows/on-air';
 import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { GuestSession } from '../guest-session.entity';
@@ -413,12 +414,26 @@ export class GuestsService {
     return { photoUrl: null };
   }
 
-  async photo(sessionId: string): Promise<{ data: Buffer; contentType: string } | null> {
+  /**
+   * A guest's photo. Public while the session is on a programme listeners
+   * may see (not cancelled, programme active and not hidden); otherwise only
+   * people who manage the programme, and the Super Admin.
+   */
+  async photo(sessionId: string, viewer: { listenerId: string | null; superadmin: boolean } = { listenerId: null, superadmin: false }) {
     const [row] = await this.dataSource.query(
-      `SELECT data, "contentType" FROM guest_session_photos WHERE "guestSessionId" = $1`,
+      `SELECT ph.data, ph."contentType", g."programmeId",
+              (g.status <> 'cancelled' AND p."isActive" AND ${VISIBLE_PROGRAMME()}) AS public
+         FROM guest_session_photos ph
+         JOIN guest_sessions g ON g.id = ph."guestSessionId"
+         JOIN programmes p ON p.id = g."programmeId"
+        WHERE ph."guestSessionId" = $1`,
       [sessionId],
     );
-    return row ?? null;
+    if (!row) return null;
+    const photo = { data: row.data as Buffer, contentType: row.contentType as string, public: Boolean(row.public) };
+    if (photo.public || viewer.superadmin) return photo;
+    if (viewer.listenerId && (await canManageProgramme(this.dataSource.manager, viewer.listenerId, row.programmeId))) return photo;
+    return null;
   }
 }
 
@@ -495,12 +510,13 @@ export class GuestsController {
   }
 
   @Get(':id/photo')
-  async photo(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const photo = await this.guests.photo(id);
+  async photo(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const user = req.isAuthenticated?.() ? (req.user as { id: string; email?: string | null }) : null;
+    const photo = await this.guests.photo(id, { listenerId: user?.id ?? null, superadmin: isSuperadminEmail(user?.email) });
     if (!photo) throw new NotFoundException('No photo.');
     res.set({
       'Content-Type': photo.contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': photo.public ? 'public, max-age=86400' : 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
     });
     res.send(photo.data);

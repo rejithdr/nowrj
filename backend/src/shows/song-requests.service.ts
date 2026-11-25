@@ -151,7 +151,9 @@ export class SongRequestsService {
       const listener = await m.findOneBy(Listener, { id: listenerId, isActive: true });
       if (!listener) throw new NotFoundException('Listener not found.');
 
-      // Lock this listener's rows for the show so two quick taps cannot pass the limit.
+      // Two quick taps must not both pass the limit: take a lock for this
+      // listener and show (row locks alone lock nothing when there are no rows yet).
+      await m.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`song-requests:${listenerId}:${occurrenceId}`]);
       const mine = await m
         .createQueryBuilder(SongRequest, 'r')
         .setLock('pessimistic_write')

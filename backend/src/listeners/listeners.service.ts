@@ -28,7 +28,20 @@ export class ListenersService {
     });
   }
 
-  create(data: Partial<Listener>) {
+  /**
+   * Google has just verified this person holds `email`. If an older account
+   * still has that address (Google reassigned it), that account loses it.
+   */
+  async updateEmail(id: string, email: string | null) {
+    await this.listenerRepository.manager.transaction(async (m) => {
+      if (email) await m.query(`UPDATE listeners SET email = NULL WHERE lower(email) = lower($1) AND id <> $2`, [email, id]);
+      await m.update(Listener, { id }, { email });
+    });
+    return this.listenerRepository.findOneOrFail({ where: { id } });
+  }
+
+  async create(data: Partial<Listener>) {
+    if (data.email) await this.listenerRepository.query(`UPDATE listeners SET email = NULL WHERE lower(email) = lower($1)`, [data.email]);
     const listener = this.listenerRepository.create(data);
     return this.listenerRepository.save(listener);
   }

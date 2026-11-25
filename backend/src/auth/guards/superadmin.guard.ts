@@ -47,3 +47,14 @@ export class SuperadminGuard implements CanActivate {
     return true;
   }
 }
+
+/** True when this email is one of SUPERADMIN_EMAILS (for checks outside a guard). */
+export function isSuperadminEmail(email: string | null | undefined): boolean {
+  const e = email?.trim().toLowerCase();
+  if (!e) return false;
+  return (process.env.SUPERADMIN_EMAILS ?? '')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(e);
+}

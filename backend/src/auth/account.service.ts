@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { appendFileSync } from 'node:fs';
 import { writeAudit } from '../onboarding/helpers';
 
 /**
@@ -14,6 +15,22 @@ import { writeAudit } from '../onboarding/helpers';
  * hidden. Programmes owned by a station stay with the station; programmes
  * the RJ owned alone are hidden, and unanswered station invites are cancelled.
  */
+
+/**
+ * Deleted accounts are also listed in a file outside the database, so that
+ * after restoring an older backup they can be deleted again
+ * (deploy/after-restore.sh). Only ids and dates, no personal data.
+ */
+export const ERASURE_LOG = process.env.ERASURE_LOG ?? '/srv/nowrj/erasures.log';
+
+function recordErasure(listenerId: string, reason: string) {
+  try {
+    appendFileSync(ERASURE_LOG, `${new Date().toISOString()} ${listenerId} ${reason}\n`, { mode: 0o600 });
+  } catch {
+    // The deletion itself already happened; a missing log only matters after a restore.
+  }
+}
+
 @Injectable()
 export class AccountService {
   constructor(private readonly dataSource: DataSource) {}
@@ -27,9 +44,16 @@ export class AccountService {
       );
 
       for (const rj of rjs) {
+        // The RJ's name is also kept as text on programmes; erase it on every
+        // programme they hosted or owned, including ones a station removed
+        // them from earlier (programme ownership history, past show hosts).
         await m.query(
           `UPDATE programmes SET "rjName" = 'Former RJ'
-            WHERE "rjName" = $2 AND id IN (SELECT "programmeId" FROM programme_rjs WHERE "rjId" = $1)`,
+            WHERE "rjName" = $2
+              AND (id IN (SELECT "programmeId" FROM programme_rjs WHERE "rjId" = $1)
+                   OR "ownerRjId" = $1
+                   OR id IN (SELECT o."programmeId" FROM show_occurrence_hosts h
+                               JOIN show_occurrences o ON o.id = h."occurrenceId" WHERE h."rjId" = $1))`,
           [rj.id, rj.name],
         );
         await m.query(
@@ -73,11 +97,15 @@ export class AccountService {
         `UPDATE org_members SET status = 'removed', "removedAt" = now() WHERE "listenerId" = $1 AND status = 'active'`,
         [listenerId],
       );
-      await m.query(
-        `UPDATE org_invites SET status = 'cancelled'
-          WHERE status = 'sent' AND email = (SELECT lower(email) FROM listeners WHERE id = $1)`,
-        [listenerId],
-      );
+      // Open invitations sent to this person's email end with the account, so
+      // staff no longer see the address in their lists.
+      for (const table of ['org_invites', 'rj_invites', 'advertiser_invites']) {
+        await m.query(
+          `UPDATE ${table} SET status = 'cancelled'
+            WHERE status IN ('sent', 'awaiting_approval') AND lower(email) = (SELECT lower(email) FROM listeners WHERE id = $1)`,
+          [listenerId],
+        );
+      }
       await m.query(
         `UPDATE listeners SET "displayName" = 'Deleted user', email = NULL, "googleId" = NULL,
                 "facebookId" = NULL, "photoUrl" = NULL, "isActive" = false
@@ -92,5 +120,6 @@ export class AccountService {
       // Sign the person out everywhere.
       await m.query(`DELETE FROM user_sessions WHERE sess->'passport'->>'user' = $1`, [listenerId]);
     });
+    recordErasure(listenerId, reason);
   }
 }

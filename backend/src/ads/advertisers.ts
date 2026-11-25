@@ -30,8 +30,8 @@ import type { Request, Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { decryptBytes, decryptText, encryptBytes, encryptText } from '../crypto/field-crypto';
-import { ACCEPTED_AT_STATION } from './placement';
-import { SuperadminGuard } from '../auth/guards/superadmin.guard';
+import { ACCEPTED_AT_STATION, RUNNABLE_AD } from './placement';
+import { isSuperadminEmail, SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { clean, EMAIL, PHONE, writeAudit, changed } from '../onboarding/helpers';
 import { imageType, MAX_BYTES as IMAGE_MAX } from '../rjs/rj-photos';
 import { stationAccess } from '../orgs/access';
@@ -121,6 +121,27 @@ export class AdvertisersService {
     const [row] = await m.query(`SELECT * FROM ad_creatives WHERE id = $1 AND "stationId" = $2`, [creativeId, stationId]);
     if (!row) throw new NotFoundException('Creative not found at your station.');
     return row;
+  }
+
+  /**
+   * Changing or archiving a creative changes every ad that uses it, so the
+   * person needs Edit on each kind of ad (sponsored, shout-out, aired)
+   * among the waiting and approved ads using it, not just on one area.
+   */
+  private async canChangeCreative(m: EntityManager, listenerId: string, stationId: string, creativeId: string) {
+    const kinds: { kind: string }[] = await m.query(
+      `SELECT DISTINCT kind FROM ads WHERE "creativeId" = $1 AND status IN ('pending', 'approved')`,
+      [creativeId],
+    );
+    if (!kinds.length) return;
+    const access = await stationAccess(m, listenerId, stationId);
+    const area: Record<string, string> = { sponsored: 'adsSponsored', shoutout: 'adsShoutout', aired: 'adsAired' };
+    const missing = kinds.filter((k) => !access || !meets(access.levels[area[k.kind] as (typeof AD_AREAS)[number]], 'edit'));
+    if (missing.length) {
+      throw new ForbiddenException(
+        `This creative is used by ${missing.map((k) => (k.kind === 'shoutout' ? 'shout-out' : k.kind)).join(' and ')} ads, which your designation does not let you change.`,
+      );
+    }
   }
 
   /** The advertiser's consent now: valid, waiting for the NowRJ team's check, or none. */
@@ -259,11 +280,17 @@ export class AdvertisersService {
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
       await this.linked(m, advertiserId, stationId);
+      const [{ recent }] = await m.query(
+        `SELECT count(*)::int AS recent FROM advertiser_consents WHERE "stationId" = $1 AND kind = 'scan' AND "createdAt" > now() - interval '1 day'`,
+        [stationId],
+      );
+      if (recent >= 20) throw new BadRequestException('Your station has uploaded many consent forms today. Please try again tomorrow.');
       const current = await this.consent(m, advertiserId);
       if (current.status === 'valid') throw new ConflictException('This advertiser has already given consent.');
       await m.query(
-        `UPDATE advertiser_consents SET status = 'rejected', note = 'Replaced by a newer scan' WHERE "advertiserId" = $1 AND status = 'pending_check'`,
-        [advertiserId],
+        `UPDATE advertiser_consents SET status = 'rejected', note = 'Replaced by a newer scan'
+          WHERE "advertiserId" = $1 AND "stationId" = $2 AND status = 'pending_check'`,
+        [advertiserId, stationId],
       );
       const [row] = await m.query(
         `INSERT INTO advertiser_consents ("advertiserId", kind, status, version, "uploadedByListenerId", "stationId", scan, "scanType")
@@ -319,6 +346,11 @@ export class AdvertisersService {
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
       await this.linked(m, advertiserId, stationId);
+      const [{ active }] = await m.query(
+        `SELECT count(*)::int AS active FROM ad_creatives WHERE "stationId" = $1 AND status = 'active'`,
+        [stationId],
+      );
+      if (active >= 300) throw new BadRequestException('Your station has 300 creatives in its library. Archive some you no longer use first.');
       const [row] = await m.query(
         `INSERT INTO ad_creatives ("advertiserId", "stationId", title, "offerText", address, timings, phone, website, "createdByListenerId", "updatedByListenerId")
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id`,
@@ -336,6 +368,7 @@ export class AdvertisersService {
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
       const before = await this.creativeAt(m, creativeId, stationId);
+      await this.canChangeCreative(m, listenerId, stationId, creativeId);
       const sets = keys.map((k, i) => `"${k}" = $${i + 3}`).join(', ');
       await m.query(`UPDATE ad_creatives SET ${sets}, "updatedByListenerId" = $2, "updatedAt" = now() WHERE id = $1`, [
         creativeId,
@@ -372,7 +405,11 @@ export class AdvertisersService {
     return this.dataSource.transaction(async (m) => {
       await this.staff(m, listenerId, stationId, 'edit');
       await this.creativeAt(m, creativeId, stationId);
+      await this.canChangeCreative(m, listenerId, stationId, creativeId);
       await m.query(`UPDATE ad_creatives SET status = 'archived', "updatedByListenerId" = $2, "updatedAt" = now() WHERE id = $1`, [creativeId, listenerId]);
+      // An archived creative is not shown again; its image is no longer needed.
+      await m.query(`DELETE FROM ad_creative_images WHERE "creativeId" = $1`, [creativeId]);
+      await m.query(`UPDATE ad_creatives SET "hasImage" = false WHERE id = $1`, [creativeId]);
       await writeAudit(m, listenerId, 'ad_creative.archived', 'ad_creative', creativeId, { stationId });
       return { id: creativeId, status: 'archived' };
     });
@@ -410,9 +447,28 @@ export class AdvertisersService {
     });
   }
 
-  async image(creativeId: string): Promise<{ data: Buffer; contentType: string } | null> {
-    const [row] = await this.dataSource.query(`SELECT data, "contentType" FROM ad_creative_images WHERE "creativeId" = $1`, [creativeId]);
-    return row ?? null;
+  /**
+   * A creative's image. Anyone may see it while an ad using it is running;
+   * otherwise (drafts, archived, withdrawn consent) only the station's ad
+   * staff, the business's own accounts and the Super Admin.
+   */
+  async image(creativeId: string, viewer: { listenerId: string | null; superadmin: boolean }) {
+    const m = this.dataSource.manager;
+    const [row] = await m.query(
+      `SELECT i.data, i."contentType", c."stationId", c."advertiserId",
+              EXISTS (SELECT 1 FROM ads a WHERE a."creativeId" = c.id AND ${RUNNABLE_AD('a')}) AS public
+         FROM ad_creative_images i JOIN ad_creatives c ON c.id = i."creativeId"
+        WHERE i."creativeId" = $1`,
+      [creativeId],
+    );
+    if (!row) return null;
+    if (row.public) return { data: row.data as Buffer, contentType: row.contentType as string, public: true };
+    if (viewer.superadmin) return { data: row.data as Buffer, contentType: row.contentType as string, public: false };
+    if (!viewer.listenerId) return null;
+    const access = await stationAccess(m, viewer.listenerId, row.stationId);
+    const staff = Boolean(access && AD_AREAS.some((a) => meets(access.levels[a], 'view')));
+    const [member] = await m.query(`SELECT 1 FROM advertiser_members WHERE "advertiserId" = $1 AND "listenerId" = $2`, [row.advertiserId, viewer.listenerId]);
+    return staff || member ? { data: row.data as Buffer, contentType: row.contentType as string, public: false } : null;
   }
 
   async suggestionDone(listenerId: string, stationId: string, suggestionId: string) {
@@ -787,10 +843,15 @@ export class CreativeImageController {
   constructor(private readonly ads: AdvertisersService) {}
 
   @Get(':id/image')
-  async show(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const image = await this.ads.image(id);
+  async show(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const listener = req.isAuthenticated?.() ? (req.user as { id: string; email?: string | null }) : null;
+    const image = await this.ads.image(id, { listenerId: listener?.id ?? null, superadmin: isSuperadminEmail(listener?.email) });
     if (!image) throw new NotFoundException('No image.');
-    res.set({ 'Content-Type': image.contentType, 'Cache-Control': 'public, max-age=300', 'X-Content-Type-Options': 'nosniff' });
+    res.set({
+      'Content-Type': image.contentType,
+      'Cache-Control': image.public ? 'public, max-age=300' : 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
     res.send(image.data);
   }
 }

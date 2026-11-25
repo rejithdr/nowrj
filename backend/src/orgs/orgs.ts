@@ -283,6 +283,18 @@ export class OrgsService {
         if (wouldCreateCycle(units, unit.id, parent?.id ?? null)) {
           throw new BadRequestException('A region cannot be moved inside itself.');
         }
+        // A region the NowRJ team hid stays hidden with everything in it:
+        // the network cannot move a place out from under it.
+        if (!actor.superadmin && (parent?.id ?? null) !== unit.parentId) {
+          const byId = new Map(units.map((u) => [u.id, u]));
+          let up = unit.parentId ? byId.get(unit.parentId) : undefined;
+          while (up) {
+            if ((up as OrgUnit).hiddenAt) {
+              throw new ForbiddenException(`${up.name} is hidden by the NowRJ team, so places in it cannot be moved. Ask the NowRJ team.`);
+            }
+            up = up.parentId ? byId.get(up.parentId) : undefined;
+          }
+        }
         changes.parentId = parent?.id ?? null;
       }
       if (!Object.keys(changes).length) return { id: unit.id };
@@ -887,6 +899,21 @@ export class OrgsService {
             .createQueryBuilder(Designation, 'd')
             .where('d."organisationId" = :org AND lower(d.name) = lower(:name)', { org: target.id, name: old.name })
             .getOne();
+          // A post with the same name in the network is used only if it gives
+          // no more than the person had: no higher level in any area, no staff
+          // management they did not have. Otherwise they get their old levels
+          // under a station-specific post at the bottom of the ranks.
+          const notHigher = (x: Designation) =>
+            AREAS.every((a) => meets(old[a] as Level, x[a] as Level)) && (old.manageStaff || !x.manageStaff);
+          if (d && !notHigher(d)) {
+            const stationName = `${old.name} (${station.name})`;
+            d = await m
+              .createQueryBuilder(Designation, 'd')
+              .where('d."organisationId" = :org AND lower(d.name) = lower(:name)', { org: target.id, name: stationName })
+              .getOne();
+            if (d && !notHigher(d)) d = null;
+            old.name = stationName;
+          }
           if (!d) {
             const [{ max }] = await m.query(`SELECT coalesce(max(rank), 0)::int AS max FROM designations WHERE "organisationId" = $1`, [target.id]);
             d = await m.save(

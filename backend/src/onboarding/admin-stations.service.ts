@@ -40,6 +40,14 @@ export class AdminStationsService {
       if (!role || role.role !== 'station_rep') throw new NotFoundException('Application not found.');
       if (role.status !== 'pending') throw new ConflictException('This application has already been decided.');
       const station = await m.findOneByOrFail(Station, { id: role.stationId! });
+      // Applications are only for standalone stations; if this one has since
+      // joined a network, its head office adds staff instead.
+      if (station.organisationId) {
+        const [org] = await m.query(`SELECT kind FROM organisations WHERE id = $1`, [station.organisationId]);
+        if (org?.kind === 'network') {
+          throw new ConflictException('This station is now part of a network. Reject this application; its head office adds staff.');
+        }
+      }
 
       role.status = 'active';
       role.grantedByListenerId = adminId;

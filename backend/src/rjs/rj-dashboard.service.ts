@@ -391,6 +391,12 @@ export class RjDashboardService {
     return this.dataSource.transaction(async (manager) => {
       const rj = await this.ownRj(listenerId, manager);
 
+      const [{ owned }] = await manager.query(
+        `SELECT count(*)::int AS owned FROM programmes WHERE "createdByRjId" = $1 AND "createdAt" > now() - interval '30 days'`,
+        [rj.id],
+      );
+      if (owned >= 20) throw new BadRequestException('You have added 20 programmes in the last 30 days. Contact the NowRJ team if you need more.');
+
       if (stationId) {
         const current = await manager.findOne(RjStationAffiliation, {
           where: { rjId: rj.id, leftOn: IsNull() },
@@ -398,6 +404,7 @@ export class RjDashboardService {
         if (!current || current.stationId !== stationId) {
           throw new ForbiddenException('You can only add programmes on your current station.');
         }
+        await this.mayAddAt(manager, rj.id, stationId);
       } else {
         const invite = await manager.findOne(StationInvite, {
           where: { id: stationInviteId!, invitedByRjId: rj.id },
@@ -474,7 +481,51 @@ export class RjDashboardService {
     if (!hosts) {
       throw new ForbiddenException(`Only the programme’s hosts can change its ${what}.`);
     }
+    // On a programme a station owns, host rights last only while the RJ still
+    // works there: a current, undisputed affiliation with that station, or an
+    // active link with its network. A station ends them by disputing the
+    // affiliation or removing the RJ from its network.
+    const [programme] = await manager.query(`SELECT "ownerStationId" FROM programmes WHERE id = $1`, [programmeId]);
+    if (programme?.ownerStationId && !(await this.worksAt(manager, rj.id, programme.ownerStationId))) {
+      throw new ForbiddenException(`This programme belongs to a station you no longer work with, so you can't change its ${what}.`);
+    }
     return rj;
+  }
+
+  /** The RJ currently works with this station: an undisputed current affiliation, or an active network link. */
+  private async worksAt(manager: EntityManager, rjId: string, stationId: string) {
+    const [row] = await manager.query(
+      `SELECT (EXISTS (SELECT 1 FROM rj_station_affiliations a
+                        WHERE a."rjId" = $1 AND a."stationId" = $2 AND a."leftOn" IS NULL
+                          AND a."verificationStatus" NOT IN ('disputed', 'rejected'))
+               OR EXISTS (SELECT 1 FROM org_rjs o JOIN stations s ON s."organisationId" = o."organisationId"
+                           WHERE o."rjId" = $1 AND o.status = 'active' AND s.id = $2)) AS ok`,
+      [rjId, stationId],
+    );
+    return Boolean(row?.ok);
+  }
+
+  /**
+   * An RJ may add programmes at their current station only while the
+   * affiliation is not disputed or rejected, and, for a station in a network,
+   * only with an active link to that network (its invite).
+   */
+  private async mayAddAt(manager: EntityManager, rjId: string, stationId: string) {
+    const [row] = await manager.query(
+      `SELECT o.kind,
+              EXISTS (SELECT 1 FROM org_rjs r WHERE r."rjId" = $1 AND r."organisationId" = o.id AND r.status = 'active') AS linked,
+              (SELECT a."verificationStatus" FROM rj_station_affiliations a
+                WHERE a."rjId" = $1 AND a."stationId" = $2 AND a."leftOn" IS NULL LIMIT 1) AS affiliation
+         FROM stations s LEFT JOIN organisations o ON o.id = s."organisationId"
+        WHERE s.id = $2`,
+      [rjId, stationId],
+    );
+    if (row?.affiliation === 'disputed' || row?.affiliation === 'rejected') {
+      throw new ForbiddenException('The station has not confirmed that you work there, so you cannot add programmes to it.');
+    }
+    if (row?.kind === 'network' && !row.linked) {
+      throw new ForbiddenException("This station is part of a network. Ask its head office for an RJ invite before adding programmes.");
+    }
   }
 
   /**
@@ -505,6 +556,7 @@ export class RjDashboardService {
       if (!station) {
         throw new BadRequestException('Set your current station first. It must be on NowRJ.');
       }
+      await this.mayAddAt(manager, rj.id, station.id);
       await manager.update(Programme, { id: programme.id }, { stationId: station.id });
       return { id: programme.id, stationName: station.name };
     });

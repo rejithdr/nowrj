@@ -30,16 +30,21 @@ export async function airingsForShows(m: EntityManager, showIds: string[], now =
               JOIN show_occurrences o2 ON o2.id = ra2."showOccurrenceId" AND o2.status = 'scheduled'
               JOIN stations s2 ON s2.id = ra2."stationId"
              WHERE ra2."recordingId" = r.id AND ra2."showOccurrenceId" <> ra."showOccurrenceId"
+               AND NOT EXISTS (SELECT 1 FROM hidden_stations hs WHERE hs.id = ra2."stationId")
                AND o2."endsAt" >= $2 AND o2."startsAt" <= $2::timestamptz + interval '7 days') AS others
       FROM recording_airings ra
       JOIN recordings r ON r.id = ra."recordingId"
+      -- The premiere is the owning station's first airing (stations it was
+      -- offered to cannot take that from it); if the owner has none, the
+      -- earliest airing anywhere. A hidden station is not named.
       CROSS JOIN LATERAL (
-        SELECT o1.id, o1."startsAt", s1.name AS "stationName"
+        SELECT o1.id, o1."startsAt",
+               CASE WHEN EXISTS (SELECT 1 FROM hidden_stations hs WHERE hs.id = s1.id) THEN 'another station' ELSE s1.name END AS "stationName"
           FROM recording_airings ra1
           JOIN show_occurrences o1 ON o1.id = ra1."showOccurrenceId" AND o1.status = 'scheduled'
           JOIN stations s1 ON s1.id = ra1."stationId"
          WHERE ra1."recordingId" = r.id
-         ORDER BY o1."startsAt", o1.id LIMIT 1) first
+         ORDER BY (ra1."stationId" = r."ownerStationId") DESC, o1."startsAt", o1.id LIMIT 1) first
      WHERE ra."showOccurrenceId" = ANY($1)
     `,
     [showIds, now],

@@ -87,6 +87,11 @@ export class StationOnboardingService {
    * station (or pick a listed one) and a pending representative role.
    */
   private async createApplication(m: EntityManager, listenerId: string, input: JoinInput) {
+    const [{ pending }] = await m.query(
+      `SELECT count(*)::int AS pending FROM user_roles WHERE "listenerId" = $1 AND role = 'station_rep' AND status = 'pending'`,
+      [listenerId],
+    );
+    if (pending >= 3) throw new ConflictException('You already have 3 station applications waiting. Wait for the NowRJ team to decide them first.');
     let station: Station;
     if (input.mode === 'existing') {
       const found = await m.findOneBy(Station, {
