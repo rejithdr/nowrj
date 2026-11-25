@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -75,8 +76,9 @@ export class RjDashboardController {
     @Req() req: Request,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('slotId', ParseUUIDPipe) slotId: string,
+    @Query('confirm') confirm?: string,
   ) {
-    return this.dashboard.endSlot(listenerId(req), id, slotId);
+    return this.dashboard.endSlot(listenerId(req), id, slotId, confirm === 'true');
   }
 
   @Post('programmes/:id/move-to-station')

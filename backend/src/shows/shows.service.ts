@@ -33,6 +33,10 @@ export class ShowsService {
   /** Generation runs at most this often; schedule changes show up within it. */
   static readonly REFRESH_MS = 30_000;
   private lastRefresh = 0;
+  /** The refresh running now, so concurrent callers share it instead of piling up. */
+  private running: Promise<void> | null = null;
+  /** Even a forced refresh (after a show change) runs at most this often. */
+  static readonly FORCED_MIN_MS = 3_000;
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -41,9 +45,23 @@ export class ShowsService {
    * Shows that have not started yet follow the current schedule, owner and
    * hosts; shows that have started keep what they aired with.
    */
-  async refreshShows(now = new Date(), force = false) {
-    if (!force && now.getTime() - this.lastRefresh < ShowsService.REFRESH_MS) return;
+  async refreshShows(now = new Date(), force = false): Promise<void> {
+    if (this.running) {
+      await this.running;
+      // A forced refresh waits for the current one; if that one already
+      // started after the change, it covered it.
+      if (!force) return;
+    }
+    const since = now.getTime() - this.lastRefresh;
+    if (since < (force ? ShowsService.FORCED_MIN_MS : ShowsService.REFRESH_MS)) return;
     this.lastRefresh = now.getTime();
+    this.running = this.doRefresh(now).finally(() => {
+      this.running = null;
+    });
+    return this.running;
+  }
+
+  private async doRefresh(now: Date) {
 
     const today = indiaDate(now);
     const fromDate = addDays(today, -1);

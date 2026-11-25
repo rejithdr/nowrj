@@ -12,9 +12,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { HOUR, limit } from '../rate-limit';
+import type { Request } from 'express';
 import { AuthModule } from '../auth/auth.module';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { clean, EMAIL, PHONE, changed } from '../onboarding/helpers';
@@ -48,11 +51,12 @@ export class EnquiriesService {
     if (email && (email.length > 255 || !EMAIL.test(email))) throw new BadRequestException('Enter a valid email address.');
     if (!message || message.length > 1000) throw new BadRequestException('Write a short message (up to 1000 characters).');
 
-    // A light brake on floods: at most 30 enquiries an hour across the site.
+    // Floods are limited per sender (in the controller); this is only a last
+    // brake for the whole site.
     const [{ recent }] = await this.dataSource.query(
       `SELECT count(*)::int AS recent FROM enquiries WHERE "createdAt" > now() - interval '1 hour'`,
     );
-    if (recent >= 30) {
+    if (recent >= 300) {
       throw new HttpException('Too many messages right now. Please email nowonfmindia@gmail.com instead.', HttpStatus.TOO_MANY_REQUESTS);
     }
 
@@ -84,7 +88,8 @@ export class EnquiriesController {
   constructor(private readonly enquiries: EnquiriesService) {}
 
   @Post()
-  create(@Body() body: EnquiryInput) {
+  create(@Req() req: Request, @Body() body: EnquiryInput) {
+    limit(req, 'enquiry', 5, HOUR, 'You have sent several messages already. Please try again in an hour, or email nowonfmindia@gmail.com.');
     return this.enquiries.create(body ?? {});
   }
 }

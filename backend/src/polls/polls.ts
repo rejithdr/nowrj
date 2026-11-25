@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DataSource, type EntityManager } from 'typeorm';
+import { HOUR, limit } from '../rate-limit';
 import { RJ_CAN_ACT } from '../rjs/rj-status';
 import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device';
 import { hasStationAccess } from '../orgs/access';
@@ -223,6 +224,8 @@ export class PollsController {
     @Body() body: { optionId?: unknown },
   ) {
     const listenerId = signedInId(req);
+    limit(req, 'vote', 200, HOUR);
+    if (!listenerId) limit(req, `vote:${pollId}`, 40, HOUR);
     const actor: Actor = listenerId
       ? { listenerId, deviceId: null }
       : { listenerId: null, deviceId: ensureDeviceId(req, res) };

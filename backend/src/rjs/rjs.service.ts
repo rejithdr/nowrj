@@ -67,7 +67,8 @@ export class RjsService {
       name: data.name.trim(),
       slug,
       phone: data.phone?.trim() || null,
-      photoUrl: data.photoUrl?.trim() || null,
+      // Photos come only from the photo upload (checked and served by NowRJ), never a typed link.
+      photoUrl: null,
     ownerListener: { id: listenerId } as Listener,
       stationId: null,
       isActive: false,
@@ -114,9 +115,8 @@ export class RjsService {
       rj.phone = data.phone?.trim() || null;
     }
 
-    if (data.photoUrl !== undefined) {
-      rj.photoUrl = data.photoUrl?.trim() || null;
-    }
+    // photoUrl is ignored here: it is set only by the photo upload (rj-photos.ts),
+    // so an RJ cannot point listeners' browsers at another site.
 
     if (rj.name === oldName) {
       return this.rjRepository.save(rj);

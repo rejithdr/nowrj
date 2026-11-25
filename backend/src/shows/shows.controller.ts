@@ -17,6 +17,7 @@ import { districtParam } from '../districts/district-list';
 import type { Request, Response } from 'express';
 import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device';
 import { DataSource } from 'typeorm';
+import { HOUR, limit } from '../rate-limit';
 import { recordStep } from '../pilot/steps';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
@@ -125,11 +126,14 @@ export class ShowsController {
   @Post(':id/call-tap')
   async callTap(
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { deviceId?: string },
   ) {
     const signedIn = req.isAuthenticated() ? (req.user as { id: string }).id : null;
-    const result = await this.engagement.recordCallTap(id, signedIn, body?.deviceId);
+    limit(req, 'call', 120, HOUR);
+    // The phone's id comes from the NowRJ cookie, not from the request body.
+    const result = await this.engagement.recordCallTap(id, signedIn, signedIn ? null : ensureDeviceId(req, res));
     await recordStep(this.dataSource.manager, req, 'tap', { showId: id });
     return result;
   }
@@ -171,6 +175,8 @@ export class ShowsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('type') type?: string,
   ) {
+    limit(req, 'react', 300, HOUR);
+    if (!signedInId(req)) limit(req, `react:${id}`, 40, HOUR);
     const result = await this.shows.setReaction(actorFor(req, res), id, reactionType(type), true);
     await recordStep(this.dataSource.manager, req, 'tap', { showId: id, res });
     return result;

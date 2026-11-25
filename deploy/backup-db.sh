@@ -2,10 +2,15 @@
 # Dumps the nowrj database to ~/backups (kept 14 days) and, once S3 is set up,
 # copies the dump to the private S3 bucket. See deploy/BACKUPS.md.
 set -euo pipefail
-DIR="$HOME/backups"
+# Dumps hold the whole database: readable by the ubuntu user only.
+umask 077
+# The trailing slash matters: after move-db-to-disk.sh, ~/backups is a link
+# to the encrypted disk, and find only looks inside a link given as "dir/".
+DIR="$HOME/backups/"
 mkdir -p "$DIR"
+chmod 700 "$DIR"
 STAMP=$(date +%Y-%m-%d_%H%M)
-FILE="$DIR/nowrj-$STAMP.dump"
+FILE="${DIR}nowrj-$STAMP.dump"
 set -a; . /srv/nowrj/backend/.env; set +a
 PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_NAME" -F c -f "$FILE"
 find "$DIR" -name 'nowrj-*.dump' -mtime +14 -delete

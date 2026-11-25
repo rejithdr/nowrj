@@ -13,7 +13,9 @@ Nothing secret goes into GitHub: the access key lives only in
    - Region: **Asia Pacific (Mumbai) ap-south-1**
    - Name: something unique, e.g. `nowrj-backups-7k3q` (letters, digits, dashes). Note it.
    - **Block all public access**: leave ON (the default).
-   - Bucket versioning: Disable.
+   - Bucket versioning: **Enable**. The server's key can write backups, so
+     without versioning someone who took over the server could overwrite every
+     copy; with it, the earlier versions stay.
    - Default encryption: **SSE-S3** (the default). Bucket key: Enable.
    - Create.
 2. Open the bucket → **Management** → **Create lifecycle rule**.
@@ -21,7 +23,12 @@ Nothing secret goes into GitHub: the access key lives only in
    - Scope: **Limit the scope** → Prefix: `daily/`
    - Actions: tick **Expire current versions of objects**
    - Days after object creation: **14**
+   - Also tick **Permanently delete noncurrent versions of objects**, after **30** days.
    - Create rule.
+
+   **Already made the bucket with versioning off?** Open it → **Properties** →
+   **Bucket Versioning** → **Edit** → **Enable** → Save, then edit the lifecycle
+   rule to add the noncurrent-versions step above.
 
 ## 2. Create a key that can only write and read backups (AWS console → IAM)
 
@@ -42,6 +49,8 @@ Nothing secret goes into GitHub: the access key lives only in
 
    Name it `nowrj-backup-only` → Create policy.
    This key cannot delete backups or touch anything else in your AWS account.
+   It can write a file with the same name, but with versioning on, the earlier
+   version is kept for 30 days and only you (in the console) can remove it.
 4. **Security credentials** → **Create access key** → use case **Application running outside AWS** → Create.
    Copy the **Access key** and **Secret access key**. The secret is shown only once.
    Do not email it, put it in WhatsApp or save it in the NowRJ folder.

@@ -88,6 +88,10 @@ type SessionRow = {
   hosts: { id: string; name: string; slug: string; photoUrl: string | null }[];
 };
 
+/** Storage limits for guest sessions (and their 1 MB photos). */
+const MAX_UPCOMING_SESSIONS = 10;
+const MAX_SESSIONS_PER_DAY = 20;
+
 @Injectable()
 export class GuestsService {
   constructor(private readonly dataSource: DataSource) {}
@@ -296,12 +300,26 @@ export class GuestsService {
   }
 
   async create(listenerId: string, input: GuestSessionInput, now = new Date()) {
-    if (typeof input.programmeId !== 'string') throw new BadRequestException('Choose the programme.');
+    if (typeof input.programmeId !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.programmeId)) throw new BadRequestException('Choose the programme.');
     const programme = await this.dataSource.manager.findOneBy(Programme, { id: input.programmeId });
     if (!programme) throw new NotFoundException('Programme not found.');
     await this.assertManager(listenerId, programme.id);
     const v = this.validate(input, null, now);
     return this.dataSource.transaction(async (m) => {
+      // Keep storage bounded: a programme can have a handful of guest sessions
+      // coming up, and one person can add a limited number a day.
+      const [{ upcoming }] = await m.query(
+        `SELECT count(*)::int AS upcoming FROM guest_sessions WHERE "programmeId" = $1 AND status = 'scheduled' AND "recordingAt" > $2`,
+        [programme.id, now],
+      );
+      if (upcoming >= MAX_UPCOMING_SESSIONS) {
+        throw new BadRequestException(`This programme already has ${MAX_UPCOMING_SESSIONS} guest sessions coming up. Cancel one or wait until one is recorded.`);
+      }
+      const [{ today }] = await m.query(
+        `SELECT count(*)::int AS today FROM guest_sessions WHERE "createdByListenerId" = $1 AND "createdAt" > now() - interval '1 day'`,
+        [listenerId],
+      );
+      if (today >= MAX_SESSIONS_PER_DAY) throw new BadRequestException('You have added a lot of guest sessions today. Please try again tomorrow.');
       const saved = await m.save(
         m.create(GuestSession, {
           programmeId: programme.id,
@@ -335,6 +353,12 @@ export class GuestsService {
       if (v.airAt !== undefined) session.airAt = v.airAt;
       if (input.status === 'cancelled') session.status = 'cancelled';
       const saved = await m.save(session);
+      // A cancelled session no longer needs its guest photo.
+      if (saved.status === 'cancelled') {
+        await m.query(`DELETE FROM guest_session_photos WHERE "guestSessionId" = $1`, [session.id]);
+        await m.update(GuestSession, { id: session.id }, { photoUrl: null });
+        saved.photoUrl = null;
+      }
       await writeAudit(m, listenerId, input.status === 'cancelled' ? 'guest_session.cancelled' : 'guest_session.updated', 'guest_session', session.id, {
         before,
         after: { guestName: saved.guestName, recordingAt: saved.recordingAt, airAt: saved.airAt, status: saved.status },

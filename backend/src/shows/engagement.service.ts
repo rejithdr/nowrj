@@ -61,6 +61,20 @@ export class EngagementService {
     const show = await this.dataSource.manager.findOneBy(ShowOccurrence, { id: occurrenceId });
     if (!show) throw new NotFoundException('Show not found.');
 
+    // Count taps from an hour before the show until 4 hours after it, and
+    // the same person (or phone) once per show every 10 minutes.
+    const now = Date.now();
+    const inWindow = now >= show.startsAt.getTime() - 60 * 60 * 1000 && now <= show.endsAt.getTime() + 4 * 60 * 60 * 1000;
+    if (!inWindow) return { recorded: false };
+    const [recent] = await this.dataSource.query(
+      `SELECT 1 FROM engagement_events
+        WHERE type = 'call_tap' AND "showOccurrenceId" = $1
+          AND ${listenerId ? '"listenerId" = $2' : '"deviceId" = $2'}
+          AND "createdAt" > now() - interval '10 minutes' LIMIT 1`,
+      [show.id, listenerId ?? deviceId],
+    );
+    if (recent) return { recorded: false };
+
     await this.dataSource.manager.insert(EngagementEvent, {
       type: 'call_tap',
       programmeId: show.programmeId,

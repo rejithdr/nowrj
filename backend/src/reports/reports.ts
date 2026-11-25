@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { HOUR, limit } from '../rate-limit';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { ensureDeviceId, signedInId } from '../device';
 import { writeAudit, changed } from '../onboarding/helpers';
@@ -155,6 +156,7 @@ export class ReportsController {
   /** Anyone can report; signed-out reports are tied to the phone's device id. */
   @Post('reports')
   create(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body() body: Record<string, unknown>) {
+    limit(req, 'report', 30, HOUR);
     return this.reports.create(signedInId(req), ensureDeviceId(req, res), body ?? {});
   }
 

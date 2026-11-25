@@ -989,8 +989,8 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
     event.preventDefault();
     setError("");
     setBusy(true);
-    try {
-      await api(`/rjs/me/programmes/${programme.id}`, {
+    const send = (confirmDrop: boolean) =>
+      api(`/rjs/me/programmes/${programme.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           name,
@@ -998,8 +998,18 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
           schedule: slots,
           interactionType: type,
           noticeText: notice.trim() || null,
+          confirmDrop,
         }),
       });
+    try {
+      try {
+        await send(false);
+      } catch (err) {
+        // The schedule change would delete upcoming shows that have ads, polls or messages.
+        const text = err instanceof Error ? err.message : "";
+        if (!text.startsWith("This change removes") || !window.confirm(`${text}\n\nGo ahead and remove them?`)) throw err;
+        await send(true);
+      }
       await onDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save.");

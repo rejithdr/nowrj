@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
+import { HOUR, limit } from '../rate-limit';
 import { SuperadminGuard } from '../auth/guards/superadmin.guard';
 import { assertStationAccess } from '../orgs/access';
 import { signedInId } from '../device';
@@ -124,6 +125,7 @@ export class PilotController {
   async pulse(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body() body: { step?: unknown; showId?: unknown; adId?: unknown }) {
     const step = body?.step;
     if (step !== 'open' && step !== 'signin_prompt' && step !== 'ad_open') throw new BadRequestException('Unknown step.');
+    limit(req, 'pulse', 600, HOUR);
     await recordStep(this.pilot.dataSource.manager, req, step, { showId: body.showId, adId: body.adId, res });
     return { ok: true };
   }

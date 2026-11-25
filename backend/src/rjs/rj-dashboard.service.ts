@@ -55,7 +55,12 @@ function bySlotOrder(
   return Math.min(...a.daysOfWeek) - Math.min(...b.daysOfWeek) || a.startTime.localeCompare(b.startTime);
 }
 
+/** A programme can have at most this many time slots (e.g. 7 days × 4 slots). */
+const MAX_SLOTS = 28;
+
 function parseSlots(inputs: SlotInput[] | undefined): Slot[] {
+  if (inputs !== undefined && !Array.isArray(inputs)) throw new BadRequestException('Send the time slots as a list.');
+  if ((inputs?.length ?? 0) > MAX_SLOTS) throw new BadRequestException(`A programme can have up to ${MAX_SLOTS} time slots.`);
   const slots: Slot[] = [];
   for (const [index, input] of (inputs ?? []).entries()) {
     const slot = normaliseSlot(input ?? {});
@@ -528,6 +533,7 @@ export class RjDashboardService {
       schedule?: SlotInput[];
       interactionType?: string;
       noticeText?: string | null;
+      confirmDrop?: unknown;
     },
   ) {
     const settings = programmeSettings(input);
@@ -554,6 +560,7 @@ export class RjDashboardService {
       await manager.save(programme);
 
       if (slots) {
+        await this.guardDrop(manager, listenerId, programmeId, slots, input.confirmDrop === true);
         const same = (a: { days: number[]; startTime: string; endTime: string }, b: ProgrammeSchedule) =>
           a.startTime === b.startTime.slice(0, 5) &&
           a.endTime === b.endTime.slice(0, 5) &&
@@ -591,6 +598,61 @@ export class RjDashboardService {
         noticeText: programme.noticeText,
       };
     });
+  }
+
+  /**
+   * Upcoming shows of this programme that a schedule change would remove
+   * (they no longer match a slot in `keep`), and what is attached to them:
+   * approved ads, polls, recording airings and listener messages. Removing
+   * a show removes those too, so the RJ must confirm, and it is logged.
+   */
+  private async droppedShows(manager: EntityManager, programmeId: string, keep: { days: number[]; startTime: string }[]) {
+    const rows: { id: string; dow: number; hm: string; ads: number; polls: number; airings: number; messages: number }[] = await manager.query(
+      `SELECT o.id,
+              extract(isodow FROM o."originalStartsAt" AT TIME ZONE 'Asia/Kolkata')::int AS dow,
+              to_char(o."originalStartsAt" AT TIME ZONE 'Asia/Kolkata', 'HH24:MI') AS hm,
+              (SELECT count(*)::int FROM ads a WHERE a."showOccurrenceId" = o.id AND a.status = 'approved') AS ads,
+              (SELECT count(*)::int FROM polls p WHERE p."showOccurrenceId" = o.id) AS polls,
+              (SELECT count(*)::int FROM recording_airings ra WHERE ra."showOccurrenceId" = o.id) AS airings,
+              (SELECT count(*)::int FROM song_requests r WHERE r."showOccurrenceId" = o.id) AS messages
+         FROM show_occurrences o
+        WHERE o."programmeId" = $1 AND o.status = 'scheduled' AND o."startsAt" > now()`,
+      [programmeId],
+    );
+    const dropped = rows.filter((r) => !keep.some((k) => k.days.includes(r.dow) && k.startTime.slice(0, 5) === r.hm));
+    const total = { shows: dropped.length, ads: 0, polls: 0, airings: 0, messages: 0 };
+    for (const r of dropped) {
+      total.ads += r.ads;
+      total.polls += r.polls;
+      total.airings += r.airings;
+      total.messages += r.messages;
+    }
+    return total;
+  }
+
+  /** Refuses (409) a change that would silently remove booked items, unless confirmed; logs it when confirmed. */
+  private async guardDrop(
+    manager: EntityManager,
+    listenerId: string,
+    programmeId: string,
+    keep: { days: number[]; startTime: string }[],
+    confirmed: boolean,
+  ) {
+    const d = await this.droppedShows(manager, programmeId, keep);
+    const attached = d.ads + d.polls + d.airings + d.messages;
+    if (!attached) return;
+    if (!confirmed) {
+      const parts = [
+        d.ads ? `${d.ads} approved ad${d.ads === 1 ? '' : 's'}` : '',
+        d.polls ? `${d.polls} poll${d.polls === 1 ? '' : 's'}` : '',
+        d.airings ? `${d.airings} recording airing${d.airings === 1 ? '' : 's'}` : '',
+        d.messages ? `${d.messages} listener message${d.messages === 1 ? '' : 's'}` : '',
+      ].filter(Boolean);
+      throw new ConflictException(
+        `This change removes ${d.shows} upcoming show${d.shows === 1 ? '' : 's'} with ${parts.join(', ')}. They will be deleted. Save again to confirm, or tell the station first.`,
+      );
+    }
+    await writeAudit(manager, listenerId, 'programme.schedule_change_dropped', 'programme', programmeId, d);
   }
 
   /** Keeps programmes.startTime/endTime (used by older pages) on the first current slot in weekday order. */
@@ -646,7 +708,7 @@ export class RjDashboardService {
    * Stops a time slot from today. A slot added today is simply removed;
    * an older one is kept as history with yesterday as its last day.
    */
-  async endSlot(listenerId: string, programmeId: string, slotId: string) {
+  async endSlot(listenerId: string, programmeId: string, slotId: string, confirmDrop = false) {
     return this.dataSource.transaction(async (manager) => {
       await this.assertHost(listenerId, programmeId, 'schedule', manager);
       const slot = await manager.findOne(ProgrammeSchedule, {
@@ -655,6 +717,14 @@ export class RjDashboardService {
       if (!slot) {
         throw new NotFoundException('Time slot not found.');
       }
+      const others = await manager.find(ProgrammeSchedule, { where: { programmeId, validTo: IsNull() } });
+      await this.guardDrop(
+        manager,
+        listenerId,
+        programmeId,
+        others.filter((o) => o.id !== slot.id).map((o) => ({ days: o.daysOfWeek, startTime: o.startTime })),
+        confirmDrop,
+      );
 
       const today = todayInIndia();
       if (slot.validFrom >= today) {
