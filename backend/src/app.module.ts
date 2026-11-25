@@ -20,6 +20,7 @@ import { GuestsModule } from './guests/guests';
 import { OrgsModule } from './orgs/orgs';
 import { AdsModule } from './ads/advertisers';
 import { DistrictsModule } from './districts/districts';
+import { PollsModule } from './polls/polls';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { DistrictsModule } from './districts/districts';
     OrgsModule,
     AdsModule,
     DistrictsModule,
+    PollsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

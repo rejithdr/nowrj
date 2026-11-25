@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
+import { pollsForShows } from '../polls/polls';
 import type { Actor } from '../device';
 import { IN_DISTRICT } from '../districts/district-list';
 import { randomUUID } from 'node:crypto';
@@ -196,6 +197,10 @@ export class ShowsService {
     // Ads on show cards (release 5a).
     const ads = await adsForShows(this.dataSource.manager, shows, now);
     for (const show of shows) (show as typeof show & { ads: unknown }).ads = ads.get(show.id) ?? [];
+
+    // The latest poll on each show: open polls to vote in, or the last result.
+    const polls = await pollsForShows(this.dataSource.manager, shows.map((s) => s.id), now);
+    for (const show of shows) (show as typeof show & { poll: unknown }).poll = polls.get(show.id)?.[0] ?? null;
 
     return {
       now,

@@ -2,6 +2,8 @@ import Link from "next/link";
 import ShowReactions from "./ShowReactions";
 import CallButton from "./CallButton";
 import SongRequestButton from "./SongRequestButton";
+import ShowPoll from "./ShowPoll";
+import type { Poll } from "./lib/poll-types";
 import { API_URL } from "./lib/config";
 
 export type ApiShow = {
@@ -21,6 +23,8 @@ export type ApiShow = {
   likes: number;
   fires: number;
   canReact: boolean;
+  /** The latest poll: open to vote in, or the last result. */
+  poll?: Poll | null;
   ads?: { id: string; creativeId: string; kind: "sponsored" | "shoutout" | "aired"; title: string; offerText: string; businessName: string; imageVersion: string | null }[];
 };
 
@@ -130,6 +134,8 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             notice={show.programme.noticeText ?? null}
           /> : null}
       </div>
+
+      {show.poll ? <ShowPoll poll={show.poll} /> : null}
 
       {show.ads?.length ? (
         <ul className="mt-3 space-y-2 border-t border-zinc-100 pt-3">

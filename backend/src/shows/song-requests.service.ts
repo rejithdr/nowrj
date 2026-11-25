@@ -13,6 +13,7 @@ import { Programme } from '../programme.entity';
 import { Rj } from '../rj.entity';
 import { assertStationAccess, hasStationAccess } from '../orgs/access';
 import { CONTACT_RULE_MESSAGE, hasContactDetails } from './text-rules';
+import { pollsForShows } from '../polls/polls';
 import { onAirName, readOnAirConsent } from './on-air';
 
 /** The same limit applies to song requests and to questions. */
@@ -80,8 +81,8 @@ type QueueRow = {
   listenerName: string | null;
 };
 
-type ShowCounts = { messages: number; readOnAir: number; senders: number; likes: number; fires: number; callTaps: number; total: number };
-const emptyCounts = (): ShowCounts => ({ messages: 0, readOnAir: 0, senders: 0, likes: 0, fires: 0, callTaps: 0, total: 0 });
+type ShowCounts = { messages: number; readOnAir: number; senders: number; likes: number; fires: number; votes: number; callTaps: number; total: number };
+const emptyCounts = (): ShowCounts => ({ messages: 0, readOnAir: 0, senders: 0, likes: 0, fires: 0, votes: 0, callTaps: 0, total: 0 });
 
 @Injectable()
 export class SongRequestsService {
@@ -282,12 +283,13 @@ export class SongRequestsService {
              (SELECT count(DISTINCT r."listenerId")::int FROM song_requests r WHERE r."showOccurrenceId" = o.id) AS senders,
              (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'like') AS likes,
              (SELECT count(*)::int FROM reactions x WHERE x."showOccurrenceId" = o.id AND x.type = 'fire') AS fires,
+             (SELECT count(*)::int FROM poll_votes v JOIN polls pl ON pl.id = v."pollId" WHERE pl."showOccurrenceId" = o.id) AS votes,
              (SELECT count(*)::int FROM engagement_events e WHERE e."showOccurrenceId" = o.id AND e.type = 'call_tap') AS "callTaps"
       FROM show_occurrences o WHERE o.id = ANY($1)
       `,
       [showIds],
     );
-    for (const { showId, ...c } of rows) counts.set(showId, { ...c, total: c.messages + c.likes + c.fires + c.callTaps });
+    for (const { showId, ...c } of rows) counts.set(showId, { ...c, total: c.messages + c.likes + c.fires + c.votes + c.callTaps });
     return counts;
   }
 
@@ -303,8 +305,10 @@ export class SongRequestsService {
 
   private async build(rows: QueueRow[], now: Date, by: 'rj' | 'station') {
     await this.markSeen(rows, by);
-    const counts = await this.counts([...new Set(rows.map((r) => r.showId))]);
-    return this.group(rows, now, counts);
+    const ids = [...new Set(rows.map((r) => r.showId))];
+    const counts = await this.counts(ids);
+    const polls = await pollsForShows(this.dataSource.manager, ids, now);
+    return this.group(rows, now, counts).map((show) => ({ ...show, polls: polls.get(show.showId) ?? [] }));
   }
 
   private queue(filterSql: string, param: string, now: Date) {

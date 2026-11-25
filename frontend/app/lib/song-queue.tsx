@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Flame, Heart, MessageCircle, MessageCircleQuestion, Music, Phone, ThumbsUp } from "lucide-react";
 import { api, Notice } from "./ui";
 import { wording, type InteractionType, type MessageKind } from "./interaction";
+import PollManager from "./poll-manager";
+import type { Poll } from "./poll-types";
 
 type QueueRequest = {
   id: string;
@@ -20,7 +22,7 @@ type QueueRequest = {
   seen?: boolean;
   createdAt: string;
 };
-type Counts = { messages: number; readOnAir: number; senders: number; likes: number; fires: number; callTaps: number; total: number };
+type Counts = { messages: number; readOnAir: number; senders: number; likes: number; fires: number; votes?: number; callTaps: number; total: number };
 type QueueShow = {
   showId: string;
   programmeName: string;
@@ -29,6 +31,7 @@ type QueueShow = {
   endsAt: string;
   live: boolean;
   counts?: Counts;
+  polls?: Poll[];
   requests: QueueRequest[];
 };
 
@@ -112,8 +115,18 @@ export default function SongQueue({ path = "/shows/song-requests/rj", readOnly =
                 <span>{c.readOnAir} read on air</span>
                 <span className="inline-flex items-center gap-1"><ThumbsUp size={12} aria-hidden="true" /> {c.likes}</span>
                 <span className="inline-flex items-center gap-1"><Flame size={12} aria-hidden="true" /> {c.fires}</span>
+                {c.votes !== undefined ? <span>{c.votes} poll {c.votes === 1 ? "vote" : "votes"}</span> : null}
                 <span className="inline-flex items-center gap-1"><Phone size={12} aria-hidden="true" /> {c.callTaps} call taps</span>
               </p>
+            ) : null}
+            {show.polls ? (
+              <PollManager
+                showId={show.showId}
+                polls={show.polls}
+                ended={new Date(show.endsAt) <= new Date()}
+                readOnly={readOnly}
+                onChange={load}
+              />
             ) : null}
             {show.requests.length === 0 ? (
               <p className="mt-1 text-sm text-zinc-500">No {words.items} yet.</p>
