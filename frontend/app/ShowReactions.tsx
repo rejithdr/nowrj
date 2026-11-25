@@ -11,7 +11,7 @@ type Ctx = { signedIn: boolean | null; status: Status };
 
 const ReactionContext = createContext<Ctx>({ signedIn: null, status: {} });
 
-/** Loads the signed-in listener's reactions for every show on the page in one request. */
+/** Loads this listener's (or, signed out, this phone's) reactions for every show on the page in one request. */
 export function ShowReactionsProvider({ showIds, children }: { showIds: string[]; children: React.ReactNode }) {
   const [ctx, setCtx] = useState<Ctx>({ signedIn: null, status: {} });
   const idList = showIds.join(",");
@@ -21,16 +21,12 @@ export function ShowReactionsProvider({ showIds, children }: { showIds: string[]
     async function load() {
       try {
         const me = await fetch(`${API}/auth/me`, { credentials: "include", cache: "no-store" });
-        if (!me.ok) {
-          if (!cancelled) setCtx({ signedIn: false, status: {} });
-          return;
-        }
         let status: Status = {};
         if (idList) {
           const res = await fetch(`${API}/shows/reactions/status?ids=${idList}`, { credentials: "include", cache: "no-store" });
           if (res.ok) status = await res.json();
         }
-        if (!cancelled) setCtx({ signedIn: true, status });
+        if (!cancelled) setCtx({ signedIn: me.ok, status });
       } catch {
         if (!cancelled) setCtx({ signedIn: false, status: {} });
       }
@@ -52,12 +48,17 @@ type Props = {
   notYetMessage: string;
 };
 
-/** Like and Fire for one show. Signed-out listeners are sent to sign in and brought back. */
+/**
+ * Like and Fire for one show. Works without signing in (counted once per
+ * phone); after a signed-out tap, a short note invites the listener to sign
+ * in to send requests and keep their likes on every device.
+ */
 export default function ShowReactions({ showId, likes, fires, canReact, notYetMessage }: Props) {
   const { signedIn, status } = useContext(ReactionContext);
   const [state, setState] = useState({ likes, fires, liked: false, fired: false });
   const [busy, setBusy] = useState<"like" | "fire" | null>(null);
   const [message, setMessage] = useState("");
+  const [nudge, setNudge] = useState(false);
 
   useEffect(() => {
     const mine = status[showId];
@@ -70,11 +71,6 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
       setMessage(notYetMessage);
       return;
     }
-    if (signedIn === false) {
-      sessionStorage.setItem("nowrjReturnTo", window.location.pathname);
-      window.location.href = `${API}/auth/google?returnTo=${encodeURIComponent(window.location.pathname)}`;
-      return;
-    }
     const on = type === "like" ? state.liked : state.fired;
     setBusy(type);
     try {
@@ -82,11 +78,6 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
         method: on ? "DELETE" : "POST",
         credentials: "include",
       });
-      if (res.status === 401) {
-        sessionStorage.setItem("nowrjReturnTo", window.location.pathname);
-        window.location.href = `${API}/auth/google`;
-        return;
-      }
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setMessage(data?.message ?? "Could not save. Please try again.");
@@ -98,6 +89,17 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
         liked: type === "like" ? data.active : s.liked,
         fired: type === "fire" ? data.active : s.fired,
       }));
+      // Once per visit, after the first signed-out tap.
+      if (signedIn === false && data.active) {
+        try {
+          if (!sessionStorage.getItem("nowrjSignInNudge")) {
+            sessionStorage.setItem("nowrjSignInNudge", "1");
+            setNudge(true);
+          }
+        } catch {
+          setNudge(true);
+        }
+      }
     } catch {
       setMessage("Could not connect to NowRJ. Please try again.");
     } finally {
@@ -155,6 +157,19 @@ export default function ShowReactions({ showId, likes, fires, canReact, notYetMe
       {message ? (
         <p className="w-full text-sm text-zinc-600" role="status">
           {message}
+        </p>
+      ) : null}
+      {nudge ? (
+        <p className="w-full rounded-lg bg-orange-50 px-3 py-2 text-sm text-zinc-700" role="status">
+          Saved on this phone.{" "}
+          <a
+            href={`${API}/auth/google?returnTo=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`}
+            onClick={() => sessionStorage.setItem("nowrjReturnTo", window.location.pathname)}
+            className="font-semibold text-orange-700 underline"
+          >
+            Sign in with Google
+          </a>{" "}
+          to request songs, send dedications and keep your likes on every device.
         </p>
       ) : null}
     </>

@@ -23,8 +23,13 @@ export class Reaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
-  listenerId: string;
+  /** Null for a signed-out listener's reaction, which has a deviceId instead. */
+  @Column({ type: 'uuid', nullable: true })
+  listenerId: string | null;
+
+  /** Signed-out reactions to a show: the random id in the phone's cookie (see device.ts). */
+  @Column({ type: 'uuid', nullable: true })
+  deviceId: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   rjId: string | null;

@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         <li><strong>If you are an RJ:</strong> your RJ name, photo, phone and email, the programmes and schedules you publish, your station, referrals and vouches.</li>
         <li><strong>If you represent a station:</strong> the station&rsquo;s details and contact phone and email, and the actions you take for the station.</li>
         <li><strong>If you contact us about advertising:</strong> your name, company, phone or email and your message, used only to reply.</li>
-        <li><strong>Technical data:</strong> a sign-in cookie that keeps you signed in, and, if you tap a call button while signed out, a random ID stored in your browser so we count each person once. We do not use advertising or tracking cookies.</li>
+        <li><strong>Technical data:</strong> a sign-in cookie that keeps you signed in, and, if you tap Like, Fire or a call button while signed out, a random ID stored on your phone so we count each phone once. That ID does not say who you are; if you later sign in on that phone, your likes move to your account. We do not use advertising or tracking cookies.</li>
       </ul>
 
       <h2>Why we use it</h2>

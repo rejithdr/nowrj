@@ -10,10 +10,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
 import { districtParam } from '../districts/district-list';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { ensureDeviceId, readDeviceId, signedInId, type Actor } from '../device';
 import { ShowsService } from './shows.service';
 import { EngagementService } from './engagement.service';
 import { SongRequestsService } from './song-requests.service';
@@ -26,6 +28,12 @@ function listenerId(req: Request): string {
     throw new UnauthorizedException('Please sign in first.');
   }
   return (req.user as { id: string }).id;
+}
+
+/** The signed-in listener, or this phone when signed out (sets the device cookie if needed). */
+function actorFor(req: Request, res: Response): Actor {
+  const signedIn = signedInId(req);
+  return signedIn ? { listenerId: signedIn, deviceId: null } : { listenerId: null, deviceId: ensureDeviceId(req, res) };
 }
 
 function reactionType(type: string | undefined): ReactionType {
@@ -138,16 +146,34 @@ export class ShowsController {
   /** ?ids=a,b,c → which of those shows the signed-in listener reacted to. */
   @Get('reactions/status')
   status(@Req() req: Request, @Query('ids') ids?: string) {
-    return this.shows.reactionStatus(listenerId(req), ids);
+    const signedIn = signedInId(req);
+    const device = readDeviceId(req);
+    const actor: Actor | null = signedIn
+      ? { listenerId: signedIn, deviceId: null }
+      : device
+        ? { listenerId: null, deviceId: device }
+        : null;
+    return this.shows.reactionStatus(actor, ids);
   }
 
+  /** Like / Fire. Works signed out too: counted once per phone (device cookie). */
   @Post(':id/reactions')
-  react(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Query('type') type?: string) {
-    return this.shows.setReaction(listenerId(req), id, reactionType(type), true);
+  react(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('type') type?: string,
+  ) {
+    return this.shows.setReaction(actorFor(req, res), id, reactionType(type), true);
   }
 
   @Delete(':id/reactions')
-  unreact(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Query('type') type?: string) {
-    return this.shows.setReaction(listenerId(req), id, reactionType(type), false);
+  unreact(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('type') type?: string,
+  ) {
+    return this.shows.setReaction(actorFor(req, res), id, reactionType(type), false);
   }
 }

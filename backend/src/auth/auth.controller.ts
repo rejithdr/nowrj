@@ -16,6 +16,8 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AuthService, GoogleProfile } from './auth.service';
+import { mergeDeviceIntoListener } from './device-merge';
+import { readDeviceId } from '../device';
 import { writeAudit } from '../onboarding/helpers';
 import { AccountService } from './account.service';
 import {
@@ -49,6 +51,12 @@ export class AuthController {
       const profile = req.user as GoogleProfile;
       const listener =
         await this.authService.findOrCreateGoogleListener(profile);
+
+      // Likes and votes made on this phone while signed out move to the account.
+      const deviceId = readDeviceId(req);
+      if (deviceId) {
+        await mergeDeviceIntoListener(this.dataSource, deviceId, (listener as { id: string }).id).catch(() => undefined);
+      }
 
       req.logIn(listener, (error) => {
         if (error) {

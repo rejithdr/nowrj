@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
+import type { Actor } from '../device';
 import { IN_DISTRICT } from '../districts/district-list';
 import { randomUUID } from 'node:crypto';
 import { Programme } from '../programme.entity';
@@ -206,15 +207,19 @@ export class ShowsService {
 
   // -------------------------------------------------------------- reactions
 
-  async setReaction(listenerId: string, occurrenceId: string, type: ReactionType, active: boolean, now = new Date()) {
+  /** Like or Fire a show, signed in (listenerId) or from a signed-out phone (deviceId). */
+  async setReaction(actor: Actor, occurrenceId: string, type: ReactionType, active: boolean, now = new Date()) {
     const show = await this.dataSource.manager.findOneBy(ShowOccurrence, { id: occurrenceId });
     if (!show) {
       throw new NotFoundException('Show not found.');
     }
-    const listener = await this.dataSource.manager.findOneBy(Listener, { id: listenerId, isActive: true });
-    if (!listener) {
-      throw new NotFoundException('Listener not found.');
+    if (actor.listenerId) {
+      const listener = await this.dataSource.manager.findOneBy(Listener, { id: actor.listenerId, isActive: true });
+      if (!listener) {
+        throw new NotFoundException('Listener not found.');
+      }
     }
+    const who = actor.listenerId ? { listenerId: actor.listenerId } : { deviceId: actor.deviceId! };
 
     if (active) {
       if (!canReact(show, now)) {
@@ -224,11 +229,11 @@ export class ShowsService {
         .createQueryBuilder()
         .insert()
         .into(Reaction)
-        .values({ listenerId, showOccurrenceId: occurrenceId, rjId: null, programmeId: null, type })
+        .values({ listenerId: actor.listenerId, deviceId: actor.deviceId, showOccurrenceId: occurrenceId, rjId: null, programmeId: null, type })
         .orIgnore()
         .execute();
     } else {
-      await this.dataSource.manager.delete(Reaction, { listenerId, showOccurrenceId: occurrenceId, type });
+      await this.dataSource.manager.delete(Reaction, { ...who, showOccurrenceId: occurrenceId, type });
     }
 
     const counts = await this.counts(occurrenceId);
@@ -243,18 +248,18 @@ export class ShowsService {
     return { likes, fires };
   }
 
-  /** Which of these shows the listener has liked or fired. */
-  async reactionStatus(listenerId: string, idsParam: string | undefined) {
+  /** Which of these shows the listener (or, signed out, this phone) has liked or fired. */
+  async reactionStatus(actor: Actor | null, idsParam: string | undefined) {
     const ids = [...new Set((idsParam ?? '').split(',').map((id) => id.trim()).filter(Boolean))];
     if (ids.length > 100 || ids.some((id) => !UUID.test(id))) {
       throw new BadRequestException('Give up to 100 show ids.');
     }
     const result: Record<string, { liked: boolean; fired: boolean }> = {};
     for (const id of ids) result[id] = { liked: false, fired: false };
-    if (!ids.length) return result;
+    if (!ids.length || !actor) return result;
 
     const rows = await this.dataSource.manager.find(Reaction, {
-      where: { listenerId, showOccurrenceId: In(ids) },
+      where: { ...(actor.listenerId ? { listenerId: actor.listenerId } : { deviceId: actor.deviceId! }), showOccurrenceId: In(ids) },
       select: { showOccurrenceId: true, type: true },
     });
     for (const row of rows) {
