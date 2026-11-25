@@ -144,7 +144,7 @@ export class ShowsService {
       `
       SELECT
         o.id, o."startsAt", o."endsAt", o.status,
-        p.name AS "programmeName", p.slug AS "programmeSlug", p."callInPhone",
+        p.id AS "programmeId", p.name AS "programmeName", p.slug AS "programmeSlug", p."callInPhone",
         p."interactionType", p."noticeText",
         s.name AS "stationName", s.slug AS "stationSlug",
         i."stationName" AS "invitedStationName",
@@ -178,6 +178,7 @@ export class ShowsService {
         startsAt,
         endsAt,
         programme: {
+          id: row.programmeId as string,
           name: row.programmeName as string,
           slug: row.programmeSlug as string,
           callInPhone: (row.callInPhone as string | null) ?? null,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ReportButton from "../../ReportButton";
 import { Clock, Phone, Radio } from "lucide-react";
 import { Avatar, fetchPage, fetchShows, NotFound, PageFrame, StationLabel, ShowsNow, type ProgrammeSummary } from "../../lib/public-pages";
 import { GuestCard, type GuestSession } from "../../lib/guest-card";
@@ -19,6 +20,7 @@ export default async function ProgrammePage({ params }: { params: Promise<{ slug
       <section className="mt-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-widest text-orange-600">Programme</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-4xl">{programme.name}</h1>
+        <div className="mt-1 flex flex-wrap"><ReportButton targetType="programme" targetId={programme.id} label="Report this programme" /></div>
 
         <dl className="mt-6 space-y-4 border-t border-zinc-100 pt-5">
           {programme.hosts.length ? (

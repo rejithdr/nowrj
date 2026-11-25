@@ -3,6 +3,7 @@ import ShowReactions from "./ShowReactions";
 import CallButton from "./CallButton";
 import SongRequestButton from "./SongRequestButton";
 import ShowPoll from "./ShowPoll";
+import ReportButton from "./ReportButton";
 import type { Poll } from "./lib/poll-types";
 import { API_URL } from "./lib/config";
 
@@ -11,6 +12,7 @@ export type ApiShow = {
   startsAt: string;
   endsAt: string;
   programme: {
+    id?: string;
     name: string;
     slug: string;
     callInPhone: string | null;
@@ -175,6 +177,7 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             mode={show.programme.interactionType ?? "song"}
             notice={show.programme.noticeText ?? null}
           /> : null}
+        {show.programme.id ? <ReportButton targetType="programme" targetId={show.programme.id} showId={show.id} alignEnd /> : null}
       </div>
 
       {show.poll ? <ShowPoll poll={show.poll} /> : null}

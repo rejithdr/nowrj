@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Radio } from "lucide-react";
 import FollowButton from "./FollowButton";
+import ReportButton from "../../ReportButton";
 import { Avatar, fetchPage, fetchShows, NotFound, PageFrame, ProgrammeRow, ShowsNow, type ProgrammeSummary } from "../../lib/public-pages";
 
 export const instant = false;
@@ -41,6 +42,7 @@ export default async function RjProfilePage({ params }: { params: Promise<{ slug
         </div>
         <div className="mt-6 border-t border-zinc-100 pt-5">
           <FollowButton rjId={rj.id} />
+          <div className="mt-2 flex flex-wrap"><ReportButton targetType="rj" targetId={rj.id} label="Report this RJ" /></div>
         </div>
       </section>
 

@@ -23,6 +23,7 @@ import { DistrictsModule } from './districts/districts';
 import { PollsModule } from './polls/polls';
 import { PilotModule } from './pilot/pilot';
 import { RecordingsModule } from './recordings/recordings';
+import { ReportsModule } from './reports/reports';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { RecordingsModule } from './recordings/recordings';
     PollsModule,
     PilotModule,
     RecordingsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
