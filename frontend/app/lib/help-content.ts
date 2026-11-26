@@ -122,6 +122,18 @@ const listener: HelpRole = {
       tips: ["Your number is removed after 90 days, or straight away when you stop the enquiry."],
     },
     {
+      slug: "share",
+      title: "Share a show with friends and family",
+      summary: "Send a show, an RJ or a station to WhatsApp, Facebook or Instagram.",
+      open: { label: "Live now", href: "/" },
+      steps: [
+        { text: "Tap “Share” on a show card, or on a programme, RJ or station page." },
+        { text: "Choose “WhatsApp” or “Facebook”. The link shows a picture card with the show, the RJ and the station." },
+        { text: "On a phone, “More… (Instagram and others)” opens your phone's own share list. “Copy link” copies it to paste anywhere." },
+        { text: "Friends who open it see what's on and can request a song or call in." },
+      ],
+    },
+    {
       slug: "report",
       title: "Report something wrong",
       summary: "Tell the NowRJ team about wrong, offensive or unsafe content.",

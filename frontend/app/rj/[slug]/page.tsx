@@ -3,8 +3,18 @@ import { Radio } from "lucide-react";
 import FollowButton from "./FollowButton";
 import ReportButton from "../../ReportButton";
 import { Avatar, fetchPage, fetchShows, NotFound, PageFrame, ProgrammeRow, ShowsNow, type ProgrammeSummary } from "../../lib/public-pages";
+import type { Metadata } from "next";
+import ShareButton from "../../lib/share-button";
 
 export const instant = false;
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const rj = await fetchPage<RjPage>(`/pages/rj/${encodeURIComponent(slug)}`);
+  if (!rj) return { title: "RJ · NowRJ" };
+  const description = `${rj.station ? `${rj.station.name}. ` : ""}${rj.programmes.length ? `${rj.programmes.map((p) => p.name).slice(0, 3).join(", ")}. ` : ""}Follow ${rj.name}, request songs and call the show on NowRJ.`;
+  return { title: `${rj.name} · NowRJ`, description, openGraph: { title: rj.name, description, url: `/rj/${rj.slug}`, siteName: "NowRJ", type: "profile" } };
+}
 
 type RjPage = {
   id: string;
@@ -42,7 +52,10 @@ export default async function RjProfilePage({ params }: { params: Promise<{ slug
         </div>
         <div className="mt-6 border-t border-zinc-100 pt-5">
           <FollowButton rjId={rj.id} />
-          <div className="mt-2 flex flex-wrap"><ReportButton targetType="rj" targetId={rj.id} label="Report this RJ" /></div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ShareButton path={`/rj/${rj.slug}`} text={`Follow ${rj.name}${rj.station ? ` (${rj.station.name})` : ""} on NowRJ: see their shows, request songs and call in.`} />
+            <ReportButton targetType="rj" targetId={rj.id} label="Report this RJ" />
+          </div>
         </div>
       </section>
 

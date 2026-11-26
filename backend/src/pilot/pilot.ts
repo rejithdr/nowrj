@@ -95,10 +95,18 @@ export class PilotService {
     );
     const total = inter.reactions + inter.votes + inter.messages + inter.callTaps;
 
+    // Sharing: people who shared a NowRJ link, and people who arrived from one.
+    const [sharing] = await q<{ shared: number; arrived: number }>(
+      `SELECT count(DISTINCT person) FILTER (WHERE step = 'share')::int AS shared,
+              count(DISTINCT person) FILTER (WHERE step = 'share_open')::int AS arrived
+         FROM pilot_steps s WHERE day >= $1::date AND step IN ('share', 'share_open') AND ${station}`,
+      [from, stationId],
+    );
+
     const daily = await q<{ day: string; opened: number; tapped: number }>(
       `SELECT d::date::text AS day,
               (SELECT count(DISTINCT person)::int FROM pilot_steps s WHERE s.day = d::date AND s.step = 'open' AND ${station}) AS opened,
-              (SELECT count(DISTINCT person)::int FROM pilot_steps s WHERE s.day = d::date AND s.step <> 'open' AND ${station}) AS tapped
+              (SELECT count(DISTINCT person)::int FROM pilot_steps s WHERE s.day = d::date AND s.step NOT IN ('open', 'share_open') AND ${station}) AS tapped
          FROM generate_series($1::date, (now() AT TIME ZONE 'Asia/Kolkata')::date, interval '1 day') d
         ORDER BY d`,
       [from, stationId],
@@ -110,6 +118,7 @@ export class PilotService {
       to: today,
       funnel,
       returns: { ...returns, percent: returns.cohort ? Math.round((returns.returned / returns.cohort) * 100) : null },
+      sharing,
       interactions: { ...inter, total, perPerson: inter.people ? Math.round((total / inter.people) * 10) / 10 : null },
       daily,
     };
@@ -120,13 +129,25 @@ export class PilotService {
 export class PilotController {
   constructor(private readonly pilot: PilotService) {}
 
-  /** Steps the page reports: opening NowRJ, being asked to sign in, opening an ad. */
+  /** Steps the page reports: opening NowRJ, being asked to sign in, opening an ad, sharing a link, arriving from one. */
   @Post('pulse')
-  async pulse(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body() body: { step?: unknown; showId?: unknown; adId?: unknown }) {
+  async pulse(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: { step?: unknown; showId?: unknown; adId?: unknown; programmeId?: unknown; path?: unknown },
+  ) {
     const step = body?.step;
-    if (step !== 'open' && step !== 'signin_prompt' && step !== 'ad_open') throw new BadRequestException('Unknown step.');
+    if (step !== 'open' && step !== 'signin_prompt' && step !== 'ad_open' && step !== 'share' && step !== 'share_open') {
+      throw new BadRequestException('Unknown step.');
+    }
     limit(req, 'pulse', 600, HOUR);
-    await recordStep(this.pilot.dataSource.manager, req, step, { showId: body.showId, adId: body.adId, res });
+    await recordStep(this.pilot.dataSource.manager, req, step, {
+      showId: body.showId,
+      adId: body.adId,
+      programmeId: body.programmeId,
+      path: body.path,
+      res,
+    });
     return { ok: true };
   }
 

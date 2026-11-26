@@ -5,8 +5,19 @@ import { Avatar, fetchPage, fetchShows, NotFound, PageFrame, StationLabel, Shows
 import { GuestCard, type GuestSession } from "../../lib/guest-card";
 import TakePart from "../../lib/take-part";
 import PrivateComment from "../../lib/private-comment";
+import type { Metadata } from "next";
+import ShareButton from "../../lib/share-button";
 
 export const instant = false;
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const p = await fetchPage<ProgrammeSummary>(`/pages/programme/${encodeURIComponent(slug)}`);
+  if (!p) return { title: "Programme · NowRJ" };
+  const who = [p.hosts.map((h) => h.name).join(", "), p.station?.name ?? p.invitedStationName].filter(Boolean).join(" · ");
+  const description = `${who ? `${who}. ` : ""}${p.scheduleText ? `${p.scheduleText}. ` : ""}Request songs, react live and call the show on NowRJ.`;
+  return { title: `${p.name} · NowRJ`, description, openGraph: { title: p.name, description, url: `/programme/${p.slug}`, siteName: "NowRJ", type: "website" } };
+}
 
 type ProgrammePage = ProgrammeSummary & { callInPhone: string | null; location: string | null };
 
@@ -22,7 +33,14 @@ export default async function ProgrammePage({ params }: { params: Promise<{ slug
       <section className="mt-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-widest text-orange-600">Programme</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-4xl">{programme.name}</h1>
-        <div className="mt-1 flex flex-wrap"><ReportButton targetType="programme" targetId={programme.id} label="Report this programme" /></div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <ShareButton
+            path={`/programme/${programme.slug}`}
+            programmeId={programme.id}
+            text={`Listen to ${programme.name}${programme.hosts.length ? ` with ${programme.hosts.map((h) => h.name).join(", ")}` : ""}${programme.station ? ` on ${programme.station.name}` : ""}. Request songs and call in on NowRJ:`}
+          />
+          <ReportButton targetType="programme" targetId={programme.id} label="Report this programme" />
+        </div>
 
         <dl className="mt-6 space-y-4 border-t border-zinc-100 pt-5">
           {programme.hosts.length ? (

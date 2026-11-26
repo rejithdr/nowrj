@@ -6,6 +6,7 @@ import ShowPoll from "./ShowPoll";
 import ReportButton from "./ReportButton";
 import type { Poll } from "./lib/poll-types";
 import { API_URL } from "./lib/config";
+import ShareButton from "./lib/share-button";
 
 export type ApiShow = {
   id: string;
@@ -189,6 +190,12 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             {show.programme.participation === "nominate" ? "Nominate someone" : "Take part"}
           </Link>
         ) : null}
+        <ShareButton
+          path={`/programme/${show.programme.slug}`}
+          showId={show.id}
+          programmeId={show.programme.id || undefined}
+          text={`${kind === "live" ? "On air now" : kind === "recent" ? "Just aired" : `${dayWord(show.startsAt, now)} ${clock(show.startsAt)}`}: ${show.programme.name}${show.hosts.length ? ` with ${show.hosts.map((h) => h.name).join(", ")}` : ""}${show.station ? ` on ${show.station.name}` : ""}. Request songs and call in on NowRJ:`}
+        />
         {show.programme.id ? <ReportButton targetType="programme" targetId={show.programme.id} showId={show.id} alignEnd /> : null}
       </div>
 

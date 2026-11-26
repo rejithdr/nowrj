@@ -9,6 +9,7 @@ type Numbers = {
   to: string;
   funnel: { step: string; people: number }[];
   returns: { cohort: number; returned: number; percent: number | null };
+  sharing?: { shared: number; arrived: number };
   interactions: { reactions: number; votes: number; messages: number; callTaps: number; people: number; total: number; perPerson: number | null };
   daily: { day: string; opened: number; tapped: number }[];
 };
@@ -97,6 +98,14 @@ export default function PilotNumbers({ path, stations }: { path: string; station
               </p>
             </div>
           </div>
+          {data.sharing ? (
+            <div className="mt-3 rounded-xl bg-orange-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">Sharing</p>
+              <p className="mt-1 text-sm text-zinc-800">
+                {plural(data.sharing.shared, "person", "people")} shared a NowRJ link · {plural(data.sharing.arrived, "phone")} came from a shared link
+              </p>
+            </div>
+          ) : null}
 
           <h3 className="mt-5 text-sm font-semibold text-zinc-900">Where people drop off</h3>
           <p className="text-xs text-zinc-500">Different phones or listeners at each step, {shortDay(data.from)} – {shortDay(data.to)}.</p>

@@ -1,7 +1,17 @@
 import { MapPin, Radio } from "lucide-react";
 import { fetchPage, fetchShows, NotFound, PageFrame, ProgrammeRow, ShowsNow, type ProgrammeSummary } from "../../lib/public-pages";
+import type { Metadata } from "next";
+import ShareButton from "../../lib/share-button";
 
 export const instant = false;
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const s = await fetchPage<StationPage>(`/pages/station/${encodeURIComponent(slug)}`);
+  if (!s) return { title: "Station · NowRJ" };
+  const description = `${s.location ? `${s.location}. ` : ""}See what's on ${s.name}, request songs and call the show on NowRJ.`;
+  return { title: `${s.name} · NowRJ`, description, openGraph: { title: s.name, description, url: `/station/${s.slug}`, siteName: "NowRJ", type: "website" } };
+}
 
 type StationPage = { id: string; name: string; slug: string; location: string | null; programmes: ProgrammeSummary[] };
 
@@ -25,6 +35,7 @@ export default async function StationPage({ params }: { params: Promise<{ slug: 
             {station.location}
           </p>
         ) : null}
+        <ShareButton className="mt-4" path={`/station/${station.slug}`} text={`See what's on ${station.name} right now and request your song on NowRJ:`} />
       </section>
 
       <ShowsNow shows={shows} empty={`No ${station.name} shows on NowRJ in the next 24 hours.`} />

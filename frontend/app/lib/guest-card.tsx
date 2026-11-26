@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CalendarPlus, Clock, MessageCircleQuestion, Radio, Share2 } from "lucide-react";
+import { CalendarPlus, Clock, MessageCircleQuestion, Radio } from "lucide-react";
+import ShareButton from "./share-button";
 import SongRequestButton from "../SongRequestButton";
 import GuestTakePart from "./guest-take-part";
 
@@ -35,13 +36,13 @@ function calendarLink(g: GuestSession) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-function shareLink(g: GuestSession) {
+function shareText(g: GuestSession) {
   const text =
     `I'm sending a question to ${g.guestName} on ${g.programme.name}` +
     (g.station ? ` (${g.station.name})` : "") +
     (g.airAt ? `, airing ${when(g.airAt)}` : "") +
-    `. Ask yours before ${clock(g.closesAt)}: https://nowrj.com/programme/${g.programme.slug}`;
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+    `. Ask yours before ${clock(g.closesAt)}:`;
+  return text;
 }
 
 /** "Ask the guest": a pre-recorded guest show taking questions before the recording. */
@@ -74,7 +75,7 @@ export function GuestCard({ guest }: { guest: GuestSession }) {
                 {guest.hosts.map((rj, i) => (
                   <span key={rj.id}>
                     {i > 0 ? ", " : ""}
-                    <Link href={`/rj/${rj.slug}`} className="font-semibold text-orange-700 hover:text-orange-800">RJ {rj.name}</Link>
+                    <Link href={`/rj/${rj.slug}`} className="font-semibold text-orange-700 hover:text-orange-800">{/^rj\b/i.test(rj.name) ? rj.name : `RJ ${rj.name}`}</Link>
                   </span>
                 ))}
               </>
@@ -101,9 +102,7 @@ export function GuestCard({ guest }: { guest: GuestSession }) {
             <CalendarPlus size={15} aria-hidden="true" /> Add to calendar
           </a>
         ) : null}
-        <a href={shareLink(guest)} target="_blank" rel="noopener" className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-orange-50">
-          <Share2 size={15} aria-hidden="true" /> Share
-        </a>
+        <ShareButton path={`/programme/${guest.programme.slug}`} programmeId={guest.programme.id} text={shareText(guest)} />
       </div>
     </article>
   );
