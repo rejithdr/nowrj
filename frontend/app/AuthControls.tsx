@@ -17,6 +17,10 @@ type Me = {
   isSuperadmin: boolean;
 };
 
+type Alerts = { replies: number; businessNew: number };
+
+const badge = "ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-orange-600 px-1.5 text-xs font-bold text-white";
+
 const itemClass = "block rounded-lg px-3 py-2 text-sm text-zinc-800 hover:bg-orange-50 focus-visible:bg-orange-50";
 
 /** Sign-in button, or an account menu listing the dashboards this person can use. */
@@ -24,6 +28,7 @@ export default function AuthControls() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [alerts, setAlerts] = useState<Alerts>({ replies: 0, businessNew: 0 });
   const menu = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
@@ -50,6 +55,30 @@ export default function AuthControls() {
     }
     void checkSession();
   }, []);
+
+  // Unread replies (and, for businesses, new leads): checked on load, every 2 minutes and when the tab comes back.
+  useEffect(() => {
+    if (!me) return;
+    let stopped = false;
+    async function check() {
+      try {
+        const response = await fetch(`${API}/me/alerts`, { credentials: "include", cache: "no-store" });
+        if (response.ok && !stopped) setAlerts(await response.json());
+      } catch {
+        // A missed check is fine; the next one will catch up.
+      }
+    }
+    const first = window.setTimeout(() => void check(), 0);
+    const timer = window.setInterval(() => void check(), 120_000);
+    const onFocus = () => void check();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      stopped = true;
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [me]);
 
   // Close the menu when clicking elsewhere.
   useEffect(() => {
@@ -108,9 +137,16 @@ export default function AuthControls() {
           {name.charAt(0).toUpperCase()}
         </span>
         <span className="max-w-24 truncate">{name}</span>
+        {alerts.replies + alerts.businessNew > 0 ? (
+          <span className="h-2.5 w-2.5 rounded-full bg-orange-600 ring-2 ring-white" aria-label={`${alerts.replies + alerts.businessNew} new`} />
+        ) : null}
         <ChevronDown size={14} aria-hidden="true" />
       </summary>
       <nav aria-label="Your account" className="absolute right-0 z-20 mt-2 w-60 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg">
+        <a href="/messages" className={itemClass}>
+          My messages
+          {alerts.replies ? <span className={badge} aria-label={`${alerts.replies} new replies`}>{alerts.replies}</span> : null}
+        </a>
         {me.rj ? (
           <>
             <a href="/rj/dashboard" className={itemClass}>My RJ dashboard</a>
@@ -129,7 +165,12 @@ export default function AuthControls() {
             </span>
           </a>
         ) : null}
-        {me.isAdvertiser ? <a href="/advertiser/dashboard" className={itemClass}>Advertiser dashboard</a> : null}
+        {me.isAdvertiser ? (
+          <a href="/advertiser/dashboard" className={itemClass}>
+            Advertiser dashboard
+            {alerts.businessNew ? <span className={badge} aria-label={`${alerts.businessNew} new from listeners`}>{alerts.businessNew}</span> : null}
+          </a>
+        ) : null}
         {me.networkOffices?.length ? (
           <a href="/network" className={itemClass}>
             Network programmes

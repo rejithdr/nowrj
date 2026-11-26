@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoaderCircle, Lock, Send } from "lucide-react";
 import { api, isSignedIn, signInAndReturn } from "./ui";
 import { hasContactDetails } from "./interaction";
@@ -21,6 +21,17 @@ export default function PrivateComment({ programmeId }: { programmeId: string })
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // Arriving from "My messages" (#messages) opens the conversation straight away.
+  useEffect(() => {
+    if (window.location.hash !== "#messages") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("messages")?.scrollIntoView({ block: "start" });
+      void toggle();
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function toggle() {
     setError("");
@@ -60,7 +71,7 @@ export default function PrivateComment({ programmeId }: { programmeId: string })
   }
 
   return (
-    <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5">
+    <section id="messages" className="mt-6 scroll-mt-4 rounded-2xl border border-zinc-200 bg-white p-5">
       <button type="button" onClick={() => void toggle()} aria-expanded={open} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-orange-50">
         <Lock size={15} aria-hidden="true" /> Private message to the team
       </button>

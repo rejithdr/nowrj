@@ -28,6 +28,7 @@ import { NetworkProgrammesModule } from './network/network-programmes';
 import { ParticipationModule } from './network/participation';
 import { CommentsModule } from './network/comments';
 import { AdLeadsModule } from './ads/leads';
+import { MyMessagesModule } from './network/my-messages';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { AdLeadsModule } from './ads/leads';
     ParticipationModule,
     CommentsModule,
     AdLeadsModule,
+    MyMessagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
