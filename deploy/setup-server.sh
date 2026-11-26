@@ -69,6 +69,9 @@ echo "==> 7/8 Web server and HTTPS"
 sed -e "s#__DOMAIN__#${DOMAIN}#g" "$APP_DIR/deploy/nginx-nowrj.conf" | sudo tee /etc/nginx/sites-available/nowrj >/dev/null
 sudo ln -sf /etc/nginx/sites-available/nowrj /etc/nginx/sites-enabled/nowrj
 sudo rm -f /etc/nginx/sites-enabled/default
+# Answer only for the domain: a request to the bare IP address gets nothing.
+sudo cp "$APP_DIR/deploy/nginx-deny-unknown.conf" /etc/nginx/sites-available/00-deny-unknown
+sudo ln -sf /etc/nginx/sites-available/00-deny-unknown /etc/nginx/sites-enabled/00-deny-unknown
 sudo nginx -t
 sudo systemctl reload nginx
 sudo ufw allow OpenSSH
