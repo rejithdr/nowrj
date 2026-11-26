@@ -9,6 +9,7 @@ import { API_URL } from "../../lib/config";
 import { api, Notice } from "../../lib/ui";
 import { pulse } from "../../lib/pulse";
 import ReportButton from "../../ReportButton";
+import AdInterest from "../../lib/ad-interest";
 
 type Ad = {
   id: string;
@@ -98,7 +99,8 @@ function AdPage({ id }: { id: string }) {
                   </a>
                 ) : null}
               </div>
-              {ad.phone ? <p className="mt-3 text-center text-xs text-zinc-500">Calls go directly to the business. NowRJ does not share your details.</p> : null}
+              <AdInterest adId={ad.id} businessName={ad.businessName} showId={showId} />
+              {ad.phone ? <p className="mt-3 text-center text-xs text-zinc-500">Calls go directly to the business. NowRJ shares your details only if you choose “I’m interested” and agree.</p> : null}
               <div className="mt-3 flex flex-wrap justify-center"><ReportButton targetType="ad" targetId={ad.id} label="Report this ad" /></div>
             </div>
           </article>

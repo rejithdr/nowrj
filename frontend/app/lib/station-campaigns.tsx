@@ -22,6 +22,7 @@ type Ad = {
   makerName: string | null;
   checkerName: string | null;
   responses: number;
+  leads?: number;
   calls: number;
   websites?: number;
   opens?: number;
@@ -110,7 +111,7 @@ export default function StationCampaigns({
                 <p className="text-xs text-zinc-500">
                   Entered by {a.makerName ?? "—"}{a.checkerName ? ` · ${a.status === "rejected" ? "Rejected" : "Approved"} by ${a.checkerName}` : ""}
                   {a.status === "approved"
-                    ? ` · ${a.opens ?? 0} opened · ${a.calls} call${a.calls === 1 ? "" : "s"} · ${a.websites ?? 0} website`
+                    ? ` · ${a.opens ?? 0} opened · ${a.calls} call${a.calls === 1 ? "" : "s"} · ${a.websites ?? 0} website · ${a.leads ?? 0} interested`
                     : ""}
                 </p>
                 {a.status === "rejected" && a.rejectReason ? <p className="text-sm text-red-700">Reason: {a.rejectReason}</p> : null}

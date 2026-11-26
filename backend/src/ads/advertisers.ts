@@ -585,7 +585,8 @@ export class AdvertisersService {
                   s.name AS "stationName", c.title,
                   (SELECT count(DISTINCT ps.person)::int FROM pilot_steps ps WHERE ps."adId" = a.id AND ps.step = 'ad_open') AS opens,
                   (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'call') AS calls,
-                  (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'website') AS websites
+                  (SELECT count(*)::int FROM ad_responses r WHERE r."adId" = a.id AND r.kind = 'website') AS websites,
+                  (SELECT count(*)::int FROM ad_leads ld WHERE ld."adId" = a.id) AS leads
              FROM ads a JOIN stations s ON s.id = a."stationId" JOIN ad_creatives c ON c.id = a."creativeId"
             WHERE a."advertiserId" = $1 AND a.status IN ('approved', 'withdrawn')
             ORDER BY a."startDate" DESC NULLS LAST, a."createdAt" DESC LIMIT 100`,

@@ -27,6 +27,7 @@ import { ReportsModule } from './reports/reports';
 import { NetworkProgrammesModule } from './network/network-programmes';
 import { ParticipationModule } from './network/participation';
 import { CommentsModule } from './network/comments';
+import { AdLeadsModule } from './ads/leads';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { CommentsModule } from './network/comments';
     NetworkProgrammesModule,
     ParticipationModule,
     CommentsModule,
+    AdLeadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

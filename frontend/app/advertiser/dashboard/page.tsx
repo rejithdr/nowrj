@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, LoaderCircle, Send } from "lucide-react";
 import AuthControls from "../../AuthControls";
 import ConsentBox from "../../lib/consent-box";
+import AdLeadsInbox from "../../lib/ad-leads-inbox";
 import { CONSENT_TEXT, CreativeCard, type Creative } from "../../lib/station-ads";
 import { api, Card, dangerButton, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
 
@@ -15,7 +16,7 @@ type Business = {
   consent: { status: keyof typeof CONSENT_TEXT; kind: string | null; since: string | null; signedName: string | null };
   stations: { id: string; name: string; slug: string; status: string }[];
   creatives: (Creative & { stationName: string })[];
-  ads?: { id: string; kind: string; status: string; startDate: string | null; endDate: string | null; stationName: string; title: string; opens: number; calls: number; websites: number }[];
+  ads?: { id: string; kind: string; status: string; startDate: string | null; endDate: string | null; stationName: string; title: string; opens: number; calls: number; websites: number; leads?: number }[];
 };
 type Data = { consentVersion: string; consentPoints: string[]; businesses: Business[] };
 
@@ -129,9 +130,13 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
         </>
       )}
 
+      <h2 className="mt-6 text-lg font-bold text-zinc-900">Interested listeners</h2>
+      <p className="mt-1 text-sm text-zinc-600">People who tapped &ldquo;I&apos;m interested&rdquo; on your ads: call the ones who shared a number, reply to the ones who wrote.</p>
+      <AdLeadsInbox advertiserId={b.id} businessName={b.businessName} />
+
       <h2 className="mt-6 text-lg font-bold text-zinc-900">How your ads are doing</h2>
       <p className="mt-1 text-sm text-zinc-600">
-        Opened: phones that opened the ad. Calls and website: signed-in listeners who tapped, each counted once a month.
+        Opened: phones that opened the ad. Calls and website: signed-in listeners who tapped, each counted once a month. Interested: listeners who asked you to get in touch.
       </p>
       {b.ads?.length ? (
         <div className="mt-3 overflow-x-auto">
@@ -141,7 +146,8 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
                 <th className="py-2 pr-3 font-semibold">Ad</th>
                 <th className="py-2 pr-3 text-right font-semibold">Opened</th>
                 <th className="py-2 pr-3 text-right font-semibold">Calls</th>
-                <th className="py-2 text-right font-semibold">Website</th>
+                <th className="py-2 pr-3 text-right font-semibold">Website</th>
+                <th className="py-2 text-right font-semibold">Interested</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -156,7 +162,8 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
                   </td>
                   <td className="py-2 pr-3 text-right tabular-nums">{a.opens}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{a.calls}</td>
-                  <td className="py-2 text-right tabular-nums">{a.websites}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{a.websites}</td>
+                  <td className="py-2 text-right tabular-nums">{a.leads ?? 0}</td>
                 </tr>
               ))}
             </tbody>
