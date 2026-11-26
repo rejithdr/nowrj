@@ -19,6 +19,7 @@ import { ParticipationSettings, type ParticipationMode } from "../../lib/partici
 import { InteractionSettings } from "../../lib/interaction-settings";
 import type { InteractionType } from "../../lib/interaction";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
+import { HelpHeading, HelpLink } from "../../lib/help";
 
 type Level = "none" | "view" | "edit" | "authorise";
 type Area = "programmes" | "rjs" | "adsSponsored" | "adsShoutout" | "adsAired" | "stats";
@@ -159,6 +160,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-zinc-900">{station.name}</h1>
+        <HelpLink role="station" className="-ml-2" />
         {roleStatus === "pending" ? (
           <StatusPill text="Awaiting verification" tone="amber" />
         ) : station.verificationStatus === "pending" ? (
@@ -188,14 +190,14 @@ function StationPanel({ entry }: { entry: MyStation }) {
         <>
           {can("programmes", "view") ? (
             <>
-              <h2 className="mt-6 text-lg font-bold text-zinc-900">Listener messages</h2>
+              <HelpHeading className="mt-6" title={<>Listener messages</>} role="station" guide="live-queue" />
               <p className="mt-1 text-sm text-zinc-600">Song requests, dedications, messages and questions for shows live now, in the next 24 hours, or that ended in the last 2 hours. Listeners see “Seen by RJ” once a message shows here.</p>
               <SongQueue path={`/shows/song-requests/station/${station.id}`} readOnly={!editProgrammes} />
 
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Taking part, nominations &amp; private messages</h2>
+              <HelpHeading className="mt-8" title={<>Taking part, nominations &amp; private messages</>} role="station" guide="inbox" />
               <TeamInbox query={`as=station&stationId=${station.id}`} />
 
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest or RJ</h2>
+              <HelpHeading className="mt-8" title={<>Ask the guest or RJ</>} role="station" guide="guest-recordings" />
               <GuestSessions
                 path={`/guest-sessions/station/${station.id}`}
                 programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
@@ -206,7 +208,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("programmes", "view") && access?.organisationKind === "network" ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Network programmes</h2>
+              <HelpHeading className="mt-8" title={<>Network programmes</>} role="station" guide="network" />
               <p className="mt-1 text-sm text-zinc-600">Made by your network&apos;s regional or head office. You choose which to carry, and when they air here, including repeats.</p>
               <NetworkCarry stationId={station.id} canEdit={editProgrammes} />
             </>
@@ -214,7 +216,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("programmes", "view") ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Recordings &amp; repeats</h2>
+              <HelpHeading className="mt-8" title={<>Recordings &amp; repeats</>} role="station" guide="recordings" />
               <p className="mt-1 text-sm text-zinc-600">One recording played in several shows, or on other stations, counted together.</p>
               <StationRecordings stationId={station.id} canEdit={editProgrammes} />
             </>
@@ -222,16 +224,16 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("programmes", "view") ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Districts {station.name} reaches</h2>
+              <HelpHeading className="mt-8" title={<>Districts {station.name} reaches</>} role="station" guide="districts" />
               <StationDistricts base={`/districts/stations/${station.id}`} readOnly={!editProgrammes} />
             </>
           ) : null}
 
           {can("stats", "view") ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Listener engagement</h2>
+              <HelpHeading className="mt-8" title={<>Listener engagement</>} role="station" guide="numbers" />
               <EngagementPanel path={`/shows/engagement/station/${station.id}`} showHosts />
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Pilot numbers</h2>
+              <HelpHeading className="mt-8" title={<>Pilot numbers</>} role="station" guide="numbers" />
               <p className="mt-1 text-sm text-zinc-600">Listeners who did something on {station.name}&apos;s shows: drop-off, who came back, and interactions per listener.</p>
               <PilotNumbers path={`/stations/${station.id}/pilot`} />
             </>
@@ -239,7 +241,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("rjs", "view") ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">RJs at {station.name}</h2>
+              <HelpHeading className="mt-8" title={<>RJs at {station.name}</>} role="station" guide="rjs" />
               <p className="mt-1 text-sm text-zinc-600">
                 {can("rjs", "edit")
                   ? "RJs list your station in their history. Confirm the dates you recognise, or dispute them with a note."
@@ -256,7 +258,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("adsSponsored", "view") || can("adsShoutout", "view") || can("adsAired", "view") ? (
             <>
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Advertisers</h2>
+              <HelpHeading className="mt-8" title={<>Advertisers</>} role="station" guide="advertisers" />
               {station.adsEnabled ? (
                 <StationAds stationId={station.id} />
               ) : (
@@ -271,7 +273,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
 
           {can("programmes", "view") ? (
           <>
-          <h2 className="mt-8 text-lg font-bold text-zinc-900">Programmes on {station.name}</h2>
+          <HelpHeading className="mt-8" title={<>Programmes on {station.name}</>} role="station" guide="programmes" />
           <p className="mt-1 text-sm text-zinc-600">
             Programmes an RJ created stay theirs until you claim them and the RJ agrees. If the RJ declines, the NowRJ team decides.
           </p>

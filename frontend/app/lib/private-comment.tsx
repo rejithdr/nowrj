@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LoaderCircle, Lock, Send } from "lucide-react";
 import { api, isSignedIn, signInAndReturn } from "./ui";
 import { hasContactDetails } from "./interaction";
+import { HelpLink } from "./help";
 
 type Reply = { id: string; asLabel: string; body: string; createdAt: string };
 type Comment = { id: string; body: string; createdAt: string; seen: boolean; replies: Reply[] };
@@ -75,7 +76,7 @@ export default function PrivateComment({ programmeId }: { programmeId: string })
       <button type="button" onClick={() => void toggle()} aria-expanded={open} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-orange-50">
         <Lock size={15} aria-hidden="true" /> Private message to the team
       </button>
-      <p className="mt-1 text-xs text-zinc-500">Only you and the programme&apos;s RJs, station and office see it.</p>
+      <p className="mt-1 text-xs text-zinc-500">Only you and the programme&apos;s RJs, station and office see it. <HelpLink role="listener" guide="private-message" className="min-h-0 px-0 text-xs" /></p>
       {open ? (
         <div className="mt-3">
           <form onSubmit={send} className="space-y-2">

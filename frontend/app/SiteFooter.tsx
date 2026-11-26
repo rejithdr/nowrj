@@ -12,6 +12,7 @@ export default function SiteFooter() {
           <a href="/rj/register" className="text-zinc-700 hover:text-orange-700">For RJs</a>
           <a href="/for-stations" className="text-zinc-700 hover:text-orange-700">For stations</a>
           <a href="/advertise" className="text-zinc-700 hover:text-orange-700">Advertise on Now On FM</a>
+          <a href="/help" className="text-zinc-700 hover:text-orange-700">How to use</a>
           <a href="/privacy" className="text-zinc-700 hover:text-orange-700">Privacy</a>
           <a href="/terms" className="text-zinc-700 hover:text-orange-700">Terms</a>
         </nav>

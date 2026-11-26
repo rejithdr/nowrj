@@ -30,6 +30,7 @@ import {
   Radio,
   X,
 } from "lucide-react";
+import { HelpHeading, HelpLink } from "../../lib/help";
 
 const API = API_URL;
 
@@ -146,10 +147,10 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
   return (
     <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-bold text-zinc-900">{title}</h2>
+      {help ? <HelpHeading className="" title={title} role="rj" guide={help} /> : <h2 className="text-lg font-bold text-zinc-900">{title}</h2>}
       {children}
     </section>
   );
@@ -258,6 +259,7 @@ export default function RjDashboardPage() {
         <header className="mt-4">
           <p className="text-sm font-semibold uppercase tracking-wide text-orange-700">RJ dashboard</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-900">{profile.name}</h1>
+          <HelpLink role="rj" className="-ml-2" />
           <p className="mt-2 text-sm text-zinc-600">
             {verified ? (
               <>
@@ -279,35 +281,35 @@ export default function RjDashboardPage() {
         <RjWorkplaces onChanged={refresh} />
         <RjShoutouts />
 
-        <Section title="Your profile">
+        <Section title="Your profile" help="profile">
           <RjProfileEditor profile={profile} onChange={(change) => setProfile((p) => (p ? { ...p, ...change } : p))} />
         </Section>
 
         {profile.verificationStatus === "pending" ? (
-          <Section title="Get verified faster">
+          <Section title="Get verified faster" help="get-started">
             <VouchesPanel />
           </Section>
         ) : null}
 
-        <Section title="Listener messages">
+        <Section title="Listener messages" help="live-queue">
           <SongQueue />
         </Section>
 
-        <Section title="Ask the guest or RJ">
+        <Section title="Ask the guest or RJ" help="guest-recordings">
           <GuestSessions path="/guest-sessions/rj" programmes={programmes.map((p) => ({ id: p.id, name: p.name }))} />
         </Section>
 
-        <Section title="Taking part, nominations and private messages">
+        <Section title="Taking part, nominations and private messages" help="inbox">
           <TeamInbox query="as=rj" />
         </Section>
 
-        <Section title="Your engagement">
+        <Section title="Your engagement" help="grow">
           <EngagementPanel path="/shows/engagement/rj" showHosts={false} />
         </Section>
 
         <StationSection stations={stations} current={current} history={history} onChanged={refresh} />
         <ClaimsSection claims={claims} onChanged={refresh} />
-        <Section title="Your referral link">
+        <Section title="Your referral link" help="grow">
           <ReferralsPanel />
         </Section>
         <InviteSection invites={invites} onChanged={refresh} />
@@ -371,7 +373,7 @@ function StationSection({
   const choices = stations.filter((s) => s.id !== current?.stationId);
 
   return (
-    <Section title="Your station">
+    <Section title="Your station" help="station">
       {current ? (
         <div className="mt-3 flex items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700">
@@ -497,7 +499,7 @@ function InviteSection({ invites, onChanged }: { invites: Invite[]; onChanged: (
   }
 
   return (
-    <Section title="Invite your station">
+    <Section title="Invite your station" help="station">
       <p className="mt-2 text-sm text-zinc-600">
         Station not listed? Invite it. You can add your programmes on it now, and the station takes them over when it joins NowRJ.
       </p>
@@ -656,7 +658,7 @@ function ClaimsSection({ claims, onChanged }: { claims: Claim[]; onChanged: () =
   }
 
   return (
-    <Section title="Station claims">
+    <Section title="Station claims" help="programmes">
       <p className="mt-2 text-sm text-zinc-600">A station that joined NowRJ is asking to take over a programme you created.</p>
       {error ? <Notice kind="error" text={error} /> : null}
       <ul className="mt-3 divide-y divide-zinc-100">
@@ -745,7 +747,7 @@ function ProgrammeSection({
   }
 
   return (
-    <Section title="Your programmes">
+    <Section title="Your programmes" help="programmes">
       {message ? <Notice kind="ok" text={message} /> : null}
 
       {programmes.length === 0 ? (

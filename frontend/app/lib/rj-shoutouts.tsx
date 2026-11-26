@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Mic } from "lucide-react";
 import { api, Notice, primaryButton } from "./ui";
+import { HelpHeading } from "./help";
 
 type Shoutout = { id: string; activatedAt: string | null; businessName: string; title: string; offerText: string; startsAt: string; programmeName: string; live: boolean };
 
@@ -40,7 +41,7 @@ export default function RjShoutouts() {
 
   return (
     <section className="mt-6 rounded-2xl border border-green-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-bold text-zinc-900">Shout-outs for your shows</h2>
+      <HelpHeading className="" title="Shout-outs for your shows" role="rj" guide="shout-outs" />
       <p className="mt-1 text-sm text-zinc-600">Read it on air, then tap Put on air so listeners see it on your show card.</p>
       {message ? <Notice kind="ok" text={message} /> : null}
       {error ? <Notice kind="error" text={error} /> : null}

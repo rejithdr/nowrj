@@ -197,6 +197,7 @@ export default function AuthControls() {
           </>
         ) : null}
         <div className="mt-1 border-t border-zinc-100 pt-1">
+          <a href="/help" className={itemClass}>How to use NowRJ</a>
           <a href="/account" className={itemClass}>Account settings</a>
           <button type="button" onClick={() => void handleSignOut()} disabled={signingOut} className={`${itemClass} w-full text-left disabled:opacity-60`}>
             {signingOut ? "Signing out…" : "Sign out"}

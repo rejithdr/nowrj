@@ -10,6 +10,7 @@ import { InteractionSettings } from "../lib/interaction-settings";
 import { ParticipationSettings, type ParticipationMode } from "../lib/participation-settings";
 import type { InteractionType } from "../lib/interaction";
 import { api, Card, inputClass, isSignedIn, labelClass, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../lib/ui";
+import { HelpLink } from "../lib/help";
 
 type Office = { organisationId: string; organisationName: string; unitId: string | null; unitName: string | null; programmes: string };
 type Carrier = { programmeId: string; slug: string; stationId: string; stationName: string; carrying: boolean; schedule: string };
@@ -143,6 +144,7 @@ function OfficePanel({ organisationId }: { organisationId: string }) {
     <>
       <Card>
         <h1 className="text-2xl font-bold text-zinc-900">{office.organisationName}</h1>
+        <HelpLink role="network" guide="create" className="-ml-2" />
         <p className="text-sm text-zinc-600">{office.unitName ? `${office.unitName} regional office` : "Head office"}{office.canEdit ? "" : " · view only"}</p>
         <p className="mt-3 text-sm text-zinc-700">
           Make a programme once. Each station under {office.unitName ?? "the network"} chooses to carry it and sets its own times and repeats. Changes you make here
@@ -198,12 +200,12 @@ function OfficePanel({ organisationId }: { organisationId: string }) {
         ) : null}
       </Card>
 
-      <Card title="Taking part, nominations & private messages">
+      <Card title="Taking part, nominations & private messages" help={{ role: "network", guide: "inbox" }}>
         <p className="mt-1 text-sm text-zinc-600">From listeners of your programmes on every station.</p>
         <TeamInbox query={`as=network&organisationId=${organisationId}`} />
       </Card>
 
-      <Card title="Guest recordings: ask the guest or RJ">
+      <Card title="Guest recordings: ask the guest or RJ" help={{ role: "network", guide: "guest-recordings" }}>
         <p className="mt-1 text-sm text-zinc-600">Set up a guest recording on one station&apos;s copy; listeners send questions and ask to take part before it is recorded.</p>
         <GuestSessions path={`/guest-sessions/network/${organisationId}`} programmes={copies} readOnly={!office.canEdit} />
       </Card>

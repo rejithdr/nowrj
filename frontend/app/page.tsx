@@ -11,6 +11,7 @@ import { ShowReactionsProvider } from "./ShowReactions";
 import PulseOpen from "./PulseOpen";
 import { ProgrammeRow, type ProgrammeSummary } from "./lib/public-pages";
 import { GuestCard, type GuestSession } from "./lib/guest-card";
+import { HelpLink } from "./lib/help";
 export const instant = false;
 
 export default async function Home() {
@@ -127,7 +128,7 @@ export default async function Home() {
           showIds={[...shows.live, ...shows.upcoming, ...shows.recent].map((show) => show.id)}
         >
           <section id="live" className="scroll-mt-5">
-            <h2 className="mb-4 text-xl font-bold text-zinc-900">Live now</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3"><h2 className="text-xl font-bold text-zinc-900">Live now</h2><HelpLink role="listener" guide="request" /></div>
             {shows.live.length ? (
               <div className="flex flex-col gap-3">
                 {shows.live.map((show) => (
@@ -144,7 +145,7 @@ export default async function Home() {
 
           {guests.length ? (
             <section id="ask-the-guest" className="mt-10 scroll-mt-5">
-              <h2 className="text-xl font-bold text-zinc-900">Ask the guest</h2>
+              <div className="flex flex-wrap items-center justify-between gap-x-3"><h2 className="text-xl font-bold text-zinc-900">Ask the guest</h2><HelpLink role="listener" guide="ask-guest" /></div>
               <p className="mb-4 mt-1 text-sm text-zinc-600">Guests on upcoming recorded shows. Send your question before the recording.</p>
               <div className="flex flex-col gap-3">
                 {guests.map((guest) => (

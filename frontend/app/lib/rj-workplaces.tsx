@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Info, X } from "lucide-react";
 import { api, Notice, primaryButton, quietButton } from "./ui";
+import { HelpHeading } from "./help";
 
 type Invite = { id: string; token: string; organisationName: string; organisationKind: string; place: string; placeKind: string };
 type Place = { id: string; organisationName: string; organisationKind: string; place: string; joinedOn: string };
@@ -61,7 +62,7 @@ export default function RjWorkplaces({ onChanged }: { onChanged?: () => Promise<
 
   return (
     <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-bold text-zinc-900">Stations you work with</h2>
+      <HelpHeading className="" title="Stations you work with" role="rj" guide="get-started" />
       {notices.map((n) => (
         <div key={n.id} className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <p className="flex gap-2"><Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{n.text}</p>

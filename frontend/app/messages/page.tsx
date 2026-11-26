@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock, LoaderCircle, ShoppingBag } from "lucide-react";
 import AuthControls from "../AuthControls";
 import { api, Card, isSignedIn, Notice, primaryButton, signInAndReturn } from "../lib/ui";
+import { HelpLink } from "../lib/help";
 
 type Thread = { kind: "programme" | "ad"; id: string; title: string; href: string; lastText: string; lastFrom: string; lastAt: string; unread: number; closed: boolean };
 
@@ -41,7 +42,7 @@ export default function MessagesPage() {
           </Link>
           <AuthControls />
         </div>
-        <h1 className="mt-4 text-2xl font-bold text-zinc-900">My messages</h1>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3"><h1 className="text-2xl font-bold text-zinc-900">My messages</h1><HelpLink role="listener" guide="private-message" /></div>
         <p className="text-sm text-zinc-600">Your private messages to programmes and your enquiries to businesses. Open one to read and reply.</p>
         {!signedIn ? (
           <Card>

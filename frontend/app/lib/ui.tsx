@@ -1,6 +1,8 @@
 "use client";
 import { API_URL } from "./config";
 import { pulse } from "./pulse";
+import { HelpHeading } from "./help";
+import type { HelpRoleSlug } from "./help-content";
 
 /** Small shared pieces for the signed-in dashboards. */
 export const API = API_URL;
@@ -60,10 +62,10 @@ export function Notice({ kind, text }: { kind: "error" | "ok" | "info"; text: st
   );
 }
 
-export function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+export function Card({ title, help, children }: { title?: string; help?: { role: HelpRoleSlug; guide: string }; children: React.ReactNode }) {
   return (
     <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-      {title ? <h2 className="text-lg font-bold text-zinc-900">{title}</h2> : null}
+      {title && help ? <HelpHeading className="" title={title} role={help.role} guide={help.guide} /> : title ? <h2 className="text-lg font-bold text-zinc-900">{title}</h2> : null}
       {children}
     </section>
   );

@@ -156,7 +156,7 @@ function Structure({ data, busy, run }: SectionProps) {
   }
 
   return (
-    <Card title="Regions and stations">
+    <Card title="Regions and stations" help={{ role: "network", guide: "regions" }}>
       <p className="text-sm text-zinc-600">Staff placed at a region can work on every station under it. Staff at the head office cover the whole network.</p>
       <ul className="mt-3 divide-y divide-zinc-100 rounded-lg border border-zinc-200">
         <li className="p-3 font-semibold text-zinc-900">Head office</li>
@@ -353,7 +353,7 @@ function Designations({ data, busy, run }: SectionProps) {
   );
 
   return (
-    <Card title="Designations">
+    <Card title="Designations" help={{ role: "station", guide: "staff" }}>
       <p className="text-sm text-zinc-600">
         Posts are listed highest first. Staff can change or remove only people in a lower post than their own, and an invite to a higher post waits for the NowRJ team&apos;s approval.
       </p>
@@ -465,7 +465,7 @@ function Staff({ data, busy, run, placeName }: SectionProps & { placeName: (unit
   }
 
   return (
-    <Card title="Staff">
+    <Card title="Staff" help={{ role: "station", guide: "staff" }}>
       <ul className="divide-y divide-zinc-100">
         {data.members.map((m) => {
           const change = changes[m.id] ?? { unitId: m.unitId ?? "", designationId: m.designationId };

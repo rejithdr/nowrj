@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, LoaderCircle, Mic, ShieldCheck, UserPlus } from "lucide-react";
 import { api, inputClass, isSignedIn, signInAndReturn } from "./ui";
 import { hasContactDetails } from "./interaction";
+import { HelpHeading } from "./help";
 
 type Mine = { id: string; kind: "take_part" | "nominate"; note: string | null; nomineeName: string | null; status: string; guestSessionId: string | null; createdAt: string };
 type Info = { mode: "off" | "take_part" | "nominate" | "both"; prompt: string | null; mine: Mine[] };
@@ -89,7 +90,7 @@ export default function TakePart({ programmeId, programmeName }: { programmeId: 
 
   return (
     <section id="take-part" className="mt-6 rounded-2xl border border-orange-200 bg-orange-50/40 p-5">
-      <h2 className="text-lg font-bold text-zinc-900">Be on the show</h2>
+      <HelpHeading className="" title="Be on the show" role="listener" guide="take-part" />
       {info.prompt ? <p className="mt-1 text-zinc-700">{info.prompt}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">
         {can("take_part") ? (

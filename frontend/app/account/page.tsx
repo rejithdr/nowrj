@@ -6,6 +6,7 @@ import { Download, LoaderCircle, Trash2 } from "lucide-react";
 import { API_URL } from "../lib/config";
 import AuthControls from "../AuthControls";
 import { api, Card, inputClass, labelClass, Notice, primaryButton, signInAndReturn } from "../lib/ui";
+import { HelpLink } from "../lib/help";
 
 type Me = { displayName: string | null; rj: { name: string } | null; stations: { name: string }[] };
 
@@ -99,7 +100,7 @@ export default function AccountPage() {
           {deleted ? null : <AuthControls />}
         </header>
 
-        <h1 className="mt-8 text-3xl font-extrabold tracking-tight text-zinc-900">Account settings</h1>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-x-3"><h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Account settings</h1><HelpLink role="listener" guide="account" /></div>
 
         <div className="mt-6">
           {deleted ? (

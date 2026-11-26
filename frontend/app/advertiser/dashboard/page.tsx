@@ -8,6 +8,7 @@ import ConsentBox from "../../lib/consent-box";
 import AdLeadsInbox from "../../lib/ad-leads-inbox";
 import { CONSENT_TEXT, CreativeCard, type Creative } from "../../lib/station-ads";
 import { api, Card, dangerButton, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
+import { HelpHeading, HelpLink } from "../../lib/help";
 
 type Business = {
   id: string;
@@ -96,6 +97,7 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-zinc-900">{b.businessName}</h1>
+        <HelpLink role="business" className="-ml-2" />
         <StatusPill text={CONSENT_TEXT[b.consent.status].text} tone={CONSENT_TEXT[b.consent.status].tone} />
       </div>
       <p className="mt-1 text-sm text-zinc-600">With {b.stations.map((s) => s.name).join(", ")}</p>
@@ -130,11 +132,11 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
         </>
       )}
 
-      <h2 className="mt-6 text-lg font-bold text-zinc-900">Interested listeners</h2>
+      <HelpHeading className="mt-6" title={<>Interested listeners</>} role="business" guide="interested" />
       <p className="mt-1 text-sm text-zinc-600">People who tapped &ldquo;I&apos;m interested&rdquo; on your ads: call the ones who shared a number, reply to the ones who wrote.</p>
       <AdLeadsInbox advertiserId={b.id} businessName={b.businessName} />
 
-      <h2 className="mt-6 text-lg font-bold text-zinc-900">How your ads are doing</h2>
+      <HelpHeading className="mt-6" title={<>How your ads are doing</>} role="business" guide="stats" />
       <p className="mt-1 text-sm text-zinc-600">
         Opened: phones that opened the ad. Calls and website: signed-in listeners who tapped, each counted once a month. Interested: listeners who asked you to get in touch.
       </p>
@@ -173,7 +175,7 @@ function BusinessPanel({ business: b, data, onChanged, onMessage }: { business: 
         <p className="mt-3 text-sm text-zinc-600">No ads running yet.</p>
       )}
 
-      <h2 className="mt-6 text-lg font-bold text-zinc-900">Your ad library</h2>
+      <HelpHeading className="mt-6" title={<>Your ad library</>} role="business" guide="library" />
       <p className="mt-1 text-sm text-zinc-600">The station prepares these. If something should change, send them a suggestion.</p>
       {b.creatives.length === 0 ? <p className="mt-3 text-sm text-zinc-600">Nothing yet.</p> : null}
       <ul className="mt-3 grid gap-4 sm:grid-cols-2">
