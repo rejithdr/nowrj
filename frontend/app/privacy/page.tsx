@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
       <h2>Your rights</h2>
       <ul>
-        <li><strong>Access and correction:</strong> ask us for a summary of your data or to correct it.</li>
+        <li><strong>Access and correction:</strong> download a copy of your data at any time from <a href="/account">Account settings</a> (&ldquo;Download my data&rdquo;), change your name there, or ask us to correct anything else.</li>
         <li><strong>Deletion:</strong> delete your account at any time from <a href="/account">Account settings</a>. Your name, email, photo, follows, roles and the messages you wrote with song requests are erased. Your Likes, Fires, call taps and requested songs stay in the shows&rsquo; totals, but no longer identify you. If you are an RJ, your profile becomes &ldquo;Former RJ&rdquo; and is hidden; programmes owned by a station stay with that station.</li>
         <li><strong>Withdraw consent:</strong> deleting your account withdraws your consent to processing.</li>
         <li><strong>Nominate:</strong> name someone to exercise these rights if you die or become unable to.</li>

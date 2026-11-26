@@ -2,11 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LoaderCircle, Trash2 } from "lucide-react";
+import { Download, LoaderCircle, Trash2 } from "lucide-react";
+import { API_URL } from "../lib/config";
 import AuthControls from "../AuthControls";
 import { api, Card, inputClass, labelClass, Notice, primaryButton, signInAndReturn } from "../lib/ui";
 
 type Me = { displayName: string | null; rj: { name: string } | null; stations: { name: string }[] };
+
+/** A copy of everything NowRJ holds about the person, as a file. */
+function DataCard() {
+  return (
+    <Card title="Download my data">
+      <p className="mt-2 text-sm text-zinc-700">
+        Get a copy of everything NowRJ holds about you: your profile, messages and requests to shows, private messages and replies, nominations, &ldquo;I&apos;m
+        interested&rdquo; enquiries, votes, reactions and, if you work with a station or business, what you did there.
+      </p>
+      <p className="mt-2 text-xs text-zinc-500">It downloads as one file (JSON) that any text editor can open. Other people&apos;s details, such as the number of someone you nominated, are left out.</p>
+      <a href={`${API_URL}/auth/me/data`} download className={`${primaryButton} mt-4`}>
+        <Download size={16} aria-hidden="true" /> Download my data
+      </a>
+    </Card>
+  );
+}
 
 /** The name RJs and stations see, for example on song requests. */
 function NameCard({ initial }: { initial: string }) {
@@ -105,6 +122,7 @@ export default function AccountPage() {
           ) : (
             <>
             <NameCard initial={me.displayName ?? ""} />
+            <DataCard />
             <Card title="Delete my account">
               <p className="text-sm leading-6 text-zinc-700">
                 This permanently erases your name, email, photo, the RJs you follow and the messages you wrote with song
