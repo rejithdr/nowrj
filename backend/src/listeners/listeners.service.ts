@@ -16,11 +16,6 @@ export class ListenersService {
     });
   }
 
-  findByFacebookId(facebookId: string) {
-    return this.listenerRepository.findOne({
-      where: { facebookId, isActive: true },
-    });
-  }
 
   findByEmail(email: string) {
     return this.listenerRepository.findOne({

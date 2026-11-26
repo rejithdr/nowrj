@@ -40,3 +40,7 @@ if [ -f "$CONF" ]; then
 else
   echo "$(date) S3 copy skipped: $CONF not found (see deploy/BACKUPS.md)"
 fi
+
+# Heartbeat for the health check (GET /api/health): it reports a problem when
+# this file is more than 26 hours old, so a failed or missed backup is noticed.
+date -Is > /srv/nowrj/last-backup-ok 2>/dev/null || true

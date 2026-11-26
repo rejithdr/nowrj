@@ -2,8 +2,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { HealthModule } from './health/health';
 import { StationsModule } from './stations/stations.module';
 import { ProgrammesModule } from './programmes/programmes.module';
 import { RjsModule } from './rjs/rjs.module';
@@ -76,8 +75,7 @@ import { DataExportModule } from './auth/data-export';
     AdLeadsModule,
     MyMessagesModule,
     DataExportModule,
+    HealthModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

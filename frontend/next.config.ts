@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Do not advertise the framework in every response.
+  poweredByHeader: false,
   experimental: {
     agentFeedback: true,
   },

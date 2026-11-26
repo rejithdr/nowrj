@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AuthControls from "../../AuthControls";
 import PilotNumbers from "../../lib/pilot-numbers";
+import ServerErrors from "../../lib/server-errors";
 import { api, Card } from "../../lib/ui";
 
 /** Super Admin: pilot numbers for all of NowRJ, or one station. */
@@ -29,6 +30,9 @@ export default function PilotPage() {
         </p>
         <Card>
           <PilotNumbers path="/admin/pilot" stations={stations} />
+        </Card>
+        <Card title="Server health and errors">
+          <ServerErrors />
         </Card>
       </div>
     </main>

@@ -74,7 +74,30 @@ On your PC: commit and `git push`. Then in the server terminal:
 
     bash /srv/nowrj/deploy/update.sh
 
-It backs up the database, pulls the code, runs any new migrations and restarts.
+It backs up the database, pulls the code, runs the tests (and stops, changing
+nothing, if they fail), builds, runs any new migrations, updates the web server's
+security settings, restarts, then checks the backend is healthy and runs
+`deploy/api-smoke.sh`. GitHub also runs the tests on every push: a red cross
+next to a commit on GitHub means do not deploy it.
+
+If a deploy breaks the site, go back to the last good commit:
+
+    git -C /srv/nowrj log --oneline -5          # find the last good one
+    git -C /srv/nowrj checkout <commit> -- .    # put its files back
+    bash /srv/nowrj/deploy/update.sh            # (if it needs an older database, restore the backup update.sh just took)
+
+Once the fix is pushed, run `git -C /srv/nowrj checkout -- .` and then update.sh as usual.
+
+## Knowing when something is wrong
+
+- `https://nowrj.com/api/health` answers 200 when all is well and 503 with the
+  problem otherwise: database not answering, no good backup for 26 hours, or a
+  burst of server errors. Point a free uptime monitor (UptimeRobot or Better
+  Stack) at it, checking every 5 minutes and emailing you on failure.
+- Super Admin → Pilot numbers → **Server health and errors** lists the server
+  errors since the backend last started.
+- In Lightsail, add a metric alarm on the instance: CPU above 80% for 10 minutes,
+  with an email notification.
 
 ## Useful commands
 
@@ -82,6 +105,8 @@ It backs up the database, pulls the code, runs any new migrations and restarts.
     pm2 logs nowrj-backend         # backend errors (Ctrl+C to exit)
     pm2 logs nowrj-web             # website errors
     pm2 restart all                # restart both
+    curl -s localhost:3000/health  # the backend's own health check
+    bash /srv/nowrj/deploy/api-smoke.sh      # quick API checks (also run by update.sh)
     ls ~/backups                   # nightly database backups (last 14 days)
     bash /srv/nowrj/deploy/restore-test.sh   # prove the newest S3 backup restores (see BACKUPS.md)
     sudo certbot renew --dry-run   # check HTTPS auto-renewal

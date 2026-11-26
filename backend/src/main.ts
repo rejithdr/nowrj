@@ -5,12 +5,18 @@ import connectPgSimple from 'connect-pg-simple';
 import { Pool } from 'pg';
 import passport from 'passport';
 import { assertDataKey } from './crypto/field-crypto';
+import { HttpAdapterHost } from '@nestjs/core';
+import { ErrorTrackingFilter } from './health/health';
 
 async function bootstrap() {
   // Sensitive fields are encrypted with this key; refuse to start without it.
   assertDataKey();
   const app = await NestFactory.create(AppModule);
   const production = process.env.NODE_ENV === 'production';
+  // Do not advertise the framework in every response.
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  // Server errors are recorded for the health check and the Super Admin.
+  app.useGlobalFilters(new ErrorTrackingFilter(app.get(HttpAdapterHost).httpAdapter));
 
   // Where the website lives (comma-separated if more than one).
   const frontendUrls = (process.env.FRONTEND_URL ?? 'http://localhost:3001')
@@ -35,6 +41,9 @@ async function bootstrap() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
   });
+  // A dropped connection (database restart, network blip) must not crash the
+  // backend: the pool replaces the connection on the next request.
+  sessionPool.on('error', (err) => console.error('Session database connection lost:', err.message));
 
   const PgSession = connectPgSimple(session);
 
