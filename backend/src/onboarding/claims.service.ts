@@ -1,3 +1,4 @@
+import { participationSettings } from '../network/participation-settings';
 import {
   BadRequestException,
   ConflictException,
@@ -54,10 +55,13 @@ export class ClaimsService {
         callInPhone: p.callInPhone,
         interactionType: p.interactionType,
         noticeText: p.noticeText,
+        participation: p.participation,
+        participationPrompt: p.participationPrompt,
+        isNetwork: Boolean(p.networkProgrammeId),
         ownedByStation: p.ownerStationId === stationId,
         ownerRjName: owners.find((rj) => rj.id === p.ownerRjId)?.name ?? null,
         schedule: sortSlots(slots.filter((s) => s.programmeId === p.id))
-          .map((s) => `${describeDays(s.daysOfWeek)} ${s.startTime.slice(0, 5)}–${s.endTime.slice(0, 5)}`)
+          .map((s) => `${describeDays(s.daysOfWeek)} ${s.startTime.slice(0, 5)}–${s.endTime.slice(0, 5)}${s.isRepeat ? ' (repeat)' : ''}`)
           .join(' · '),
         latestClaim: latest
           ? { id: latest.id, status: latest.status, rjReason: latest.rjReason, adminReason: latest.adminReason }
@@ -98,6 +102,7 @@ export class ClaimsService {
       if (!programme || programme.ownerStationId !== stationId) {
         throw new ForbiddenException('Only programmes your station owns can be changed here.');
       }
+      if (programme.networkProgrammeId) throw new ForbiddenException('The network office sets the name and settings of a network programme.');
       if (programme.name !== name) {
         await writeAudit(m, listenerId, 'programme.renamed', 'programme', programmeId, { from: programme.name, to: name });
         await m.update(Programme, { id: programmeId }, { name });
@@ -111,15 +116,16 @@ export class ClaimsService {
     listenerId: string,
     stationId: string,
     programmeId: string,
-    input: { interactionType?: string; noticeText?: string | null },
+    input: { interactionType?: string; noticeText?: string | null; participation?: string; participationPrompt?: string | null },
   ) {
-    const settings = programmeSettings(input);
+    const settings = { ...programmeSettings(input), ...participationSettings(input) };
     const m = this.dataSource.manager;
     await assertStationAccess(m, listenerId, stationId, 'programmes', 'edit');
     const programme = await m.findOneBy(Programme, { id: programmeId });
     if (!programme || programme.ownerStationId !== stationId) {
       throw new ForbiddenException('Only programmes your station owns can be changed here.');
     }
+    if (programme.networkProgrammeId) throw new ForbiddenException('The network office sets the name and settings of a network programme.');
     if (Object.keys(settings).length) await m.update(Programme, { id: programmeId }, settings);
     return { id: programmeId, ...settings };
   }

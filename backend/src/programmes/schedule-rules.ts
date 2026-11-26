@@ -3,8 +3,9 @@
  * times are "HH:MM" or "HH:MM:SS". An end at or before the start runs past
  * midnight into the next day.
  */
-export type SlotInput = { days?: number[]; startTime?: string; endTime?: string };
-export type Slot = { days: number[]; startTime: string; endTime: string };
+/** `repeat`: the slot replays an earlier broadcast. */
+export type SlotInput = { days?: number[]; startTime?: string; endTime?: string; repeat?: boolean };
+export type Slot = { days: number[]; startTime: string; endTime: string; repeat?: boolean };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 const WEEK = 7 * 1440;
@@ -20,7 +21,7 @@ export function normaliseSlot(input: SlotInput): Slot | string {
   const endTime = input.endTime?.trim() ?? '';
   if (!TIME.test(startTime) || !TIME.test(endTime)) return 'Start and end times must be HH:MM.';
   if (minutes(startTime) === minutes(endTime)) return 'Start and end time cannot be the same.';
-  return { days, startTime: startTime.slice(0, 5), endTime: endTime.slice(0, 5) };
+  return { days, startTime: startTime.slice(0, 5), endTime: endTime.slice(0, 5), repeat: input.repeat === true };
 }
 
 /** The slot as minute ranges within one week, split where it wraps Sunday night. */

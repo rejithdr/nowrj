@@ -92,6 +92,10 @@ export class AccountService {
           WHERE "listenerId" = $1`,
         [listenerId],
       );
+      // Requests to take part, nominations (with the phone numbers in them)
+      // and private comments go with the account; team replies go with them.
+      await m.query(`DELETE FROM participations WHERE "listenerId" = $1`, [listenerId]);
+      await m.query(`DELETE FROM programme_comments WHERE "listenerId" = $1`, [listenerId]);
       await m.query(`UPDATE user_roles SET status = 'revoked' WHERE "listenerId" = $1`, [listenerId]);
       await m.query(
         `UPDATE org_members SET status = 'removed', "removedAt" = now() WHERE "listenerId" = $1 AND status = 'active'`,

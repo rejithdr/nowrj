@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 
 /**
  * Encrypts the most sensitive fields before they reach the database
@@ -78,4 +78,12 @@ export function decryptBytes(value: Buffer | null): Buffer | null {
   if (!value) return value;
   if (!isEncryptedBytes(value)) return value;
   return open(value.subarray(BYTES_MAGIC.length));
+}
+
+/**
+ * A keyed hash for finding equal values without storing them (e.g. "has this
+ * phone number been nominated already?"). Not reversible without the key.
+ */
+export function lookupHash(value: string): string {
+  return createHmac('sha256', key()).update('lookup:v1:').update(value).digest('hex');
 }

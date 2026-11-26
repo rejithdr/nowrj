@@ -163,7 +163,8 @@ export class ShowsService {
       SELECT
         o.id, o."startsAt", o."endsAt", o.status,
         p.id AS "programmeId", p.name AS "programmeName", p.slug AS "programmeSlug", p."callInPhone",
-        p."interactionType", p."noticeText",
+        p."interactionType", p."noticeText", p.participation, p."networkProgrammeId",
+        COALESCE((SELECT ps."isRepeat" FROM programme_schedules ps WHERE ps.id = o."scheduleId"), false) AS "isRepeat",
         s.name AS "stationName", s.slug AS "stationSlug",
         i."stationName" AS "invitedStationName",
         COALESCE((
@@ -202,7 +203,11 @@ export class ShowsService {
           callInPhone: (row.callInPhone as string | null) ?? null,
           interactionType: (row.interactionType as 'song' | 'question') ?? 'song',
           noticeText: (row.noticeText as string | null) ?? null,
+          participation: (row.participation as string) ?? 'off',
         },
+        /** The station marked this time as a repeat of an earlier broadcast. */
+        isRepeat: Boolean(row.isRepeat),
+        networkProgrammeId: (row.networkProgrammeId as string | null) ?? null,
         station: row.stationName
           ? { name: row.stationName as string, slug: row.stationSlug as string }
           : null,
@@ -231,8 +236,10 @@ export class ShowsService {
     for (const show of shows) {
       const info = airings.get(show.id) ?? null;
       const card = Object.assign(show, { recording: info, alsoOn: [] as { showId: string; stationName: string }[] });
-      if (info) {
-        const key = `${info.recordingId}|${show.startsAt.toISOString()}`;
+      // A network programme aired at the same time on several stations is one card too.
+      const shared = info ? `r:${info.recordingId}` : show.networkProgrammeId ? `n:${show.networkProgrammeId}` : null;
+      if (shared) {
+        const key = `${shared}|${show.startsAt.toISOString()}`;
         const first = sameSlot.get(key);
         if (first) {
           first.alsoOn.push({ showId: show.id, stationName: show.station?.name ?? '' });

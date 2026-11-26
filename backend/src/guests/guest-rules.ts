@@ -1,6 +1,7 @@
 import { EntityManager } from 'typeorm';
 import { RJ_CAN_ACT } from '../rjs/rj-can-act';
 import { accessSql } from '../orgs/access-rules';
+import { NETWORK_OFFICE } from '../network/office-sql';
 
 const HOUR = 3600 * 1000;
 /** Questions for a guest open 24 hours before the recording... */
@@ -24,8 +25,8 @@ export function guestQuestionsOpen(session: { recordingAt: Date; status: string 
 
 /**
  * Who may set up a guest session for a programme and handle its questions:
- * an RJ hosting the programme, or staff with Programmes edit at the station
- * it airs on or that owns it.
+ * an RJ hosting the programme, staff with Programmes edit at the station
+ * it airs on or that owns it, or, for a network programme, its network office.
  */
 export async function canManageProgramme(m: EntityManager, listenerId: string, programmeId: string): Promise<boolean> {
   const [row] = await m.query(
@@ -35,7 +36,8 @@ export async function canManageProgramme(m: EntityManager, listenerId: string, p
               WHERE pr."programmeId" = p.id AND r."ownerListenerId" = $1 AND ${RJ_CAN_ACT('r')}
            )
         OR ${accessSql('p."stationId"', 'programmes', 'edit')}
-        OR ${accessSql('p."ownerStationId"', 'programmes', 'edit')} AS allowed
+        OR ${accessSql('p."ownerStationId"', 'programmes', 'edit')}
+        OR (p."networkProgrammeId" IS NOT NULL AND ${NETWORK_OFFICE('p."networkProgrammeId"', 'edit')}) AS allowed
       FROM programmes p
      WHERE p.id = $2
     `,

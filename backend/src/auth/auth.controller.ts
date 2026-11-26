@@ -210,6 +210,17 @@ export class AuthController {
         ORDER BY o.name`,
       [listener.id],
     );
+    // Network offices (head office or a region) whose programmes this person works on.
+    const networkOffices: { id: string; name: string }[] = await this.dataSource.query(
+      `SELECT DISTINCT o.id, o.name
+         FROM org_members m
+         JOIN designations d ON d.id = m."designationId" AND d.programmes <> 'none'
+         JOIN organisations o ON o.id = m."organisationId" AND o."isActive" AND o.kind = 'network'
+         LEFT JOIN org_units u ON u.id = m."unitId"
+        WHERE m."listenerId" = $1 AND m.status = 'active' AND (m."unitId" IS NULL OR u.kind = 'region')
+        ORDER BY o.name`,
+      [listener.id],
+    );
     const [advertiser] = await this.dataSource.query(`SELECT 1 FROM advertiser_members WHERE "listenerId" = $1 LIMIT 1`, [listener.id]);
     const admins = (this.config.get<string>('SUPERADMIN_EMAILS') ?? '')
       .split(',')
@@ -224,6 +235,7 @@ export class AuthController {
       rj: rj ? { name: rj.name, slug: rj.slug, verificationStatus: rj.verificationStatus } : null,
       stations,
       orgs,
+      networkOffices,
       isAdvertiser: Boolean(advertiser),
       isSuperadmin: Boolean(email && admins.includes(email)),
       adultConfirmed: Boolean(listener.adultConfirmedAt),

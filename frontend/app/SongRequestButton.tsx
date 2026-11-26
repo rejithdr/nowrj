@@ -14,6 +14,8 @@ type MyRequest = {
   dedicatedTo?: string | null;
   status: string;
   seenBy?: "rj" | "station" | null;
+  /** Guest sessions: the question is for the guest or the RJ. */
+  askedOf?: "guest" | "rj";
 };
 
 type NameOnAir = "display" | "first" | "none";
@@ -101,6 +103,7 @@ export default function SongRequestButton({
   const [displayName, setDisplayName] = useState("");
   const [nameOnAir, setNameOnAir] = useState<NameOnAir>("display");
   const [okOnAir, setOkOnAir] = useState<boolean | null>(null);
+  const [askedOf, setAskedOf] = useState<"guest" | "rj">("guest");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
@@ -153,7 +156,7 @@ export default function SongRequestButton({
       const consent = { nameOnAir, okOnAir };
       const body =
         mode === "question"
-          ? { question: form.question, ...consent }
+          ? { question: form.question, ...consent, ...(guest ? { askedOf } : {}) }
           : kind === "song"
             ? { kind, songTitle: form.songTitle, artist: form.artist, message: form.message, ...consent }
             : kind === "dedication"
@@ -212,7 +215,7 @@ export default function SongRequestButton({
         ) : (
           <Music size={16} aria-hidden="true" />
         )}
-        {guest ? "Ask the guest" : words.button}
+        {guest ? "Ask the guest or RJ" : words.button}
       </button>
 
       {error && !open ? <p className="w-full text-sm text-red-700" role="alert">{error}</p> : null}
@@ -224,7 +227,11 @@ export default function SongRequestButton({
               {mine.map((r) => {
                 const k = r.kind ?? "song";
                 const what =
-                  k === "song" ? r.songTitle : k === "dedication" ? `For ${r.dedicatedTo}: “${r.message}”` : `“${r.message}”`;
+                  k === "song"
+                    ? r.songTitle
+                    : k === "dedication"
+                      ? `For ${r.dedicatedTo}: “${r.message}”`
+                      : `${guest ? (r.askedOf === "rj" ? "To the RJ: " : "To the guest: ") : ""}“${r.message}”`;
                 return (
                   <li key={r.id} className="flex justify-between gap-2">
                     <span className="min-w-0 text-zinc-900">
@@ -250,6 +257,16 @@ export default function SongRequestButton({
                       <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                       <span>{notice?.trim() || DEFAULT_QUESTION_NOTICE}</span>
                     </p>
+                  ) : null}
+                  {guest ? (
+                    <div role="radiogroup" aria-label="Who is your question for?" className="flex flex-wrap gap-2">
+                      <button type="button" role="radio" aria-checked={askedOf === "guest"} onClick={() => setAskedOf("guest")} className={chip(askedOf === "guest")}>
+                        {askedOf === "guest" ? <Check size={14} aria-hidden="true" /> : null} For the guest
+                      </button>
+                      <button type="button" role="radio" aria-checked={askedOf === "rj"} onClick={() => setAskedOf("rj")} className={chip(askedOf === "rj")}>
+                        {askedOf === "rj" ? <Check size={14} aria-hidden="true" /> : null} For the RJ
+                      </button>
+                    </div>
                   ) : null}
                   {field(
                     `q-${showId}`,

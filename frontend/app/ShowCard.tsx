@@ -18,7 +18,11 @@ export type ApiShow = {
     callInPhone: string | null;
     interactionType?: "song" | "question";
     noticeText?: string | null;
+    /** Whether the programme invites listeners to take part or nominate someone. */
+    participation?: "off" | "take_part" | "nominate" | "both";
   };
+  /** The station marked this time as a repeat of an earlier broadcast. */
+  isRepeat?: boolean;
   station: { name: string; slug: string } | null;
   invitedStationName: string | null;
   hosts: { id: string; name: string; slug: string; photoUrl: string | null }[];
@@ -104,6 +108,9 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
                 Live
               </span>
             ) : null}
+            {show.isRepeat && !show.recording ? (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-sky-900">Repeat</span>
+            ) : null}
           </div>
           {show.hosts.length ? (
             <p className="mt-0.5 text-sm">
@@ -177,6 +184,11 @@ export default function ShowCard({ show, kind, now }: { show: ApiShow; kind: "li
             mode={show.programme.interactionType ?? "song"}
             notice={show.programme.noticeText ?? null}
           /> : null}
+        {show.programme.participation && show.programme.participation !== "off" ? (
+          <Link href={`/programme/${show.programme.slug}#take-part`} className="inline-flex min-h-10 items-center rounded-full border border-orange-200 bg-orange-50 px-4 text-sm font-semibold text-orange-800 hover:bg-orange-100">
+            {show.programme.participation === "nominate" ? "Nominate someone" : "Take part"}
+          </Link>
+        ) : null}
         {show.programme.id ? <ReportButton targetType="programme" targetId={show.programme.id} showId={show.id} alignEnd /> : null}
       </div>
 

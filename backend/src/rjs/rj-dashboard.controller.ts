@@ -98,6 +98,8 @@ export class RjDashboardController {
       schedule?: SlotInput[];
       interactionType?: string;
       noticeText?: string | null;
+      participation?: string;
+      participationPrompt?: string | null;
     },
   ) {
     return this.dashboard.updateProgramme(listenerId(req), id, body ?? {});

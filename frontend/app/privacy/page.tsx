@@ -16,6 +16,8 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>When you sign in with Google:</strong> your name, email address, profile photo and Google account ID. We never see your Google password.</li>
         <li><strong>What you do on NowRJ:</strong> RJs you follow, Likes and Fires you give, song requests (song, artist and any message you write), and taps on a programme&rsquo;s call button.</li>
+        <li><strong>If you ask to take part in a programme or nominate someone:</strong> your phone number (and, for a nomination, the name and phone number of the person you nominate, and why). These are kept encrypted, shown only to that programme&rsquo;s team (its RJs, station and network office), and the phone numbers are deleted after 30 days. A nominated person is called first and nothing about them goes on air unless they agree. If they decline, we keep a scrambled code of their number (not the number) so they are not nominated for that programme again.</li>
+        <li><strong>Private messages to a programme:</strong> what you write and the team&rsquo;s replies, seen only by you and that programme&rsquo;s RJs, station and network office.</li>
         <li><strong>If you are an RJ:</strong> your RJ name, photo, phone and email, the programmes and schedules you publish, your station, referrals and vouches.</li>
         <li><strong>If you represent a station:</strong> the station&rsquo;s details and contact phone and email, and the actions you take for the station.</li>
         <li><strong>If you contact us about advertising:</strong> your name, company, phone or email and your message, used only to reply.</li>
@@ -35,7 +37,7 @@ export default function PrivacyPage() {
       <h2>Who can see it</h2>
       <ul>
         <li><strong>Public:</strong> verified RJ profiles, programmes, schedules and total reaction counts.</li>
-        <li><strong>RJs and stations:</strong> engagement numbers for their own programmes and song requests made to their shows.</li>
+        <li><strong>RJs and stations:</strong> engagement numbers for their own programmes, song requests made to their shows, and requests to take part, nominations and private messages sent to their programmes. For a network programme, its network&rsquo;s office sees these too.</li>
         <li><strong>Service providers:</strong> Amazon Web Services hosts NowRJ in Mumbai, India, and Google provides sign-in. They process data only for us.</li>
         <li><strong>Authorities:</strong> only when the law requires it.</li>
       </ul>

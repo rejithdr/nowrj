@@ -43,6 +43,10 @@ export class ProgrammeSchedule {
   @Column({ type: 'date', nullable: true })
   validTo: string | null;
 
+  /** This slot replays an earlier broadcast (shown to listeners as a repeat). */
+  @Column({ type: 'boolean', default: false })
+  isRepeat: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

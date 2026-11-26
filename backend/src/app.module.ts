@@ -24,6 +24,9 @@ import { PollsModule } from './polls/polls';
 import { PilotModule } from './pilot/pilot';
 import { RecordingsModule } from './recordings/recordings';
 import { ReportsModule } from './reports/reports';
+import { NetworkProgrammesModule } from './network/network-programmes';
+import { ParticipationModule } from './network/participation';
+import { CommentsModule } from './network/comments';
 
 @Module({
   imports: [
@@ -64,6 +67,9 @@ import { ReportsModule } from './reports/reports';
     PilotModule,
     RecordingsModule,
     ReportsModule,
+    NetworkProgrammesModule,
+    ParticipationModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

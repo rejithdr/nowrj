@@ -63,6 +63,10 @@ export class SongRequest {
   @Column({ type: 'varchar', length: 10, nullable: true })
   seenBy: 'rj' | 'station' | null;
 
+  /** A pre-recording question: for the guest or for the RJ. */
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  askedOf: 'guest' | 'rj' | null;
+
   @Column({ type: 'uuid', nullable: true })
   handledByListenerId: string | null;
 

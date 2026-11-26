@@ -12,6 +12,9 @@ import SongQueue from "../../lib/song-queue";
 import { RjProfileEditor } from "../../lib/rj-profile";
 import GuestSessions from "../../lib/guest-sessions";
 import { InteractionSettings } from "../../lib/interaction-settings";
+import { ParticipationSettings, type ParticipationMode } from "../../lib/participation-settings";
+import { emptySlot, SlotEditor, type SlotDraft } from "../../lib/slot-editor";
+import TeamInbox from "../../lib/team-inbox";
 import type { InteractionType } from "../../lib/interaction";
 import { ReferralsPanel, VouchesPanel } from "../../lib/referrals-panel";
 import {
@@ -25,7 +28,6 @@ import {
   Phone,
   Plus,
   Radio,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -81,12 +83,9 @@ type Claim = {
   youOwnIt: boolean;
 };
 
-type SlotDraft = { days: number[]; startTime: string; endTime: string };
 
-type ScheduleSlot = SlotDraft & { id: string; label: string };
+type ScheduleSlot = SlotDraft & { id: string; label: string; repeat?: boolean };
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const emptySlot = (): SlotDraft => ({ days: [], startTime: "", endTime: "" });
 
 type MyProgramme = {
   id: string;
@@ -97,6 +96,10 @@ type MyProgramme = {
   callInPhone: string | null;
   interactionType: InteractionType;
   noticeText: string | null;
+  participation?: ParticipationMode;
+  participationPrompt?: string | null;
+  /** A network office's programme: the office sets its name and RJs, the station its times. */
+  isNetwork?: boolean;
   isActive: boolean;
   stationName: string | null;
   invitedStationName: string | null;
@@ -290,8 +293,12 @@ export default function RjDashboardPage() {
           <SongQueue />
         </Section>
 
-        <Section title="Ask the guest">
+        <Section title="Ask the guest or RJ">
           <GuestSessions path="/guest-sessions/rj" programmes={programmes.map((p) => ({ id: p.id, name: p.name }))} />
+        </Section>
+
+        <Section title="Taking part, nominations and private messages">
+          <TeamInbox query="as=rj" />
         </Section>
 
         <Section title="Your engagement">
@@ -681,71 +688,6 @@ function ClaimsSection({ claims, onChanged }: { claims: Claim[]; onChanged: () =
 
 // --------------------------------------------------------------- schedules
 
-function SlotEditor({
-  slot,
-  index,
-  onChange,
-  onRemove,
-}: {
-  slot: SlotDraft;
-  index: number;
-  onChange: (slot: SlotDraft) => void;
-  onRemove?: () => void;
-}) {
-  const toggle = (day: number) =>
-    onChange({
-      ...slot,
-      days: slot.days.includes(day) ? slot.days.filter((d) => d !== day) : [...slot.days, day].sort(),
-    });
-  const preset = (days: number[]) => onChange({ ...slot, days });
-
-  return (
-    <fieldset className="rounded-xl border border-zinc-200 bg-white p-3">
-      <legend className="px-1 text-xs font-semibold text-zinc-600">Time slot {index + 1}</legend>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days it airs">
-        {DAYS.map((name, i) => {
-          const day = i + 1;
-          const on = slot.days.includes(day);
-          return (
-            <button
-              key={name}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggle(day)}
-              className={`min-h-9 min-w-11 rounded-full border px-2.5 text-sm font-semibold ${
-                on ? "border-orange-600 bg-orange-600 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-orange-300"
-              }`}
-            >
-              {name}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2 text-xs">
-        <button type="button" onClick={() => preset([1, 2, 3, 4, 5])} className="font-semibold text-orange-700 hover:underline">Weekdays</button>
-        <button type="button" onClick={() => preset([6, 7])} className="font-semibold text-orange-700 hover:underline">Weekend</button>
-        <button type="button" onClick={() => preset([1, 2, 3, 4, 5, 6, 7])} className="font-semibold text-orange-700 hover:underline">Every day</button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <div>
-          <label htmlFor={`slot-${index}-start`} className="mb-1 block text-xs font-medium text-zinc-700">Starts</label>
-          <input id={`slot-${index}-start`} type="time" required value={slot.startTime} onChange={(e) => onChange({ ...slot, startTime: e.target.value })} className={`${inputClass} w-36`} />
-        </div>
-        <div>
-          <label htmlFor={`slot-${index}-end`} className="mb-1 block text-xs font-medium text-zinc-700">Ends</label>
-          <input id={`slot-${index}-end`} type="time" required value={slot.endTime} onChange={(e) => onChange({ ...slot, endTime: e.target.value })} className={`${inputClass} w-36`} />
-        </div>
-        {onRemove ? (
-          <button type="button" onClick={onRemove} className={quietButton} aria-label={`Remove time slot ${index + 1}`}>
-            <Trash2 size={14} aria-hidden="true" />
-            Remove
-          </button>
-        ) : null}
-      </div>
-    </fieldset>
-  );
-}
-
 // --------------------------------------------------------------- programmes
 
 function ProgrammeSection({
@@ -927,7 +869,9 @@ function ProgrammeRow({
             {!programme.isActive && !verified ? " · Hidden until you're verified" : ""}
           </p>
         </div>
-        {!editing ? (
+        {programme.isNetwork ? (
+          <p className="max-w-56 text-xs text-zinc-500">Network programme: the network office sets its name and RJs, and each station its times.</p>
+        ) : !editing ? (
           <button type="button" onClick={() => setEditing(true)} className={quietButton}>
             <Pencil size={14} aria-hidden="true" />
             Edit programme
@@ -977,9 +921,11 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
   const [phone, setPhone] = useState(programme.callInPhone ?? "");
   const [type, setType] = useState<InteractionType>(programme.interactionType ?? "song");
   const [notice, setNotice] = useState(programme.noticeText ?? "");
+  const [mode, setMode] = useState<ParticipationMode>(programme.participation ?? "off");
+  const [prompt, setPrompt] = useState(programme.participationPrompt ?? "");
   const [slots, setSlots] = useState<SlotDraft[]>(
     programme.schedule.length
-      ? programme.schedule.map((s) => ({ days: [...s.days], startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5) }))
+      ? programme.schedule.map((s) => ({ days: [...s.days], startTime: s.startTime.slice(0, 5), endTime: s.endTime.slice(0, 5), repeat: Boolean(s.repeat) }))
       : [emptySlot()],
   );
   const [busy, setBusy] = useState(false);
@@ -998,6 +944,8 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
           schedule: slots,
           interactionType: type,
           noticeText: notice.trim() || null,
+          participation: mode,
+          participationPrompt: prompt.trim() || null,
           confirmDrop,
         }),
       });
@@ -1046,6 +994,7 @@ function ProgrammeForm({ programme, onDone }: { programme: MyProgramme; onDone: 
         <input id={`call-${programme.id}`} type="tel" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Studio number listeners call" className={`${inputClass} max-w-64`} />
       </div>
       <InteractionSettings id={programme.id} type={type} notice={notice} onType={setType} onNotice={setNotice} />
+      <ParticipationSettings id={programme.id} mode={mode} prompt={prompt} onMode={setMode} onPrompt={setPrompt} />
       {error ? <Notice kind="error" text={error} /> : null}
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className={primaryButton}>

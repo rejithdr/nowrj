@@ -13,6 +13,7 @@ type Me = {
   stations: { id: string; name: string; status: string }[];
   orgs?: { id: string; name: string }[];
   isAdvertiser?: boolean;
+  networkOffices?: { id: string; name: string }[];
   isSuperadmin: boolean;
 };
 
@@ -129,6 +130,12 @@ export default function AuthControls() {
           </a>
         ) : null}
         {me.isAdvertiser ? <a href="/advertiser/dashboard" className={itemClass}>Advertiser dashboard</a> : null}
+        {me.networkOffices?.length ? (
+          <a href="/network" className={itemClass}>
+            Network programmes
+            <span className="block truncate text-xs text-zinc-500">{me.networkOffices.map((o) => o.name).join(", ")}</span>
+          </a>
+        ) : null}
         {me.orgs?.length ? (
           <a href="/org" className={itemClass}>
             Staff &amp; designations

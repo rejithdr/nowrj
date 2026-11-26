@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarPlus, Clock, MessageCircleQuestion, Radio, Share2 } from "lucide-react";
 import SongRequestButton from "../SongRequestButton";
+import GuestTakePart from "./guest-take-part";
 
 export type GuestSession = {
   id: string;
@@ -57,7 +58,7 @@ export function GuestCard({ guest }: { guest: GuestSession }) {
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wide text-violet-700">Ask the guest</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-violet-700">Ask the guest or RJ</p>
           <h3 className="text-lg font-bold text-zinc-900">
             {guest.guestName}
             {guest.guestLine ? <span className="font-normal text-zinc-600"> · {guest.guestLine}</span> : null}
@@ -94,6 +95,7 @@ export function GuestCard({ guest }: { guest: GuestSession }) {
       </div>
       <div className="mt-3 flex flex-wrap items-start gap-2">
         <SongRequestButton showId={guest.id} programmeName={guest.guestName} mode="question" notice={guest.programme.noticeText} guest />
+        <GuestTakePart sessionId={guest.id} guestName={guest.guestName} />
         {guest.airAt ? (
           <a href={calendarLink(guest)} target="_blank" rel="noopener" className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 hover:bg-orange-50">
             <CalendarPlus size={15} aria-hidden="true" /> Add to calendar

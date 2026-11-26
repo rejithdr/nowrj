@@ -70,6 +70,17 @@ export class Programme {
   @Column({ type: 'uuid', nullable: true })
   ownerStationId: string | null;
 
+  /** Set on a station's copy of a network programme; name and RJs come from it. */
+  @Column({ type: 'uuid', nullable: true })
+  networkProgrammeId: string | null;
+
+  /** Whether listeners can ask to take part, nominate someone, both, or neither. */
+  @Column({ type: 'varchar', length: 10, default: 'off' })
+  participation: 'off' | 'take_part' | 'nominate' | 'both';
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  participationPrompt: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

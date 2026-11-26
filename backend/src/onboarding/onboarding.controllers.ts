@@ -117,7 +117,7 @@ export class StationRepController {
     @Req() req: Request,
     @Param('stationId', ParseUUIDPipe) stationId: string,
     @Param('programmeId', ParseUUIDPipe) programmeId: string,
-    @Body() body: { interactionType?: string; noticeText?: string | null },
+    @Body() body: { interactionType?: string; noticeText?: string | null; participation?: string; participationPrompt?: string | null },
   ) {
     return this.claims.stationUpdateSettings(listenerId(req), stationId, programmeId, body ?? {});
   }

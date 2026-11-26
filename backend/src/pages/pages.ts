@@ -47,9 +47,9 @@ export class PagesService {
       );
     if (!rows.length) return [];
 
-    const slots: { programmeId: string; daysOfWeek: number[]; startTime: string; endTime: string }[] =
+    const slots: { programmeId: string; daysOfWeek: number[]; startTime: string; endTime: string; isRepeat: boolean }[] =
       await this.dataSource.query(
-        `SELECT "programmeId", "daysOfWeek", "startTime"::text, "endTime"::text
+        `SELECT "programmeId", "daysOfWeek", "startTime"::text, "endTime"::text, "isRepeat"
            FROM programme_schedules
           WHERE "programmeId" = ANY($1) AND "validTo" IS NULL`,
         [rows.map((r) => r.id)],
@@ -60,7 +60,9 @@ export class PagesService {
       name: row.name,
       slug: row.slug,
       scheduleText:
-        sortSlots(slots.filter((s) => s.programmeId === row.id)).map(slotLabel).join(' · ') || null,
+        sortSlots(slots.filter((s) => s.programmeId === row.id))
+          .map((s) => `${slotLabel(s)}${s.isRepeat ? ' (repeat)' : ''}`)
+          .join(' · ') || null,
       station: row.stationName ? { name: row.stationName, slug: row.stationSlug! } : null,
       invitedStationName: row.invitedStationName,
       hosts: row.hosts,

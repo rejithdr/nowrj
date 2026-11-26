@@ -13,6 +13,9 @@ import UpcomingShows from "../../lib/show-changes";
 import StationRjs from "../../lib/station-rjs";
 import SongQueue from "../../lib/song-queue";
 import GuestSessions from "../../lib/guest-sessions";
+import NetworkCarry from "../../lib/network-carry";
+import TeamInbox from "../../lib/team-inbox";
+import { ParticipationSettings, type ParticipationMode } from "../../lib/participation-settings";
 import { InteractionSettings } from "../../lib/interaction-settings";
 import type { InteractionType } from "../../lib/interaction";
 import { api, Card, inputClass, isSignedIn, Notice, primaryButton, quietButton, signInAndReturn, StatusPill } from "../../lib/ui";
@@ -43,6 +46,10 @@ type StationProgramme = {
   callInPhone: string | null;
   interactionType: InteractionType;
   noticeText: string | null;
+  participation?: ParticipationMode;
+  participationPrompt?: string | null;
+  /** The station's copy of a network programme: name and settings come from the network office. */
+  isNetwork?: boolean;
   ownedByStation: boolean;
   ownerRjName: string | null;
   schedule: string;
@@ -185,12 +192,23 @@ function StationPanel({ entry }: { entry: MyStation }) {
               <p className="mt-1 text-sm text-zinc-600">Song requests, dedications, messages and questions for shows live now, in the next 24 hours, or that ended in the last 2 hours. Listeners see “Seen by RJ” once a message shows here.</p>
               <SongQueue path={`/shows/song-requests/station/${station.id}`} readOnly={!editProgrammes} />
 
-              <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest</h2>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Taking part, nominations &amp; private messages</h2>
+              <TeamInbox query={`as=station&stationId=${station.id}`} />
+
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Ask the guest or RJ</h2>
               <GuestSessions
                 path={`/guest-sessions/station/${station.id}`}
                 programmes={programmes.map((p) => ({ id: p.id, name: p.name }))}
                 readOnly={!editProgrammes}
               />
+            </>
+          ) : null}
+
+          {can("programmes", "view") && access?.organisationKind === "network" ? (
+            <>
+              <h2 className="mt-8 text-lg font-bold text-zinc-900">Network programmes</h2>
+              <p className="mt-1 text-sm text-zinc-600">Made by your network&apos;s regional or head office. You choose which to carry, and when they air here, including repeats.</p>
+              <NetworkCarry stationId={station.id} canEdit={editProgrammes} />
             </>
           ) : null}
 
@@ -271,7 +289,7 @@ function StationPanel({ entry }: { entry: MyStation }) {
                       <div>
                         <Link href={`/programme/${p.slug}`} className="font-semibold text-zinc-900 hover:text-orange-700">{p.name}</Link>
                         <p className="text-sm text-zinc-600">{p.schedule || "Schedule not set"}</p>
-                        <p className="text-xs text-zinc-500">{p.ownedByStation ? "Owned by your station" : `Owned by ${p.ownerRjName ?? "an RJ"}`}</p>
+                        <p className="text-xs text-zinc-500">{p.isNetwork ? "Network programme · times set above" : p.ownedByStation ? "Owned by your station" : `Owned by ${p.ownerRjName ?? "an RJ"}`}</p>
                       </div>
                       {!editProgrammes ? null : p.ownedByStation ? (
                         <CallInEditor stationId={station.id} programme={p} onSaved={refresh} />
@@ -307,6 +325,8 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
   const [value, setValue] = useState(programme.callInPhone ?? "");
   const [type, setType] = useState<InteractionType>(programme.interactionType ?? "song");
   const [notice, setNotice] = useState(programme.noticeText ?? "");
+  const [mode, setMode] = useState<ParticipationMode>(programme.participation ?? "off");
+  const [prompt, setPrompt] = useState(programme.participationPrompt ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -315,16 +335,22 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
     setError("");
     try {
       const base = `/station-reps/me/stations/${stationId}/programmes/${programme.id}`;
-      if (name.trim() !== programme.name) {
+      if (!programme.isNetwork && name.trim() !== programme.name) {
         await api(`${base}/name`, { method: "PATCH", body: JSON.stringify({ name }) });
       }
       if ((value || null) !== programme.callInPhone) {
         await api(`${base}/call-in`, { method: "PATCH", body: JSON.stringify({ callInPhone: value || null }) });
       }
-      if (type !== programme.interactionType || (notice.trim() || null) !== programme.noticeText) {
+      if (
+        !programme.isNetwork &&
+        (type !== programme.interactionType ||
+          (notice.trim() || null) !== programme.noticeText ||
+          mode !== (programme.participation ?? "off") ||
+          (prompt.trim() || null) !== (programme.participationPrompt ?? null))
+      ) {
         await api(`${base}/settings`, {
           method: "PATCH",
-          body: JSON.stringify({ interactionType: type, noticeText: notice.trim() || null }),
+          body: JSON.stringify({ interactionType: type, noticeText: notice.trim() || null, participation: mode, participationPrompt: prompt.trim() || null }),
         });
       }
       setEditing(false);
@@ -346,11 +372,22 @@ function CallInEditor({ stationId, programme, onSaved }: { stationId: string; pr
   }
   return (
     <div className="w-full space-y-2 rounded-xl bg-zinc-50 p-3">
-      <label htmlFor={`name-${programme.id}`} className="block text-sm font-medium text-zinc-800">Programme name</label>
-      <input id={`name-${programme.id}`} maxLength={150} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+      {programme.isNetwork ? (
+        <p className="text-sm text-zinc-600">The network office sets this programme&apos;s name and listener settings. You can set your studio&apos;s call-in number.</p>
+      ) : (
+        <>
+          <label htmlFor={`name-${programme.id}`} className="block text-sm font-medium text-zinc-800">Programme name</label>
+          <input id={`name-${programme.id}`} maxLength={150} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        </>
+      )}
       <label htmlFor={`call-${programme.id}`} className="block text-sm font-medium text-zinc-800">Call-in number</label>
       <input id={`call-${programme.id}`} type="tel" maxLength={20} value={value} onChange={(e) => setValue(e.target.value)} className={`${inputClass} max-w-48`} />
-      <InteractionSettings id={programme.id} type={type} notice={notice} onType={setType} onNotice={setNotice} />
+      {programme.isNetwork ? null : (
+        <>
+          <InteractionSettings id={programme.id} type={type} notice={notice} onType={setType} onNotice={setNotice} />
+          <ParticipationSettings id={programme.id} mode={mode} prompt={prompt} onMode={setMode} onPrompt={setPrompt} />
+        </>
+      )}
       <div className="flex gap-2">
         <button type="button" onClick={() => void save()} disabled={busy} className={primaryButton}>
           {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}

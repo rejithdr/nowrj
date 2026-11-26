@@ -3,6 +3,8 @@ import ReportButton from "../../ReportButton";
 import { Clock, Phone, Radio } from "lucide-react";
 import { Avatar, fetchPage, fetchShows, NotFound, PageFrame, StationLabel, ShowsNow, type ProgrammeSummary } from "../../lib/public-pages";
 import { GuestCard, type GuestSession } from "../../lib/guest-card";
+import TakePart from "../../lib/take-part";
+import PrivateComment from "../../lib/private-comment";
 
 export const instant = false;
 
@@ -63,6 +65,8 @@ export default async function ProgrammePage({ params }: { params: Promise<{ slug
         </dl>
       </section>
 
+      <TakePart programmeId={programme.id} programmeName={programme.name} />
+
       {guests.length ? (
         <section className="mt-8">
           <h2 className="text-xl font-bold text-zinc-900">Ask the guest</h2>
@@ -71,6 +75,8 @@ export default async function ProgrammePage({ params }: { params: Promise<{ slug
           </div>
         </section>
       ) : null}
+
+      <PrivateComment programmeId={programme.id} />
 
       <div className="pb-8">
         <ShowsNow shows={shows} empty="No show in the next 24 hours. Check the weekly schedule above." />

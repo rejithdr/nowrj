@@ -18,6 +18,7 @@ import { RjStationAffiliation } from '../rj-station-affiliation.entity';
 import { StationInvite } from '../station-invite.entity';
 import { ProgrammeSchedule } from '../programme-schedule.entity';
 import { writeAudit } from '../onboarding/helpers';
+import { participationSettings } from '../network/participation-settings';
 import {
   describeDays,
   normaliseSlot,
@@ -58,7 +59,7 @@ function bySlotOrder(
 /** A programme can have at most this many time slots (e.g. 7 days × 4 slots). */
 const MAX_SLOTS = 28;
 
-function parseSlots(inputs: SlotInput[] | undefined): Slot[] {
+export function parseSlots(inputs: SlotInput[] | undefined): Slot[] {
   if (inputs !== undefined && !Array.isArray(inputs)) throw new BadRequestException('Send the time slots as a list.');
   if ((inputs?.length ?? 0) > MAX_SLOTS) throw new BadRequestException(`A programme can have up to ${MAX_SLOTS} time slots.`);
   const slots: Slot[] = [];
@@ -314,6 +315,9 @@ export class RjDashboardService {
         'p.callInPhone AS "callInPhone"',
         'p.interactionType AS "interactionType"',
         'p.noticeText AS "noticeText"',
+        'p.participation AS "participation"',
+        'p.participationPrompt AS "participationPrompt"',
+        'p.networkProgrammeId IS NOT NULL AS "isNetwork"',
         'p.isActive AS "isActive"',
         's.name AS "stationName"',
         'i.stationName AS "invitedStationName"',
@@ -331,6 +335,9 @@ export class RjDashboardService {
         callInPhone: string | null;
         interactionType: 'song' | 'question';
         noticeText: string | null;
+        participation: string;
+        participationPrompt: string | null;
+        isNetwork: boolean;
         isActive: boolean;
         stationName: string | null;
         invitedStationName: string | null;
@@ -357,7 +364,8 @@ export class RjDashboardService {
           days: slot.daysOfWeek,
           startTime: slot.startTime.slice(0, 5),
           endTime: slot.endTime.slice(0, 5),
-          label: `${describeDays(slot.daysOfWeek)} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}`,
+          repeat: slot.isRepeat,
+          label: `${describeDays(slot.daysOfWeek)} ${slot.startTime.slice(0, 5)}–${slot.endTime.slice(0, 5)}${slot.isRepeat ? ' (repeat)' : ''}`,
         })),
     }));
   }
@@ -451,6 +459,7 @@ export class RjDashboardService {
             endTime: slot.endTime,
             validFrom: todayInIndia(),
             validTo: null,
+            isRepeat: slot.repeat ?? false,
           }),
         );
       }
@@ -480,6 +489,10 @@ export class RjDashboardService {
     const hosts = await manager.exists(ProgrammeRj, { where: { programmeId, rjId: rj.id } });
     if (!hosts) {
       throw new ForbiddenException(`Only the programme’s hosts can change its ${what}.`);
+    }
+    const [network] = await manager.query(`SELECT "networkProgrammeId" FROM programmes WHERE id = $1`, [programmeId]);
+    if (network?.networkProgrammeId) {
+      throw new ForbiddenException('This is a network programme: its name and RJs are set by the network office, and its times by the station.');
     }
     // On a programme a station owns, host rights last only while the RJ still
     // works there: a current, undisputed affiliation with that station, or an
@@ -585,10 +598,12 @@ export class RjDashboardService {
       schedule?: SlotInput[];
       interactionType?: string;
       noticeText?: string | null;
+      participation?: unknown;
+      participationPrompt?: unknown;
       confirmDrop?: unknown;
     },
   ) {
-    const settings = programmeSettings(input);
+    const settings = { ...programmeSettings(input), ...participationSettings(input) };
     const name = input.name === undefined ? undefined : clean(input.name);
     if (name !== undefined) {
       if (!name) throw new BadRequestException('Enter the programme name.');
@@ -611,45 +626,61 @@ export class RjDashboardService {
       Object.assign(programme, settings);
       await manager.save(programme);
 
-      if (slots) {
-        await this.guardDrop(manager, listenerId, programmeId, slots, input.confirmDrop === true);
-        const same = (a: { days: number[]; startTime: string; endTime: string }, b: ProgrammeSchedule) =>
-          a.startTime === b.startTime.slice(0, 5) &&
-          a.endTime === b.endTime.slice(0, 5) &&
-          a.days.join(',') === [...b.daysOfWeek].sort((x, y) => x - y).join(',');
-        const current = await manager.find(ProgrammeSchedule, { where: { programmeId, validTo: IsNull() } });
-        const today = todayInIndia();
-
-        for (const old of current.filter((c) => !slots.some((s) => same(s, c)))) {
-          if (old.validFrom >= today) {
-            await manager.delete(ProgrammeSchedule, { id: old.id });
-          } else {
-            old.validTo = dayBefore(today);
-            await manager.save(old);
-          }
-        }
-        for (const slot of slots.filter((s) => !current.some((c) => same(s, c)))) {
-          await manager.save(
-            manager.create(ProgrammeSchedule, {
-              programmeId,
-              daysOfWeek: slot.days,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              validFrom: today,
-              validTo: null,
-            }),
-          );
-        }
-        await this.syncProgrammeTimes(manager, programmeId);
-      }
+      if (slots) await this.replaceSlots(manager, listenerId, programmeId, slots, input.confirmDrop === true);
       return {
         id: programme.id,
         name: programme.name,
         callInPhone: programme.callInPhone,
         interactionType: programme.interactionType,
         noticeText: programme.noticeText,
+        participation: programme.participation,
+        participationPrompt: programme.participationPrompt,
       };
     });
+  }
+
+  /**
+   * Replaces a programme's weekly slots. Unchanged slots stay (a changed
+   * repeat mark is updated in place); removed ones stop from today; new ones
+   * start today. Refuses to drop shows with things attached unless confirmed.
+   * The caller checks who may do this.
+   */
+  async replaceSlots(manager: EntityManager, listenerId: string, programmeId: string, slots: Slot[], confirmDrop: boolean) {
+    await this.guardDrop(manager, listenerId, programmeId, slots, confirmDrop);
+    const same = (a: { days: number[]; startTime: string; endTime: string }, b: ProgrammeSchedule) =>
+      a.startTime === b.startTime.slice(0, 5) &&
+      a.endTime === b.endTime.slice(0, 5) &&
+      a.days.join(',') === [...b.daysOfWeek].sort((x, y) => x - y).join(',');
+    const current = await manager.find(ProgrammeSchedule, { where: { programmeId, validTo: IsNull() } });
+    const today = todayInIndia();
+
+    for (const old of current) {
+      const match = slots.find((s) => same(s, old));
+      if (!match) {
+        if (old.validFrom >= today) {
+          await manager.delete(ProgrammeSchedule, { id: old.id });
+        } else {
+          old.validTo = dayBefore(today);
+          await manager.save(old);
+        }
+      } else if ((match.repeat ?? false) !== old.isRepeat) {
+        await manager.update(ProgrammeSchedule, { id: old.id }, { isRepeat: match.repeat ?? false });
+      }
+    }
+    for (const slot of slots.filter((s) => !current.some((c) => same(s, c)))) {
+      await manager.save(
+        manager.create(ProgrammeSchedule, {
+          programmeId,
+          daysOfWeek: slot.days,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          validFrom: today,
+          validTo: null,
+          isRepeat: slot.repeat ?? false,
+        }),
+      );
+    }
+    await this.syncProgrammeTimes(manager, programmeId);
   }
 
   /**
@@ -749,6 +780,7 @@ export class RjDashboardService {
           endTime: slot.endTime,
           validFrom: todayInIndia(),
           validTo: null,
+          isRepeat: slot.repeat ?? false,
         }),
       );
       await this.syncProgrammeTimes(manager, programmeId);

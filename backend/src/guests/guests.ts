@@ -31,6 +31,7 @@ import { isSuperadminEmail } from '../auth/guards/superadmin.guard';
 import { onAirName, readOnAirConsent } from '../shows/on-air';
 import { districtParam, IN_DISTRICT } from '../districts/district-list';
 import { GuestSession } from '../guest-session.entity';
+import { NETWORK_OFFICE } from '../network/office-sql';
 import { Listener } from '../listener.entity';
 import { Programme } from '../programme.entity';
 import { SongRequest } from '../song-request.entity';
@@ -156,17 +157,19 @@ export class GuestsService {
     });
     return {
       max: MAX_GUEST_QUESTIONS,
-      requests: rows.map((r) => ({ id: r.id, kind: r.kind, songTitle: null, artist: null, message: r.message, status: r.status })),
+      requests: rows.map((r) => ({ id: r.id, kind: r.kind, askedOf: r.askedOf ?? 'guest', songTitle: null, artist: null, message: r.message, status: r.status })),
     };
   }
 
   async ask(
     listenerId: string,
     sessionId: string,
-    input: { question?: unknown; message?: unknown; nameOnAir?: unknown; okOnAir?: unknown },
+    input: { question?: unknown; message?: unknown; nameOnAir?: unknown; okOnAir?: unknown; askedOf?: unknown },
     now = new Date(),
   ) {
     const question = text(input.question ?? input.message, MAX_TEXT, 'Question');
+    if (input.askedOf !== undefined && input.askedOf !== 'guest' && input.askedOf !== 'rj') throw new BadRequestException('Ask the guest or the RJ.');
+    const askedOf: 'guest' | 'rj' = input.askedOf === 'rj' ? 'rj' : 'guest';
     const consent = readOnAirConsent(input);
     if (!question) throw new BadRequestException('Type your question.');
     if (hasContactDetails(question)) throw new BadRequestException(CONTACT_RULE_MESSAGE);
@@ -205,10 +208,12 @@ export class GuestsService {
           status: 'new',
           nameOnAir: consent.nameOnAir,
           okOnAir: consent.okOnAir,
+          askedOf,
         }),
       );
       return {
         id: saved.id,
+        askedOf,
         kind: 'question',
         songTitle: null,
         artist: null,
@@ -240,10 +245,10 @@ export class GuestsService {
     if (!rows.length) return [];
     const questions: {
       id: string; guestSessionId: string; message: string; status: string; createdAt: Date;
-      nameOnAir: string | null; okOnAir: boolean | null; listenerName: string | null;
+      nameOnAir: string | null; okOnAir: boolean | null; listenerName: string | null; askedOf: string | null;
     }[] =
       await this.dataSource.query(
-        `SELECT s.id, s."guestSessionId", s.message, s.status, s."createdAt", s."nameOnAir", s."okOnAir", l."displayName" AS "listenerName"
+        `SELECT s.id, s."guestSessionId", s.message, s.status, s."createdAt", s."nameOnAir", s."okOnAir", s."askedOf", l."displayName" AS "listenerName"
            FROM song_requests s LEFT JOIN listeners l ON l.id = s."listenerId"
           WHERE s."guestSessionId" = ANY($1)
           ORDER BY s."createdAt"`,
@@ -256,6 +261,7 @@ export class GuestsService {
         .map((q) => ({
           id: q.id,
           message: q.message,
+          askedOf: q.askedOf ?? 'guest',
           status: q.status,
           createdAt: q.createdAt,
           // Only the name the listener agreed may be read on air.
@@ -278,6 +284,21 @@ export class GuestsService {
   async forStation(listenerId: string, stationId: string) {
     await assertStationAccess(this.dataSource.manager, listenerId, stationId, 'programmes', 'view');
     return this.withQuestions(`(p."stationId" = $1 OR p."ownerStationId" = $1)`, [stationId]);
+  }
+
+  /** Guest sessions of a network office's programmes (every station's copy). */
+  async forNetwork(listenerId: string, organisationId: string) {
+    const [office] = await this.dataSource.query(
+      `SELECT 1 FROM org_members om JOIN designations d ON d.id = om."designationId"
+        WHERE om."listenerId" = $1 AND om."organisationId" = $2 AND om.status = 'active' AND d.programmes <> 'none'`,
+      [listenerId, organisationId],
+    );
+    if (!office) throw new ForbiddenException('You do not work at an office of this network.');
+    return this.withQuestions(
+      `p."networkProgrammeId" IN (SELECT id FROM network_programmes WHERE "organisationId" = $2)
+       AND ${NETWORK_OFFICE('p."networkProgrammeId"', 'view')}`,
+      [listenerId, organisationId],
+    );
   }
 
   private validate(input: GuestSessionInput, existing: GuestSession | null, now: Date) {
@@ -472,6 +493,12 @@ export class GuestsController {
     return this.guests.forStation(listenerId(req), stationId);
   }
 
+  @Get('network/:organisationId')
+  network(@Req() req: Request, @Param('organisationId', ParseUUIDPipe) organisationId: string) {
+    return this.guests.forNetwork(listenerId(req), organisationId);
+  }
+
+
   @Post()
   create(@Req() req: Request, @Body() body: GuestSessionInput) {
     return this.guests.create(listenerId(req), body ?? {});
@@ -493,7 +520,7 @@ export class GuestsController {
   }
 
   @Post(':id/questions')
-  ask(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { question?: string; message?: string }) {
+  ask(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string, @Body() body: { question?: string; message?: string; askedOf?: string }) {
     return this.guests.ask(listenerId(req), id, body ?? {});
   }
 
