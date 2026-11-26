@@ -63,7 +63,9 @@ async function bootstrap() {
   );
 app.use(passport.initialize());
 app.use(passport.session());
-  await app.listen(process.env.PORT ?? 3000);
+  // Only nginx on the same machine talks to the backend, so it does not
+  // answer on the network at all (HOST can override this for local tests).
+  await app.listen(process.env.PORT ?? 3000, process.env.HOST ?? '127.0.0.1');
 }
 
 void bootstrap();
