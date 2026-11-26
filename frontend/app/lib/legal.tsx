@@ -4,8 +4,15 @@ import AuthControls from "../AuthControls";
 export const CONTACT_EMAIL = "nowonfmindia@gmail.com";
 export const EFFECTIVE_DATE = "21 October 2026";
 
+/** The Grievance Officer under the DPDP Act: named on the Privacy Policy. */
+export const GRIEVANCE_OFFICER = {
+  name: "Simi Vikhnan",
+  role: "Co-founder, Now On FM",
+  address: "7-C, Artech Gateway, TB Road, Thrissur, Kerala",
+};
+
 /** Shared frame for the Privacy Policy and Terms pages. */
-export function LegalPage({ title, children }: { title: string; children: React.ReactNode }) {
+export function LegalPage({ title, effective = EFFECTIVE_DATE, children }: { title: string; effective?: string; children: React.ReactNode }) {
   return (
     <main className="bg-zinc-50 px-4 py-6 sm:px-8">
       <div className="mx-auto max-w-3xl">
@@ -17,7 +24,7 @@ export function LegalPage({ title, children }: { title: string; children: React.
         </header>
         <article className="mt-8 rounded-2xl border border-zinc-200 bg-white p-5 leading-7 text-zinc-700 sm:p-8 [&_h2]:mt-8 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-zinc-900 [&_li]:mt-1 [&_p]:mt-3 [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-6 [&_a]:font-medium [&_a]:text-orange-700 [&_a]:underline">
           <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">{title}</h1>
-          <p className="text-sm text-zinc-500">Effective {EFFECTIVE_DATE}</p>
+          <p className="text-sm text-zinc-500">Effective {effective}</p>
           {children}
         </article>
       </div>

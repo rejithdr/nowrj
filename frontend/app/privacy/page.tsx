@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL, LegalPage } from "../lib/legal";
+import { CONTACT_EMAIL, GRIEVANCE_OFFICER, LegalPage } from "../lib/legal";
 
 export const metadata: Metadata = { title: "Privacy Policy · NowRJ" };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy">
+    <LegalPage title="Privacy Policy" effective="26 November 2026">
       <p>
         NowRJ (nowrj.com) connects radio listeners with RJs and their programmes. It is run by <strong>Now On FM</strong>,
         a partnership firm in India (&ldquo;we&rdquo;, &ldquo;us&rdquo;). This policy explains what personal data we collect,
@@ -71,8 +71,17 @@ export default function PrivacyPage() {
 
       <h2>Contact and Grievance Officer</h2>
       <p>
-        Grievance Officer, Now On FM — <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. We reply within 30 days.
+        For questions about your data, to use your rights, or to complain, contact our Grievance Officer. We reply within 30 days.
       </p>
+      <address className="mt-3 not-italic">
+        <strong>{GRIEVANCE_OFFICER.name}</strong>, Grievance Officer
+        <br />
+        {GRIEVANCE_OFFICER.role}
+        <br />
+        {GRIEVANCE_OFFICER.address}
+        <br />
+        Email: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+      </address>
     </LegalPage>
   );
 }
